@@ -222,7 +222,7 @@ test("⇧⌘G shows the selected workspace's (or agent's) branch changes, else s
   try {
     // Nothing selected: a notice, and the tab isn't asked for.
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await appEvent(page, "paseo:command", "branch-changes");
     await toast.filter({ hasText: "Select a workspace or agent to see its branch's changes." }).waitFor();
     assert.equal(await filesAsked(), 0);
@@ -279,7 +279,7 @@ test("In a browser the page takes ⇧⌘G itself: nothing selected or no Files t
     const on = await context.newPage();
     await setUp(on);
     await on.goto(app.url);
-    await on.locator(".fleet-sidebar").waitFor();
+    await on.locator(".crew-board").waitFor();
     await on.keyboard.press("Meta+Shift+g");
     await on.locator(".toast[role=status]", { hasText: "Select a workspace or agent to see its branch's changes." }).waitFor();
     await on.goto(`${app.url}?workspace=wks_a`);

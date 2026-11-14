@@ -3,10 +3,10 @@
  * auto-merge medallions). Pure: frame rectangles and the CSS that shows one at a size. */
 import robotsMap from "../../../rendering/src/assets/dungeon/robots.json";
 import statusMap from "../../../rendering/src/assets/dungeon/status.json";
-import { robotColor, ROBOT_OF, STATE_GLOW, STATE_MARK } from "../../../rendering/src/dungeon/layout";
-import { modelColor, type State } from "../../../rendering/src/world";
-import { prFlags, type PrFlag } from "../../../rendering/src/prStatus";
-import type { ProbeVerdict } from "../../../rendering/src/probe";
+import { robotColor, ROBOT_OF, STATE_GLOW, STATE_MARK } from "../model/fleet";
+import { modelColor, type State } from "../model/fleet";
+import { prFlags, type PrFlag } from "../model/prStatus";
+import type { ProbeVerdict } from "../model/probe";
 
 export type Rect = { x: number; y: number; w: number; h: number };
 export type SheetName = "robots" | "status";

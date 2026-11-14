@@ -1,7 +1,7 @@
 /** A medallion's hover card on the map: what the flag means, and the facts
  *  behind it from the workspace's pull request (or Probe's verdict on it). */
-import { prFlags, prLabel, type MapFlag } from "../../rendering/src/prStatus";
-import { probeLine, probeState, type ProbeVerdict } from "../../rendering/src/probe";
+import { prFlags, prLabel, type MapFlag } from "./model/prStatus";
+import { probeLine, probeState, type ProbeVerdict } from "./model/probe";
 import type { PullRequest } from "./types";
 
 /** `probe` is Probe's verdict, for Probe's medallion. */

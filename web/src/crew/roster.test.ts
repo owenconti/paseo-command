@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import type { AtlasData } from "../../../rendering/src/world";
+import type { AtlasData } from "../model/fleet";
 import { buildRoster } from "./roster";
 import { SHEET_SIZE, droneColors, frameOf, medalsOf, robotColorOf, robotFrames } from "./sheets";
 
@@ -64,4 +64,20 @@ test("sheets: sizes match the PNGs, every colour has its frames", () => {
   const medals = medalsOf(["CI green", "Approved"], { state: "findings", findings: 2 });
   for (const m of medals) assert.ok(frameOf("status", m.frame), m.frame);
   assert.deepEqual(medals.map((m) => m.kind), ["ci", "review", "probe"]);
+});
+
+test("a host kept by key stays with nothing on it (a claimed pool box), unless the map is filtered", () => {
+  const data = {
+    hosts: [
+      { key: "local", name: "Studio", online: true, local: true },
+      { key: "srv_pool1", name: "pool-1", online: true, local: false },
+      { key: "srv_mac", name: "macmini", online: true, local: false },
+    ],
+    projects: [],
+    workspaces: [],
+    agents: [],
+  };
+  assert.deepEqual(buildRoster(data).hosts, []);
+  assert.deepEqual(buildRoster(data, "", new Set(["srv_pool1"])).hosts.map((h) => h.name), ["pool-1"]);
+  assert.deepEqual(buildRoster(data, "fix", new Set(["srv_pool1"])).hosts, []);
 });

@@ -28,7 +28,7 @@ test("the keyboard button opens the shortcuts, and Escape closes them", async ()
   await button.click();
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await dialog.waitFor();
-  for (const label of ["Next agent (Right in Command)", "New agent", "Fit the whole map", "New line"])
+  for (const label of ["Next agent (Right in Command)", "New agent", "New line"])
     await dialog.getByText(label, { exact: true }).waitFor();
   if (process.env.SHOT) await page.waitForTimeout(600), await page.screenshot({ path: process.env.SHOT });
   // D would start a new agent behind it; the dialog keeps it.
@@ -78,14 +78,14 @@ test("in the macOS app, the mode bar's keys list its tabs in order, Settings bei
   `);
   await mockApi(page, { agents: () => [], projects: () => [] });
   await page.goto(app.url);
-  await page.locator(".fleet-sidebar").waitFor({ state: "attached" });
+  await page.locator(".crew-board").waitFor({ state: "attached" });
   await appEvent(page, "paseo:command", "show-shortcuts");
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await dialog.waitFor();
-  // No integrations here: the map, Files, the terminals and the browser.
-  await dialog.getByText("Next in the map's place: the map, Files, the terminals, the browser (Conquer)", { exact: true }).waitFor();
+  // No integrations here: the crew, Files, the terminals and the browser.
+  await dialog.getByText("Next in the map's place: the crew, Files, the terminals, the browser (Conquer)", { exact: true }).waitFor();
   const tabs = dialog.locator("li, tr, div").filter({
-    has: page.getByText("The mode bar's tab in that place: the map, Files, the terminals, the browser (Conquer)", { exact: true }),
+    has: page.getByText("The mode bar's tab in that place: the crew, Files, the terminals, the browser (Conquer)", { exact: true }),
   }).last();
   assert.match(await tabs.innerText(), /1…4/);
   await dialog.getByText(/^From anywhere: the Terminal tab/).waitFor();

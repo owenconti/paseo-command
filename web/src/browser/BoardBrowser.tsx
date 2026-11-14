@@ -1,9 +1,9 @@
 /**
- * The browser attached to an agent on the Dungeon Board: its own tabs, over the board above its dialogue box
- * (B, the box's Browser button, ⌘K). The page draws the frame, the tab strip and the address bar; the macOS
- * app draws the web page itself over the box left for it (`BoardBrowser.swift`), which this reports as it
- * moves, with the page's own things lying over it (the dialogue's choices, a hint, a menu) so they show through.
- * A tab is opened here by you, or by the agent with Paseo's `browser_*` tools while Settings → Map has them on.
+ * The browser attached to an agent, on Crew: its own tabs, in the map's place beside the agent's conversation (B, the
+ * strip's Browser button, ⌘K). The page draws the tab strip and the address bar; the macOS app draws the web page
+ * itself over the box left for it (`BoardBrowser.swift`), which this reports as it moves, with the page's own things
+ * lying over it (a tooltip, a menu) so they show through. A tab is opened here by you, or by the agent with Paseo's
+ * `browser_*` tools while Settings → Browser has them on.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, ExternalLink, Maximize2, Minimize2, Plus, RotateCw, X } from "lucide-react";
@@ -27,16 +27,14 @@ import {
   type BrowserHosting,
   type Rect,
 } from "./browserBridge";
-import { uiFrame } from "./frame";
 import "./board-browser.css";
 
 export const BROWSER_ADDRESS = "board-browser-address";
 /** A Linear issue or project: the app opens it in Linear's desktop app (`LinearLink.swift`). */
 const LINEAR_LINK = /^https:\/\/linear\.app\/[^/]+\/(issue|project)\//i;
 /** The page's own layers that can lie over the web page: cut out of it, so they show and take their clicks. */
-const OVER = ".wc-choices, .board-menu, .tooltip.shown, .atlas-world-tip, .world-chat .popover-menu";
-/** Filling the board, the browser is over the dialogue box: its choices are behind it. */
-const OVER_FILLED = ".board-menu, .tooltip.shown";
+const OVER = ".tooltip.shown, .popover-menu";
+const OVER_FILLED = OVER;
 
 /** How agents' own browser tools stand, in a sentence for the empty browser. */
 export function hostingNote(hosting: BrowserHosting, host: string, name: string): { text: string; settings?: boolean } {
@@ -52,16 +50,10 @@ export function hostingNote(hosting: BrowserHosting, host: string, name: string)
 export function BoardBrowser(props: {
   agent: Agent;
   name: string;
-  /** How much of the map's foot the dialogue box covers (CSS px): the browser ends above it. */
-  inset: number;
-  /** The whole conversation shows too: it has the board's left, the browser its right, down to the belt. */
-  beside: boolean;
   /** A confirming dialog is open: the web page steps aside. */
   blocked: boolean;
   /** The GitHub tab is on: a pull request's link clicked in the conversation still opens there. */
   github: boolean;
-  /** On the Crew map: beside its conversation, in the app's own plain look rather than the board's gold frame. */
-  crew?: boolean;
   onClose: () => void;
   onNotice: (message: string) => void;
 }) {
@@ -78,15 +70,6 @@ export function BoardBrowser(props: {
   const [typed, setTyped] = useState<string | null>(null);
   const slot = useRef<HTMLDivElement>(null);
   const address = useRef<HTMLInputElement>(null);
-  const [frame, setFrame] = useState<string>();
-  useEffect(() => {
-    if (props.crew) return;
-    let live = true;
-    uiFrame("panel").then((url) => live && setFrame(url), () => {});
-    return () => {
-      live = false;
-    };
-  }, []);
 
   // Tell the app where the web page goes, as the box moves or something of the page's comes over it.
   useLayoutEffect(() => {
@@ -225,9 +208,8 @@ export function BoardBrowser(props: {
   const shownAddress = typed ?? (current ? shortAddress(current.url) : "");
   return (
     <section
-      className={`board-browser${props.crew ? " crew" : ""}${filled ? " filled" : props.beside ? " beside" : ""}`}
+      className={`board-browser crew${filled ? " filled" : " beside"}`}
       aria-label={`${name}’s browser`}
-      style={{ ...(frame && !props.crew ? { "--bb-frame": `url(${frame})` } : {}), "--bb-inset": `${Math.max(0, Math.round(props.inset))}px` } as CSSProperties}
       data-tabs={tabs.length}
     >
       <header className="bb-head">
@@ -261,8 +243,8 @@ export function BoardBrowser(props: {
         <button
           type="button"
           className="bb-tool"
-          aria-label={filled ? (props.beside ? "Show the conversation again" : "Show the dialogue box again") : props.crew ? "Fill the view with the browser" : "Fill the board with the browser"}
-          data-tip={filled ? (props.beside ? "Show the conversation again" : "Show the dialogue box again") : props.crew ? "Fill the view" : "Fill the board"}
+          aria-label={filled ? "Show the conversation again" : "Fill the view with the browser"}
+          data-tip={filled ? "Show the conversation again" : "Fill the view"}
           aria-pressed={filled}
           onClick={() => setFilled(!filled)}
         >
@@ -334,7 +316,7 @@ export function BoardBrowser(props: {
             <span>Type an address above to open one in {name}’s browser.</span>
             <span className="bb-note">{note.text}</span>
             {note.settings && (
-              <button type="button" className="bb-button" onClick={() => openSettings("map")}>
+              <button type="button" className="bb-button" onClick={() => openSettings("browser")}>
                 Open Settings
               </button>
             )}

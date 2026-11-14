@@ -1,5 +1,5 @@
-import type { Agent } from "../types";
-/** Conversation controls follow a stable roster of the map's robots. Reading a reply must not reorder the next robot. */
+import type { Agent } from "./types";
+/** J/K and the conversation's ‹ › follow a stable roster (host, project, workspace, age): reading a reply never reorders it. */
 export function conversationOrder(agents: Agent[]): Agent[] {
   const key = (a: Agent) => [
     a.host || "",

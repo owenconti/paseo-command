@@ -246,7 +246,7 @@ test("Files: Show changes opens the Changes at the file, all changes; no workspa
   await setUp(page);
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await appEvent(page, "paseo:mode", { mode: "files" });
     const view = page.locator(".files-view");
     await view.getByText("Select a workspace (or one of its agents) on the map or in the panel to see its files.").waitFor();

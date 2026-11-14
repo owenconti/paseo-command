@@ -199,30 +199,30 @@ test("a project is renamed in place, then removed after confirming", async () =>
       return false;
     },
   });
-  await page.goto(`${app.url}?tab=Projects`);
-  // The row's pencil opens the project with its name being edited.
-  await page.getByRole("button", { name: "Rename project atlas" }).click();
+  // Its view's pencil (Crew's drawer, the project open) renames it in place.
+  await page.goto(`${app.url}?project=prj_atlas`);
+  await page.getByRole("button", { name: "Rename project" }).click();
   const field = page.getByRole("textbox", { name: "Rename project" });
   await field.fill("Atlas Prime");
   await field.press("Enter");
   await page.locator(".overview-title h2", { hasText: "Atlas Prime" }).waitFor();
   assert.deepEqual(sent[0], ["/api/projects/prj_atlas/rename", { name: "Atlas Prime" }]);
   // Remove asks first, naming the workspace archived with it; Keep cancels.
-  await page.goto(`${app.url}?tab=Projects`);
-  await page.getByRole("button", { name: "Remove project rocket" }).click();
+  await page.goto(`${app.url}?project=prj_rocket`);
+  const remove = page.locator(".place-actions").getByRole("button", { name: "Remove" });
+  await remove.click();
   const dialog = page.getByRole("dialog", { name: "Remove this project?" });
   await dialog.locator("li", { hasText: "Launch pad" }).waitFor();
   await dialog.getByRole("button", { name: "Keep project" }).click();
   await dialog.waitFor({ state: "detached" });
   assert.equal(sent.length, 1);
-  // The project is open now; its own Remove asks again.
-  await page.locator(".place-actions").getByRole("button", { name: "Remove" }).click();
+  // Asked again, it's removed.
+  await remove.click();
   await dialog.getByRole("button", { name: "Remove project" }).click();
   await waitFor(() => Promise.resolve(sent.length), (n) => n === 2, "the removal");
   assert.deepEqual(sent[1], ["/api/projects/prj_rocket/remove", { confirm: true }]);
   await page.getByText("Removed project rocket. Its folder stays on disk.").waitFor();
-  // Back in the list, without it.
-  await page.getByRole("button", { name: "Rename project Atlas Prime" }).waitFor({ state: "attached" });
-  assert.equal(await page.getByRole("button", { name: "Remove project rocket" }).count(), 0);
+  // The crew no longer shows it.
+  await waitFor(() => page.locator(".crew-head.project", { hasText: "rocket" }).count(), (n) => n === 0, "rocket gone from the crew");
   await context.close();
 });

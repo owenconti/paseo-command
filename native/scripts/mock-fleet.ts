@@ -5,25 +5,22 @@
  * `mockApi` answers it, and every mutation is refused. The live socket
  * pushes the whole fleet once, as `mockApi`'s does.
  *
- *   npm run native:mock -- [--fleet small|large|dungeon|sparse] [--dungeon] [--map islands|overworld|dungeon] [--port 4331] [--pr-flags]
+ *   npm run native:mock -- [--fleet small|large|dungeon|sparse] [--dungeon] [--port 4331] [--pr-flags]
  *
  * `--pr-flags` labels the first three workspaces with PR status labels, so
  * their flags show. `--probe` labels the first five, and gives each a Probe
  * verdict (one of each state), so each shows a Probe medallion; the
  * second's and fourth's PRs have auto-merge on, so their poles wear its seal.
- * `--dungeon` (or `--fleet dungeon`) serves the Dungeon Board's concept fleet (three hosts with
- * their loads) with PR and issue counts for its vault, and the address it prints opens the map as the Dungeon Board (`?map=dungeon`);
- * `--map <style>` prints one that opens another style.
+ * `--dungeon` (or `--fleet dungeon`) serves the fleet Crew's tests use (three hosts, every state).
  * `--asking <agent ids>` (comma-joined) answers those idle agents' asks as waiting on you (turn TypeSafe on with
  * `--integrations typesafe` so the page asks), so their robots show "reply waits on you". `--offline <server id>`
  * takes that host offline (its rows stale), as a daemon gone quiet reports.
- * `--stats` gives each host a load for its banner (the first one's disk nearly full).
  * `--integrations github,linear` turns those integrations on in `GET /api/settings`, so the mode
  * bar shows their tabs (their own reads stay unmocked).
  * `--talk` gives every agent a short conversation for its state (a reply, what a working one is doing, a failure)
  * and its pending request in full (an approval, or a question with options), and accepts the dialogue box's and
- * the panel's sends, answers, interrupts and reads (logged; nothing behind them), for trying the Dungeon Board's
- * dialogue box (src/worldChat/).
+ * the conversation's sends, answers, interrupts and reads (logged; nothing behind them), for trying Crew's
+ * conversations.
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -31,7 +28,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { detailOf } from "../../web/e2e/harness.ts";
-import { DUNGEON_GITHUB_QUEUES, DUNGEON_LINEAR_INBOX, DUNGEON_STATS, SPARSE_ISSUES, SPARSE_PRS, SPARSE_STATS, DASHBOARD_ISSUES, DASHBOARD_PRS, dungeon, large, small, sparse } from "../../web/e2e/fleets.ts";
+import { DUNGEON_GITHUB_QUEUES, DUNGEON_LINEAR_INBOX, dungeon, large, small, sparse } from "../../web/e2e/fleets.ts";
 // `ws` lives in web/node_modules, beside the app it serves.
 const { WebSocketServer } = createRequire(new URL("../../web/package.json", import.meta.url))("ws") as typeof import("ws");
 
@@ -74,14 +71,6 @@ if (args.includes("--probe")) {
         pr: { number: 100 + i, title: "Mock PR", state: "open", url: `https://github.com/o/r/pull/${100 + i}`, autoMerge: { method: "squash", by: "owen" } },
       });
   });
-}
-/** `GET /api/hoststats`'s answer, keyed "local" or a host's server id. */
-const hostStats: Record<string, unknown> = fleet === dungeon ? { ...DUNGEON_STATS } : fleet === sparse ? { ...SPARSE_STATS } : {};
-/** Assigned-issue counts for the Dungeon belt; the legacy PR-count mock remains available. */
-const dashboard = fleet === dungeon ? { prs: DASHBOARD_PRS, issues: DASHBOARD_ISSUES } : fleet === sparse ? { prs: SPARSE_PRS, issues: SPARSE_ISSUES } : null;
-if (args.includes("--stats")) {
-  const keys = ["local", ...(fleet.hosts as { serverId?: string }[]).flatMap((h) => (h.serverId ? [h.serverId] : []))];
-  keys.forEach((key, i) => (hostStats[key] = { cpu: 12 + i * 23, memory: 58 + i * 7, disk: i ? 41 : 93 }));
 }
 const dist = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 if (!existsSync(join(dist, "index.html"))) {
@@ -154,18 +143,12 @@ function talkTimeline(id: string) {
   return { epoch: "mock", from: 0, to: items.length, hasOlder: false, asOf: items.length, items: items.map((item, i) => ({ id: `m-${i + 1}`, seq: i + 1, last: i + 1, ...item })) };
 }
 
-/** The map's style the printed address opens (the page keeps it). */
-const mapStyle = option("map", fleet === dungeon ? "dungeon" : "");
-
 /** What `mockApi` answers for a GET. */
 function answer(path: string, query = new URLSearchParams()): [number, unknown] {
   const parts = path.replace(/^\/api\//, "").split("/");
   if (parts.length === 1 && parts[0]! in lists) return [200, lists[parts[0]!]];
   if (parts.length === 1 && parts[0] === "probe") return [200, probe];
-  if (parts.length === 1 && parts[0] === "hoststats") return [200, hostStats];
   if (path === "/api/github/q/prs") return [200, DUNGEON_GITHUB_QUEUES[query.get("scope") as "review" | "assigned"] ?? {rows:[],total:0,viewer:{login:"me"}}];
-  if (path.startsWith("/api/github/q/prCounts")) return [200, dashboard?.prs ?? { state: "off", message: "Enable GitHub in Settings to use GitHub." }];
-  if (path.startsWith("/api/linear/issue-counts")) return [200, dashboard?.issues ?? { state: "off", message: "Enable Linear in Settings to see your issues." }];
   if (parts[0] === "agents") {
     const [, , sub] = parts;
     if (!sub) return talk ? [200, talkDetail(parts[1]!)] : [404, { error: "Not found" }];
@@ -275,5 +258,5 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(port, "127.0.0.1", () =>
-  console.log(`Mock fleet (${fleetName}) at http://127.0.0.1:${port}/${mapStyle ? `?map=${mapStyle}` : ""} — no daemon behind it`),
+  console.log(`Mock fleet (${fleetName}) at http://127.0.0.1:${port}/ — no daemon behind it`),
 );

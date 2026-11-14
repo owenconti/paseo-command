@@ -1,5 +1,5 @@
 /* The Crew map (CrewMap.tsx): a chat app in the map's place, in the panels' own tokens (Galaxy, or Light). The robots'
-   state colours are the map's (STATE_TILE in rendering/src/world.ts), the same in either theme. */
+   state colours are the map's (STATE_TILE in web/src/model/fleet.ts), the same in either theme. */
 .crew-map {
   --crew-running: #3fbf86;
   --crew-approval: #ef9b1b;
@@ -246,6 +246,25 @@
 .crew-primary:hover {
   background: var(--accent-hover);
 }
+.crew-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.crew-secondary:hover {
+  background: var(--row-hover);
+  color: var(--text);
+}
 .crew-host {
   margin-top: 22px;
 }
@@ -363,6 +382,65 @@
   display: flex;
   align-items: center;
   color: var(--text-3);
+}
+/* A workspace's head and its Archive beside it (shown while the card is hovered or the button has the keyboard). */
+.crew-ws-top {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.crew-ws-top .crew-head.workspace {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  border-bottom: 0;
+}
+.crew-ws-archive {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--text-4);
+  opacity: 0;
+  cursor: pointer;
+}
+.crew-ws:hover .crew-ws-archive,
+.crew-ws-archive:focus-visible {
+  opacity: 1;
+}
+.crew-ws-archive:hover:not(:disabled) {
+  background: var(--row-hover);
+  color: var(--red-text);
+}
+.crew-ws-archive:disabled {
+  cursor: default;
+}
+/* A claimed pool box's Release, at the end of its host's head. */
+.crew-head-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  cursor: pointer;
+}
+.crew-head-action:hover:not(:disabled) {
+  background: var(--row-hover);
+  color: var(--text);
+}
+.crew-head-action:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 .crew-ws-name {
   flex: 1;

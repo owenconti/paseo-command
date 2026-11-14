@@ -14,7 +14,7 @@ import { onAppBar } from "./worldBridge";
 type Shortcut = { keys: string[][]; label: string };
 type Group = { title: string; note?: string; rows: Shortcut[] };
 
-/** The app's keys, as main.tsx, Composer, NativeWorld and the native menus
+/** The app's keys, as main.tsx, Composer, Crew and the native menus
  * handle them. Each entry in `keys` is one combination; several are
  * alternatives. */
 const GROUPS: Group[] = [
@@ -25,7 +25,6 @@ const GROUPS: Group[] = [
       { keys: [["J"], ["↓"], ["→"]], label: "Next agent (Right in Command)" },
       { keys: [["K"], ["↑"], ["←"]], label: "Previous agent (Left in Command)" },
       { keys: [["N"]], label: "Next agent that needs you" },
-      { keys: [["F"]], label: "Fit the whole map" },
       { keys: [["Esc"]], label: "Close the open layer, or go back (not from an agent)" },
       { keys: [["?"]], label: "Show these shortcuts" },
       { keys: [["⌘", "⇧", "B"]], label: "Open or close the mini games" },
@@ -36,7 +35,7 @@ const GROUPS: Group[] = [
     title: "Act",
     rows: [
       { keys: [["⌘", "N"], ["D"]], label: "New agent" },
-      { keys: [["⌘", "B"]], label: "Show or hide the panel (the Dungeon Board has none)" },
+      { keys: [["⌘", "B"]], label: "Show or hide the session panel beside the other tabs (Crew's drawer is on Command)" },
       { keys: [["⌘", "L"], ["Enter"]], label: "Focus the message box" },
       { keys: [["R"]], label: "Reply to the selected agent" },
       {
@@ -60,7 +59,7 @@ const GROUPS: Group[] = [
   },
 ];
 const TAB_NAMES: Record<AppMode, string> = {
-  command: "the map",
+  command: "the crew",
   conquer: "the browser (Conquer)",
   activity: "Activity",
   github: "GitHub",
@@ -82,11 +81,11 @@ const NATIVE: Group = {
     },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the map, Files, the terminals, GitHub, the browser (Conquer), Activity",
+      label: "Next in the map's place: the crew, Files, the terminals, GitHub, the browser (Conquer), Activity",
     },
     {
       keys: [["⌘", "1…6"]],
-      label: "The mode bar's tab in that place: the map, Files, the terminals, GitHub, the browser (Conquer), Activity",
+      label: "The mode bar's tab in that place: the crew, Files, the terminals, GitHub, the browser (Conquer), Activity",
     },
     { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the selected workspace's (or agent's) files" },
     { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },
@@ -103,34 +102,10 @@ const PAGES: Group = {
   ],
 };
 /** The Activity tab's keys (`activity/ActivityView.tsx`), while the keyboard is in it. */
-/** The Dungeon Board's dialogue box (src/worldChat/WorldChat.tsx). */
-const DUNGEON_TALK: Group = {
-  title: "Talking on the Dungeon Board",
-  note: "While a robot's dialogue box shows (picking a robot opens it)",
-  rows: [
-    { keys: [["Esc"]], label: "Close the open command belt tray" },
-    { keys: [["T"]], label: "Talk to the selected robot" },
-    { keys: [["Enter"], ["Space"]], label: "Show the whole page at once (hold to keep it so), then the next page; reopen actions after sending, or pick the marked choice" },
-    { keys: [["End"]], label: "Skip to the last page and its choices" },
-    { keys: [["↑"], ["↓"]], label: "Move through the choices" },
-    { keys: [["1"], ["…"], ["9"]], label: "Pick that choice" },
-    { keys: [["R"]], label: "Reply in its composer: files, /skills, @files (queued while it works)" },
-    { keys: [["H"]], label: "Show the whole conversation, or back to the box (scrolling up opens it too)" },
-    { keys: [["B"]], label: "Show or hide the robot's browser: above the box, or beside the whole conversation (H) on a wide map" },
-    { keys: [["⇧", "⌘", "W"]], label: "Hide the browser, from its page or a field too" },
-    { keys: [["⌘", "L"], ["⌘", "T"], ["⌘", "W"]], label: "In the browser's page: its address, a new tab, close the tab" },
-    { keys: [["⌘", "R"], ["⌘", "["], ["⌘", "]"]], label: "In the browser's page: reload, back, forward" },
-    { keys: [["↑"], ["↓"], ["PageUp"], ["PageDown"], ["Home"], ["End"]], label: "In the conversation: scroll it" },
-    { keys: [["Enter"], ["R"]], label: "In the conversation: write in its composer" },
-    { keys: [["←"], ["→"]], label: "The previous or next robot (as K and J)" },
-    { keys: [["Esc"]], label: "Leave for the board, from the box or the whole conversation (after an open fork or subagent); the robot stays selected. H goes back to the box" },
-  ],
-};
-
 /** The Crew map (src/crew/CrewMap.tsx): the map of robots, and an open agent's browser beside its conversation. */
 const CREW: Group = {
-  title: "The Crew map",
-  note: "Map style Crew: the map while nothing is open, the conversation across it once one is",
+  title: "The crew",
+  note: "The Command tab: the map of robots while nothing is open, the conversation beside it once one is",
   rows: [
     { keys: [["←"], ["→"], ["↑"], ["↓"]], label: "On the map: move through its robots, workspaces and projects" },
     { keys: [["Home"], ["End"]], label: "On the map: the first or last" },
@@ -367,7 +342,6 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       ? [
           ...GROUPS,
           NATIVE,
-          DUNGEON_TALK,
           CREW,
           PAGES,
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),

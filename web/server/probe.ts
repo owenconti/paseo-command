@@ -1,6 +1,6 @@
 /**
  * Probe's verdict on each workspace's pull request, for the Atlas's review
- * flag streamer (rendering/src/probe.ts). Probe is Diagonal's review bot: it
+ * flag streamer (web/src/model/probe.ts). Probe is Diagonal's review bot: it
  * runs as a `probe` GitHub Actions workflow on the PR and posts a review as
  * `diagonalprobe` ("Review: Approved", "Review: Comment" with the findings
  * left open, or a deferral), ending in a `probe-review:v1 … head=<sha>` marker.
@@ -10,7 +10,7 @@
  * - One read-only GraphQL query per open PR (the GitHub token), cached for `PROBE.ttlMs`.
  * - No verdict when Probe was never asked, the PR isn't open, or GitHub can't answer (off, no token).
  */
-import type { ProbeVerdict } from "../../rendering/src/probe";
+import type { ProbeVerdict } from "../src/model/probe";
 import { githubGraphql, githubReady } from "./githubApi";
 import { BASE_BRANCHES, githubPullRequest, prCoordinates, type PullRequest } from "./links";
 

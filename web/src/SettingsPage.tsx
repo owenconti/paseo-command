@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Bell, Bot, ChevronDown, FileCode2, Map as MapIcon, Plug, SquareTerminal, Volume2, X } from "lucide-react";
-import { MAP_STYLES, setMapStyle, useMapStyle } from "./mapStyle";
-import { setBrowserFollows, setBrowserTools, setTalkOnPick, useBrowserFollows, useBrowserTools, useTalkOnPick } from "./worldChat/settings";
-import { useBoardBrowsers } from "./worldChat/browserBridge";
+import { Bell, Bot, ChevronDown, FileCode2, Globe, Plug, SquareTerminal, Volume2, X } from "lucide-react";
+import { setBrowserFollows, setBrowserTools, useBrowserFollows, useBrowserTools } from "./browser/settings";
+import { useBoardBrowsers } from "./browser/browserBridge";
 import { ResizeEdge } from "./ResizeEdge";
 import { readStore, writeStore } from "./api";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
@@ -27,7 +26,7 @@ import { familyCss, familyLabel, parseLineHeight, setTerminalFont, useTerminalFo
 /** The page's sections, in its sidebar's order; one shows at a time, as the other pages' places do. */
 const SECTIONS = [
   { id: "sound", label: "Sound and music", icon: <Volume2 size={14} aria-hidden="true" /> },
-  { id: "map", label: "Map", icon: <MapIcon size={14} aria-hidden="true" /> },
+  { id: "browser", label: "Browser", icon: <Globe size={14} aria-hidden="true" /> },
   { id: "notifications", label: "Notifications", icon: <Bell size={14} aria-hidden="true" /> },
   { id: "integrations", label: "Integrations", icon: <Plug size={14} aria-hidden="true" /> },
   { id: "new-agent", label: "New agent", icon: <Bot size={14} aria-hidden="true" /> },
@@ -88,7 +87,7 @@ export function SettingsPage({
   // Opening (the gear, ⌘,, the palette, Manage … key) puts the keyboard in the
   // page: on its section in the sidebar, or on the asked integration's key editor.
   useEffect(() => {
-    const terminal = request.target === "terminal" || request.target === "map" ? request.target : null;
+    const terminal = request.target === "terminal" || request.target === "browser" ? request.target : null;
     if (terminal) setSection(terminal);
     else if (request.target) setSectionState("integrations");
     let tries = 0;
@@ -257,10 +256,8 @@ export function SettingsPage({
               <FilesSettings />
             </SettingsGroup>
           )}
-          {shown.id === "map" && (
-            <SettingsGroup note={macApp() ? undefined : "The map is drawn by the macOS app; its style applies there."}>
-              <MapStyleSetting />
-              <TalkOnPickSetting />
+          {shown.id === "browser" && (
+            <SettingsGroup note={macApp() ? undefined : "Each agent's browser is the macOS app's."}>
               <BoardBrowserSettings />
             </SettingsGroup>
           )}
@@ -457,7 +454,7 @@ function IntegrationSettings() {
           ["linear", "Linear", "Your Linear notifications in Activity, and the issue chip in a session's header."],
           ["github", "GitHub", "Pull requests to review and your workspaces' changes in the GitHub tab, and notifications in Activity, with your own token."],
           ["typesafe", "TypeSafe", "Find questions and suggest replies. Sends reply excerpts to TypeSafe."],
-          ["pool", "Pool boxes", "Claim a warm-pool Sprite from New agent and start the agent on it once it's online; release one from the Hosts tab. Runs the paseo-boxes scripts on this Mac."],
+          ["pool", "Pool boxes", "Claim a warm-pool Sprite from New agent and start the agent on it once it's online; release one from its host's head in the crew. Runs the paseo-boxes scripts on this Mac."],
         ] as const
       ).map(([name, label, description]) => (
         <section className="integration-setting" data-integration={name} aria-label={`${label} integration`} key={name}>
@@ -512,24 +509,9 @@ function IntegrationSettings() {
   );
 }
 
-/** Settings → Files: open files in the built-in viewer, or in an editor command run in a terminal on the workspace's host. */
-/** The map's style: the hex Islands or the Overworld. */
-/** The Dungeon Board's dialogue box opening when a robot is picked (src/worldChat/); T and ⌘K open it either way. */
-function TalkOnPickSetting() {
-  const on = useTalkOnPick();
-  return (
-    <SwitchRow
-      title="Talk to robots on the Dungeon Board"
-      description="Picking a robot opens its dialogue box over the board: read its reply, answer it, approve its requests. T opens it for the selected robot either way."
-      checked={on}
-      onChange={setTalkOnPick}
-    />
-  );
-}
-
-/** The Dungeon Board's browser (src/worldChat/BoardBrowser.tsx): whether agents' own browser tools open and drive
- * its tabs (the macOS app registers with each daemon as its browser while this is on), and whether it shows
- * itself when the agent you are talking to opens one. */
+/** Each agent's browser on Crew (src/browser/BoardBrowser.tsx): whether agents' own browser tools open and drive its
+ * tabs (the macOS app registers with each daemon as its browser while this is on), and whether it shows itself when
+ * the open agent opens one. */
 function BoardBrowserSettings() {
   const tools = useBrowserTools();
   const follows = useBrowserFollows();
@@ -551,13 +533,13 @@ function BoardBrowserSettings() {
     <>
       <SwitchRow
         title="Agents’ browser tools open tabs here"
-        description={`Each robot on the Dungeon Board has a browser of its own (B in its dialogue box). With this on, Paseo’s browser tools (browser_new_tab, browser_snapshot, browser_click…) open and drive tabs in the calling agent’s browser, instead of the Paseo app’s. The daemon’s browser tools must be on. Its pages keep logins of their own, apart from Conquer’s; an agent on another host can’t open this Mac’s own addresses.${state ? ` ${state}` : ""}`}
+        description={`Each agent has a browser of its own beside its conversation on Crew (B, or Browser above its message box). With this on, Paseo’s browser tools (browser_new_tab, browser_snapshot, browser_click…) open and drive tabs in the calling agent’s browser, instead of the Paseo app’s. The daemon’s browser tools must be on. Its pages keep logins of their own, apart from Conquer’s; an agent on another host can’t open this Mac’s own addresses.${state ? ` ${state}` : ""}`}
         checked={tools}
         onChange={setBrowserTools}
       />
       <SwitchRow
         title="Show the browser when its agent opens a tab"
-        description="While you talk to a robot on the board, a tab it opens shows above its dialogue box at once. Off, the box’s Browser button counts it."
+        description="While an agent's conversation is open on Crew, a tab it opens shows beside it at once. Off, its Browser button counts it."
         checked={follows}
         onChange={setBrowserFollows}
       />
@@ -565,24 +547,7 @@ function BoardBrowserSettings() {
   );
 }
 
-function MapStyleSetting() {
-  const style = useMapStyle();
-  const id = useId();
-  return (
-    <div role="radiogroup" aria-label="Map style">
-      {MAP_STYLES.map((m) => (
-        <label key={m.id} className="settings-row">
-          <span className="settings-row-text">
-            <b>{m.name}</b>
-            <small>{m.detail}</small>
-          </span>
-          <input type="radio" name={`${id}-map-style`} checked={style === m.id} onChange={() => setMapStyle(m.id)} />
-        </label>
-      ))}
-    </div>
-  );
-}
-
+/** Settings → Files: open files in the built-in viewer, or in an editor command run in a terminal on the workspace's host. */
 function FilesSettings() {
   const { settings, loaded, saving, error } = useFilesSettings();
   const [command, setCommand] = useState(settings.editorCommand);

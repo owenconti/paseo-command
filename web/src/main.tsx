@@ -2,33 +2,26 @@ import { modalOpen } from "./focus";
 import { isTyping } from "./worldShortcut";
 import "./mermaid/mermaid.css";
 import { mermaidPalette, useMermaidCommands } from "./mermaidCommands";
-import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
 import { useMapBridge } from "./mapBridge";
-import { conversationOrder } from "./worldChat/navigation";
+import { conversationOrder } from "./conversationOrder";
 import {
   browserFollowsSetting,
   setBrowserFollows,
   setBrowserOpen,
   setBrowserTools,
-  setTalkOnPick,
-  talkOnPickSetting,
   useBrowserFollows,
   useBrowserOpen,
   useBrowserTools,
-  useTalkOnPick,
-} from "./worldChat/settings";
-import { browserDo, browserKey, onBrowserEvent, postBrowserHost, tabLabel, useBoardBrowsers } from "./worldChat/browserBridge";
+} from "./browser/settings";
+import { browserDo, browserKey, onBrowserEvent, postBrowserHost, tabLabel, useBoardBrowsers } from "./browser/browserBridge";
 import { useAsks } from "./useAsks";
 import { useWorkingOn } from "./useWorkingOn";
 import {
-  hostWorldKey,
   macApp,
-  nativeAvailable,
   nativeEvents,
   postAppActivity,
   postAppLink,
   postAppMenu,
-  postNative,
 } from "./worldBridge";
 import { installDispatchShortcut } from "./dispatchShortcut";
 import {
@@ -100,7 +93,6 @@ import {
   usePullRequest,
 } from "./links";
 import { NewAgent, POOL, type DispatchTarget, type DraftSettings } from "./Dispatch";
-import type { BoardMenuItem } from "./dungeon/BoardMenu";
 import { installPageRefresh } from "./pageRefresh";
 import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
@@ -120,22 +112,16 @@ import { createGithubToken } from "./GithubTokenSetup";
 import { useAppUpdate } from "./releases";
 import { AddProject } from "./AddProject";
 import {
-  Fleet,
-  FleetSummary,
-  useFleetView,
-  type Filter,
-  type Tab,
-} from "./Fleet";
-import {
   attentionRank,
-  groupAgents,
   needsAttention,
   nextNeedingYou,
   unreadAgents,
 } from "./fleetView";
 import { ProjectView, WorkspaceView } from "./PlaceView";
 import { FloatingPanel } from "./FloatingPanel";
-import { AppPanel, useCompactLayout } from "./AppPanel";
+import { AppPanel } from "./AppPanel";
+import { CrewDetail } from "./crew/CrewDetail";
+import { CrewMap } from "./crew/CrewMap";
 import { Session } from "./Session";
 import { SubagentSession } from "./Subagents";
 import {
@@ -195,34 +181,12 @@ const MODE_PAGES: Record<AppMode, Page> = {
   terminal: "Terminal",
   settings: "Settings",
 };
-// The map surface (drawn by the macOS app) beside the inherited docked session layout.
+// The map's place (Crew, on the Command tab) beside the docked session panel (the other tabs').
 const native = true;
 const unity = true;
-/** The map's width from which a robot's whole conversation and its browser show side by side on the Dungeon Board
- * (the conversation's column, the browser's least width, and their margins: board-browser.css). */
-const BESIDE_MIN_WIDTH = 900;
-/** The Dungeon Board's dialogue box (src/worldChat/): talk to a picked robot in the world. */
-const WorldChat = React.lazy(() =>
-  import("./worldChat/WorldChat").then((module) => ({ default: module.WorldChat })),
-);
-/** The browser attached to the robot being talked to, over the board above its dialogue box. */
+/** The browser attached to the open agent, beside its conversation on Crew (src/browser/). */
 const BoardBrowser = React.lazy(() =>
-  import("./worldChat/BoardBrowser").then((module) => ({ default: module.BoardBrowser })),
-);
-/** A workspace, a project or Add project on the Dungeon Board, in the board's framed panel (it has no side panel). */
-const WorldPlace = React.lazy(() =>
-  import("./dungeon/WorldPlace").then((module) => ({ default: module.WorldPlace })),
-);
-/** The Dungeon Board's Dispatch (src/dungeon/): the New agent form in the board's framed panel. */
-const WorldDispatch = React.lazy(() =>
-  import("./dungeon/WorldDispatch").then((module) => ({ default: module.WorldDispatch })),
-);
-const NativeWorld = React.lazy(() =>
-  import("./NativeWorld").then((module) => ({ default: module.NativeWorld })),
-);
-/** The Crew map (src/crew/): the fleet as a chat app, which the page draws itself in a native world's place. */
-const CrewMap = React.lazy(() =>
-  import("./crew/CrewMap").then((module) => ({ default: module.CrewMap })),
+  import("./browser/BoardBrowser").then((module) => ({ default: module.BoardBrowser })),
 );
 // The Activity tab (GitHub and Linear notifications), drawn over the map while the app's mode bar shows it.
 const ActivityView = React.lazy(() =>
@@ -353,11 +317,9 @@ function App() {
   useKnownIds();
   // Where the user was, from the page's query (a refresh returns there).
   const [initial] = useState(() => readUrlState());
-  // A selection from the URL is framed on the map once it is drawn.
+  // Rises with each new choice: the session panel shows it, opening if it was hidden.
   const [focusRevision, setFocusRevision] = useState(initial.selection ? 1 : 0);
   const [dispatchRevision, setDispatchRevision] = useState(0);
-  const [browsing, setBrowsing] = useState(initial.browsing);
-  const compact = useCompactLayout();
   const [floatingVisibility, setFloatingVisibility] = useState({
     compact: true,
     collapsed:
@@ -365,44 +327,29 @@ function App() {
       readStore<{ collapsed?: boolean } | null>("unity-panel", null)
         ?.collapsed === true,
   });
-  // The host the lists are narrowed to ("" for local): chosen in the Hosts
-  // tab or by picking its land on the map, where it shows as selected.
-  const [hostFilter, setHostFilter] = useState<string | null>(
-    initial.hostFilter,
-  );
-  const defaultTab: Tab = unity ? "Workspaces" : "Agents";
-  const [selection, setSelection] = useState<Selection>(initial.selection),
-    [tab, setTab] = useState<Tab>(initial.tab ?? defaultTab),
-    [filter, setFilter] = useState<Filter>(initial.filter ?? "all");
+  const [selection, setSelection] = useState<Selection>(initial.selection);
   // Kept in the URL: a new selection is a new history entry (Back returns to
-  // the last); tabs, filters and the list's toggle replace the current one.
+  // the last); a subagent's opening or closing replaces the current one.
   const shownPlace = useRef(placeKey(initial.selection));
   useEffect(() => {
-    const search = urlSearch(
-      { selection, tab, filter, hostFilter, browsing },
-      { tab: defaultTab },
-    );
+    const search = urlSearch({ selection });
     if (search === location.search) return;
     const place = placeKey(selection);
     const url = `${location.pathname}${search}${location.hash}`;
     if (place !== shownPlace.current) history.pushState(null, "", url);
     else history.replaceState(null, "", url);
     shownPlace.current = place;
-  }, [selection, tab, filter, hostFilter, browsing, defaultTab]);
+  }, [selection]);
   useEffect(() => {
     const restore = () => {
       const state = readUrlState();
       shownPlace.current = placeKey(state.selection);
       setSelection(state.selection);
-      setBrowsing(state.browsing);
-      setTab(state.tab ?? defaultTab);
-      setFilter(state.filter ?? "all");
-      setHostFilter(state.hostFilter);
       if (state.selection) setFocusRevision((revision) => revision + 1);
     };
     addEventListener("popstate", restore);
     return () => removeEventListener("popstate", restore);
-  }, [defaultTab]);
+  }, []);
   const [errors, setErrors] = useState<string[]>([]),
     [loading, setLoading] = useState(true),
     [dispatchTarget, setDispatchTarget] = useState<DispatchTarget | null>(null),
@@ -455,7 +402,7 @@ function App() {
     saving: integrationsSaving,
   } = useIntegrations();
   const asks = useAsks(active, integrations.typesafe);
-  // Pool boxes (src/pool.ts): claimed from New agent, released from the Hosts tab.
+  // Pool boxes (src/pool.ts): claimed from New agent, released from its host in the crew.
   const pool = usePool(integrations.pool);
   const poolBoxes = integrations.pool && pool?.enabled && !pool.problem ? pool.boxes : [];
   const poolJob = jobRunning(pool?.job) ? pool!.job : null;
@@ -488,7 +435,7 @@ function App() {
     };
   }, []);
   const keepClaimed = (ask: ReleaseAsk) =>
-    setNotice(`${ask.box.label} stays claimed. Release it from the Hosts tab once its work is pushed.`);
+    setNotice(`${ask.box.label} stays claimed. Release it from its host in the crew once its work is pushed.`);
   const cancelReleasePool = () => {
     if (releaseAsk) keepClaimed(releaseAsk);
     setReleaseBox(null);
@@ -678,7 +625,6 @@ function App() {
   const select = useCallback((s: Selection) => {
     if (s) setFocusRevision((revision) => revision + 1);
     setSelection(s);
-    setBrowsing(!s);
     // Choosing anything leaves a new agent unstarted (its draft is kept).
     setDispatchTarget(null);
     setAddingProject(false);
@@ -705,16 +651,6 @@ function App() {
       open: (a) => choose({ type: "agent", id: a.id }),
     };
   }, [agents, choose]);
-  /** Picking a host on the map selects it: the lists narrow to it and it
-   * takes the map's highlight from whatever was selected. */
-  const chooseHost = useCallback(
-    (id: string) => {
-      soundEvent("selected");
-      setHostFilter(id === "local" ? "" : id);
-      choose(null);
-    },
-    [choose],
-  );
 
   const previousAgentIds = useRef(new Set<string>());
   useEffect(() => {
@@ -729,33 +665,12 @@ function App() {
   // The mode bar's tab (macOS app): Activity, GitHub and Settings draw in the map's place.
   const appMode = useAppMode();
   const settingsShown = useSettingsShown(appMode);
-  const mapStyleNow = useMapStyle();
-  // The Dungeon Board's dialogue box: open for the selected agent while the board shows (src/worldChat/).
-  const [talking, setTalking] = useState(false);
-  // How much of the map's foot the box covers, so the board frames its robot above it.
-  const [talkInset, setTalkInset] = useState(0);
-  const [hudTray, setHudTray] = useState<string | null>(null);
-  // The box shows the whole conversation (its log), kept as the box steps from robot to robot.
-  const [talkLog, setTalkLog] = useState(false);
-  // ⌘K's or the board menu's Archive for a robot: its dialogue box asks (a new `at` asks again).
-  const [talkArchive, setTalkArchive] = useState<{ agentId: string; at: number } | null>(null);
-  const talkOnPick = useTalkOnPick();
-  // The map's frame, measured: whether the conversation and the browser fit side by side.
+  // The map's frame: Crew's place on the Command tab; its rectangle goes to the macOS app (mapBridge.ts).
   const worldFrame = useRef<HTMLDivElement>(null);
-  const [worldFrameWidth, setWorldFrameWidth] = useState(0);
-  useLayoutEffect(() => {
-    const node = worldFrame.current;
-    if (!node || typeof ResizeObserver === "undefined") return;
-    const measure = () => setWorldFrameWidth(Math.round(node.clientWidth));
-    measure();
-    const resized = new ResizeObserver(measure);
-    resized.observe(node);
-    return () => resized.disconnect();
-  }, []);
-  // The robot's browser, over the board above its dialogue box (src/worldChat/BoardBrowser.tsx): B, kept as the
-  // box steps from robot to robot. The whole conversation takes its place while it shows.
+  // The open agent's browser, beside its conversation on Crew (src/browser/BoardBrowser.tsx): B, kept as you step
+  // from agent to agent.
   const browserOpen = useBrowserOpen();
-  // Agents' own browser tools open and drive its tabs (Settings → Map): the macOS app is told, and registers
+  // Agents' own browser tools open and drive its tabs (Settings → Browser): the macOS app is told, and registers
   // with the daemons as their browser while it is on.
   const browserTools = useBrowserTools();
   const browserFollows = useBrowserFollows();
@@ -763,36 +678,14 @@ function App() {
   useEffect(() => {
     if (macApp()) postBrowserHost(browserTools);
   }, [browserTools]);
-  // Only where the board is drawn (the macOS app's world; a browser shows a placeholder).
-  const talkable = macApp() && mapStyleNow === "dungeon" && appMode === "command" && !settingsShown;
-  const talkOn = talking && talkable && selection?.type === "agent" && !selection.subagent;
-  // The Crew map (a chat app in the map's place, in a browser too): its roster and conversation stand in for the
-  // side panel, which is gone while it shows, as on the Dungeon Board.
-  const crewShown = mapStyleNow === "crew" && appMode === "command" && !settingsShown;
-  const panelAbsent = talkable || crewShown;
-  useEffect(() => {
-    if (selection?.type !== "agent" || selection.subagent) setTalking(false);
-  }, [selection]);
-  useEffect(() => {
-    if (mapStyleNow !== "dungeon") setTalking(false);
-  }, [mapStyleNow]);
-  // Reading in the box views the agent, as the open panel does.
+  // Crew, the map, on the Command tab (a chat app in the map's place, in a browser too): its drawer is where what is
+  // open shows, and the session panel is gone while it does. Beside the other tabs the session panel shows it instead.
+  const crewShown = appMode === "command" && !settingsShown;
+  // Reading an agent's conversation views it: Crew's drawer, or the session panel while it isn't hidden.
   const viewing =
-    selection?.type === "agent" &&
-    (talkOn ||
-      crewShown ||
-      (!(unity && floatingVisibility.collapsed) &&
-        !((unity ? floatingVisibility.compact : compact) && browsing)))
+    selection?.type === "agent" && (crewShown || !floatingVisibility.collapsed)
       ? selection.id
       : undefined;
-  /** A pick on the map: on the Dungeon Board a robot's opens its dialogue box too (Settings → Map). */
-  const pickOnMap = useCallback(
-    (s: Selection) => {
-      if (s?.type === "agent" && !s.subagent && mapStyle() === "dungeon" && talkOnPickSetting()) setTalking(true);
-      choose(s);
-    },
-    [choose],
-  );
   // As in the Paseo app, listed subagents never notify or count as unread.
   const notifying = useMemo(() => agents.filter((a) => !a.child), [agents]);
   const notifyingPermissions = useMemo(() => {
@@ -879,40 +772,9 @@ function App() {
       setNotice(message);
     },
   });
-  const fleetView = useFleetView();
-  const { finishedAt } = attention;
-  // J/K walk the list as shown: its grouping, order and collapsed groups.
-  const fleet = useMemo(
-    () =>
-      groupAgents({
-        agents,
-        filter,
-        search: "",
-        permissionAgents: needYou,
-        unread,
-        finishedAt,
-        projectOf,
-        workspaceOf,
-        realWorkspaces: realWorkspaceIds,
-        view: fleetView.view,
-        collapsed: fleetView.collapsed,
-      }),
-    [
-      agents,
-      filter,
-      needYou,
-      unread,
-      finishedAt,
-      projectOf,
-      workspaceOf,
-      realWorkspaceIds,
-      fleetView.view,
-      fleetView.collapsed,
-    ],
-  );
-  const order = fleet.order;
-  const conversationRoster = useMemo(() => conversationOrder(active), [active]);
-  const navigationOrder = talkOn ? conversationRoster : order;
+  // J/K, ‹ › and N walk a stable roster: host, project, workspace, then age (reading a reply never reorders it).
+  const navigationOrder = useMemo(() => conversationOrder(active), [active]);
+  const order = navigationOrder;
   const attentionAgents = useMemo(
     () => active.filter((a) => needsAttention(a, needYou)),
     [active, needYou],
@@ -921,25 +783,6 @@ function App() {
   const attentionCount = active.filter(
     (a) => needsAttention(a, needYou) || unread.has(a.id),
   ).length;
-  const filterCounts = useMemo(() => {
-    const running = active.filter((a) => isWorking(a)).length;
-    const unreadCount = active.filter(
-      (a) => unread.has(a.id) && !needsAttention(a, needYou),
-    ).length;
-    return {
-      all: active.length,
-      attention: attentionAgents.length,
-      unread: unreadCount,
-      running,
-      // Nothing new: not working, nothing to read or answer.
-      idle: active.filter(
-        (a) =>
-          !isWorking(a) &&
-          !unread.has(a.id) &&
-          !needsAttention(a, needYou),
-      ).length,
-    };
-  }, [active, attentionAgents, unread, needYou]);
   useEffect(() => {
     document.title = attentionCount
       ? `(${attentionCount}) Paseo Command`
@@ -977,42 +820,30 @@ function App() {
       : undefined;
   // Its workspace's pending diff comments, for ⌘K's Apply and Show.
   const agentComments = useLocalComments(agent?.host, agent?.workspaceId);
-  const talkShown = talkOn && !!agent;
-  // The whole conversation and the browser show together where the map has the width: the conversation on the
-  // left, narrower, the browser on its right. On a narrower map the conversation takes the browser's place.
-  const besideFits = worldFrameWidth >= BESIDE_MIN_WIDTH;
-  // On Crew (the macOS app's: it draws the pages) the browser stands beside the open agent's conversation.
+  // On Crew (the macOS app's: it draws the pages) the open agent's browser stands beside its conversation.
   const crewBrowsing = crewShown && macApp() && !!agent && !selection?.subagent;
-  const browserShown = (talkShown && browserOpen && (!talkLog || besideFits)) || (crewBrowsing && browserOpen);
-  const browserBeside = browserShown && talkLog;
+  const browserShown = crewBrowsing && browserOpen;
   const agentBrowser = agent ? boardBrowsers.browsers[browserKey(agent.host, daemonAgentId(agent))] : undefined;
   const browserTab = agentBrowser?.tabs.find((t) => t.id === agentBrowser.current) ?? agentBrowser?.tabs[0];
-  const toggleBrowser = () => {
-    if (browserShown) return setBrowserOpen(false);
-    if (!besideFits && !crewShown) setTalkLog(false);
-    setBrowserOpen(true);
-  };
-  // B, outside a text field, on the Dungeon Board: the selected robot's browser, shown or hidden (its dialogue box
-  // opening with it). The box takes the key first while it or the map has the keyboard; this is everywhere else.
-  const boardKeys = useRef({ talkable, crew: crewBrowsing, agent, sub: !!selection?.subagent, browserShown, toggleBrowser });
-  Object.assign(boardKeys.current, { talkable, crew: crewBrowsing, agent, sub: selection?.type === "agent" && !!selection.subagent, browserShown, toggleBrowser });
+  const toggleBrowser = () => setBrowserOpen(!browserShown);
+  // B, outside a text field: the open agent's browser, shown or hidden.
+  const boardKeys = useRef({ crew: crewBrowsing, browserShown, toggleBrowser });
+  Object.assign(boardKeys.current, { crew: crewBrowsing, browserShown, toggleBrowser });
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const now = boardKeys.current;
       if (e.key.toLowerCase() !== "b" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.repeat || e.defaultPrevented) return;
-      if (!(now.talkable || now.crew) || !now.agent || now.sub || modalOpen() || isTyping(e.target as HTMLElement | null)) return;
+      if (!now.crew || modalOpen() || isTyping(e.target as HTMLElement | null)) return;
       e.preventDefault();
-      if (!now.browserShown && now.talkable) setTalking(true);
       now.toggleBrowser();
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
-  // An agent opened a tab with its browser tools: the robot you are talking to shows it (Settings → Map);
-  // another's says so, once in a while.
-  const talkedTo = talkShown || crewBrowsing ? agent : undefined;
-  const browserWatch = useRef({ agents, talkedTo, covered: talkShown && talkLog && !besideFits, said: new Map<string, number>() });
-  Object.assign(browserWatch.current, { agents, talkedTo, covered: talkShown && talkLog && !besideFits });
+  // An agent opened a tab with its browser tools: the open agent's shows it (Settings → Browser); another's says so,
+  // once in a while.
+  const browserWatch = useRef({ agents, open: crewBrowsing ? agent : undefined, said: new Map<string, number>() });
+  Object.assign(browserWatch.current, { agents, open: crewBrowsing ? agent : undefined });
   useEffect(
     () =>
       onBrowserEvent((event) => {
@@ -1020,7 +851,7 @@ function App() {
         const now = browserWatch.current;
         const opener = now.agents.find((a) => (a.host || "local") === event.host && daemonAgentId(a) === event.agent);
         if (!opener) return;
-        if (now.talkedTo?.id === opener.id && !now.covered) {
+        if (now.open?.id === opener.id) {
           if (!browserFollowsSetting()) return;
           browserDo("select", { tab: event.tab });
           setBrowserOpen(true);
@@ -1032,76 +863,6 @@ function App() {
       }),
     [],
   );
-  // The box opens as the dialogue box again, its log closed.
-  useEffect(() => {
-    if (!talkShown) setTalkLog(false);
-  }, [talkShown]);
-  /** Archive a robot from the board (⌘K, its menu): its dialogue box opens and asks. */
-  const askTalkArchive = (id: string) => {
-    choose({ type: "agent", id });
-    setTalking(true);
-    setTalkArchive({ agentId: id, at: Date.now() });
-  };
-  /** A cleared agent's place for the board's Dispatch: its workspace, else its project (as the panel's /new). */
-  const freshTarget = (a: Agent, settings?: DraftSettings): DispatchTarget => {
-    const ws = workspaceOf(a);
-    const p = projectOf(a);
-    return {
-      ...(ws && realWorkspaceIds.has(workspaceKey(ws))
-        ? { workspaceId: workspaceKey(ws) }
-        : p
-          ? { projectId: projectKey(p) }
-          : {}),
-      ...(settings ? { settings } : {}),
-    };
-  };
-  /** The Dungeon Board's right-click menu: what can be done with the robot, workspace or project under the pointer. */
-  const boardMenu = (s: NonNullable<Selection>): BoardMenuItem[] => {
-    if (s.type === "agent" && !s.subagent) {
-      const a = agents.find((x) => x.id === s.id);
-      if (!a) return [];
-      const live = online && !a.stale;
-      return [
-        { id: "talk", label: "Talk", hint: "Its dialogue box", run: () => { choose(s); setTalking(true); } },
-        { id: "browser", label: "Browser", hint: "Its pages, over the board", run: () => { choose(s); setTalking(true); setTalkLog(false); setBrowserOpen(true); } },
-        { id: "chat", label: "Whole conversation", hint: "Over the board", run: () => { choose(s); openTalkChat(); } },
-        ...(live ? [{ id: "archive-agent", label: "Archive…", hint: "Asks in its dialogue box", tone: "deny" as const, run: () => askTalkArchive(a.id) }] : []),
-      ];
-    }
-    if (s.type === "workspace") {
-      const w = listedWorkspaces.find((x) => workspaceKey(x) === s.id);
-      if (!w) return [];
-      const real = realWorkspaceIds.has(s.id);
-      return [
-        { id: "dispatch", label: "Dispatch an agent here", run: () => openWorldDispatch(real ? { workspaceId: s.id } : {}) },
-        ...(real && online
-          ? [{
-              id: "archive-workspace",
-              label: "Archive the workspace…",
-              hint: archiving.has(s.id) ? "Archiving…" : "Its agents and terminals too",
-              tone: "deny" as const,
-              disabled: archiving.has(s.id),
-              run: () => openArchive(w),
-            }]
-          : []),
-      ];
-    }
-    if (s.type === "project")
-      return [{ id: "dispatch", label: "Dispatch an agent here", run: () => openWorldDispatch({ projectId: s.id }) }];
-    return [];
-  };
-  /** The box's "whole conversation" choice: its log over the board (the board has no side panel), its message box focused. */
-  const openTalkChat = () => {
-    setTalking(true);
-    setTalkLog(true);
-    let tries = 0;
-    const focus = () => {
-      const field = document.getElementById("world-composer");
-      if (field) field.focus();
-      else if (++tries < 30) requestAnimationFrame(focus);
-    };
-    requestAnimationFrame(focus);
-  };
   // An open subagent conversation; gone (archived) falls back to the agent's.
   const subagent = selection?.subagent
     ? agent?.subagents?.find((s) => s.id === selection.subagent)
@@ -1114,6 +875,9 @@ function App() {
     selection?.type === "project"
       ? projects.find((p) => projectKey(p) === selection.id)
       : undefined;
+  // Nothing is open: Crew shows its map alone, and the session panel isn't shown beside the other tabs.
+  const detailEmpty = !addingProject && !dispatchTarget && !agent && !workspace && !project;
+  const panelAbsent = crewShown || detailEmpty;
   // The open project's repository on GitHub, for G: its workspaces' remote.
   const projectRepo = project
     ? listedWorkspaces.find(
@@ -1196,67 +960,16 @@ function App() {
       realWorkspaceIds,
     ],
   );
-  const openPanelDispatch = useCallback(
+  /** New agent: in what is open's place (Crew's drawer, or the session panel beside the other tabs). */
+  const openDispatch = useCallback(
     (target?: DispatchTarget) => {
-      // The New agent view opens in the panel, in place of the conversation.
       setDispatchRevision((revision) => revision + 1);
       setAddingProject(false);
-      setBrowsing(false);
       setFocusRevision((revision) => revision + 1);
       setDispatchTarget(target ?? contextTarget());
     },
     [contextTarget],
   );
-  // The Dungeon Board's Dispatch: the same form in the board's own framed panel, over the world.
-  const [worldDispatch, setWorldDispatch] = useState<DispatchTarget | null>(null);
-  const [worldDispatchRevision, setWorldDispatchRevision] = useState(0);
-  // Asked from a robot's whole conversation (/clear, /new, its +): the new agent's empty conversation takes that
-  // conversation's place, and its own opens there once its first message is sent.
-  const [worldDispatchConversation, setWorldDispatchConversation] = useState(false);
-  const openWorldDispatch = useCallback((target?: DispatchTarget, conversation = false) => {
-    setTalking(false);
-    setWorldDispatchRevision((revision) => revision + 1);
-    setWorldDispatchConversation(conversation);
-    setWorldDispatch(target ?? contextTarget());
-  }, [contextTarget]);
-  /** New agent: on the Dungeon Board, which has no side panel, the board's own Dispatch; elsewhere the panel's. */
-  const openDispatch = useCallback(
-    (target?: DispatchTarget) => {
-      if (!talkable) return openPanelDispatch(target);
-      setAddingProject(false);
-      openWorldDispatch(target);
-    },
-    [talkable, openPanelDispatch, openWorldDispatch],
-  );
-  const worldDispatchShown = !!worldDispatch && talkable && !confirming;
-  useEffect(() => {
-    if (!talkable) setWorldDispatch(null);
-  }, [talkable]);
-  useEffect(() => {
-    if (!talking) return;
-    setWorldDispatch(null);
-    // On the board Add project gives way to a robot's dialogue box (in the side panel it is the detail's own).
-    if (talkable) setAddingProject(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [talking]);
-  // On the Dungeon Board a picked workspace or project, and Add project, show in the board's own framed panel
-  // (the board has no side panel): never over a robot's dialogue box or the board's Dispatch.
-  const boardPlace =
-    talkable && !talkShown && !worldDispatchShown
-      ? addingProject
-        ? "add"
-        : workspace
-          ? `workspace:${workspaceKey(workspace)}`
-          : project
-            ? `project:${projectKey(project)}`
-            : null
-      : null;
-  /** One of its agents, picked in that panel: selected, its dialogue box opened whatever picking a robot does. */
-  const talkTo = (s: Selection) => {
-    choose(s);
-    if (s?.type === "agent" && !s.subagent) setTalking(true);
-  };
-
   // The Activity tab's filter and selected item, for ⌘K's entries for them.
   const [activityView, setActivityView] = useState<ActivityViewState | undefined>();
   const showActivity = appTabs(integrations).activity;
@@ -1275,8 +988,8 @@ function App() {
       pr: ws.pr ? { number: ws.pr.number, url: ws.pr.url, title: ws.pr.title } : ws.pr,
     };
   }, [selection, agents, workspaceOf, workspace, realWorkspaceIds]);
-  // The map's style for the macOS app, and, while Crew draws the map in the page, its fleet and Terminal workspace.
-  useMapBridge(mapStyleNow, !loading, githubWorkspace);
+  // What the macOS app hears of the map's place: the fleet is in, the Terminal tab's workspace, where the place is.
+  useMapBridge(!loading, githubWorkspace, worldFrame);
   // The Paseo workspaces with a PR's branch checked out (the PR view's Open Paseo agent).
   const paseoFor = useCallback(
     (pr: PrHead) =>
@@ -1432,12 +1145,10 @@ function App() {
       // Escape leaves a new agent (or project) unstarted, back to what was open.
       if (addingProject && e.key === "Escape") {
         setAddingProject(false);
-        setBrowsing(!selection);
         return;
       }
       if (dispatchTarget && e.key === "Escape") {
         setDispatchTarget(null);
-        setBrowsing(!selection);
         return;
       }
       // Buttons, links and toggles keep their own Enter/Space behaviour.
@@ -1485,10 +1196,6 @@ function App() {
         if (issueUrl) openExternal(issueUrl);
         // Without a Linear workspace yet, the header chip asks for it.
         else document.querySelector<HTMLElement>("button.linear-chip")?.click();
-      } else if (key === "t" && talkable && selection?.type === "agent" && !selection.subagent) {
-        // The Dungeon Board's dialogue box for the selected robot.
-        e.preventDefault();
-        setTalking(true);
       } else if (
         e.key === "Enter" ||
         (key === "r" && selection?.type === "agent")
@@ -1511,7 +1218,6 @@ function App() {
     projectRepo,
     issueKey,
     issueUrl,
-    talkable,
     crewShown,
     appMode,
     settingsShown,
@@ -1563,7 +1269,7 @@ function App() {
       ),
     [archiveJobs],
   );
-  /** Confirm archiving a workspace. `keep` leaves the selection (the board's dialogue box stays open under it). */
+  /** Confirm archiving a workspace. `keep` leaves the selection (archiving from Crew's map keeps what is open). */
   const openArchive = (w: Workspace, keep = false) => {
     if (isArchiving(workspaceKey(w))) return;
     if (!keep) select({ type: "workspace", id: workspaceKey(w) });
@@ -1639,16 +1345,12 @@ function App() {
   };
   useEffect(() => onArchiveSettled((job) => settleArchive.current(job)), []);
 
-  // On Crew, Back (and Esc) lets the conversation go for the crew's overview.
-  const onBack = useCallback(
-    () => (unity && !crewShown ? setBrowsing(true) : select(null)),
-    [select, crewShown],
-  );
+  // Back (and Esc) lets what is open go: Crew's map, or the session panel closing beside the other tabs.
+  const onBack = useCallback(() => select(null), [select]);
   const sounds = useSoundSettings();
   const radio = useMusic();
   const addProject = () => {
     setAddingProject(true);
-    setBrowsing(false);
     setFocusRevision((revision) => revision + 1);
   };
   // The command palette (Cmd+K): what the app's keys and buttons do, for
@@ -1657,11 +1359,6 @@ function App() {
     linkWorkspace && realWorkspaceIds.has(workspaceKey(linkWorkspace))
       ? linkWorkspace
       : undefined;
-  const showList = (t: Tab, f?: Filter) => {
-    setTab(t);
-    if (f) setFilter(f);
-    setBrowsing(true);
-  };
   /** The open agent's own buttons and row actions, for the palette. */
   const agentCommands = (a: Agent): Command[] => {
     const name = agentName(a, workspaceOf(a)?.branch);
@@ -1736,8 +1433,8 @@ function App() {
                     page: "Command" as const,
                     label: `Archive “${name}”…`,
                     keywords: "remove delete agent",
-                    // On the Dungeon Board its dialogue box asks; elsewhere the side panel's conversation does.
-                    run: () => (talkable ? askTalkArchive(a.id) : runAppCommand("agent-archive")),
+                    // Its conversation asks.
+                    run: () => runAppCommand("agent-archive"),
                   },
                 ]
               : []),
@@ -1803,7 +1500,7 @@ function App() {
   };
   // The mode bar's tabs shown, in order, for ⌘`'s entry.
   const modeNames: Record<AppMode, string> = {
-    command: "map",
+    command: "crew",
     conquer: "browser",
     activity: "Activity",
     github: "GitHub",
@@ -1815,10 +1512,10 @@ function App() {
   // A tab's ⌘1…⌘6, in the macOS app.
   const tabKeys = (mode: AppMode) => (macApp() ? [modeKey(integrations, mode)] : undefined);
   const diagramCommand = useMermaidCommands();
-  // The robot's browser: on the Dungeon Board over the board above its dialogue box, on Crew beside its conversation.
-  const where = crewShown ? "" : " on the board";
-  const browserOf = crewShown ? "the browser" : "the board’s browser";
-  const browserEntries = agent && (talkShown || crewBrowsing)
+  // The open agent's browser, beside its conversation on Crew.
+  const where = "";
+  const browserOf = "the browser";
+  const browserEntries = agent && crewBrowsing
     ? [
         {
           id: "world-talk-browser",
@@ -1826,21 +1523,21 @@ function App() {
           page: "Command" as const,
           label: browserShown ? `Hide the browser${where}` : `Show ${agentName(agent, workspaceOf(agent)?.branch)}’s browser${where}`,
           keys: browserShown ? [["B"], ["⇧", "⌘", "W"]] : [["B"]],
-          keywords: "dungeon board crew browser web page tab preview site localhost attached agent close beside conversation",
+          keywords: "crew browser web page tab preview site localhost attached agent close beside conversation",
           run: toggleBrowser,
         },
         ...(browserShown
           ? [
-              { id: "board-browser-new", group: "Actions", page: "Command" as const, label: `Open a new tab in ${browserOf}`, keywords: "dungeon crew browser web page tab add", run: () => runAppCommand("board-browser-new") },
-              { id: "board-browser-address", group: "Actions", page: "Command" as const, label: `Type an address in ${browserOf}`, keywords: "dungeon crew browser url location go to navigate", run: () => runAppCommand("board-browser-address") },
-              { id: "board-browser-fill", group: "Actions", page: "Command" as const, label: crewShown ? "Make the browser fill the view, or show the conversation again" : "Make the board’s browser fill the board, or show the dialogue box again", keywords: "dungeon crew browser expand maximize bigger full size restore", run: () => runAppCommand("board-browser-fill") },
+              { id: "board-browser-new", group: "Actions", page: "Command" as const, label: `Open a new tab in ${browserOf}`, keywords: "crew browser web page tab add", run: () => runAppCommand("board-browser-new") },
+              { id: "board-browser-address", group: "Actions", page: "Command" as const, label: `Type an address in ${browserOf}`, keywords: "crew browser url location go to navigate", run: () => runAppCommand("board-browser-address") },
+              { id: "board-browser-fill", group: "Actions", page: "Command" as const, label: "Make the browser fill the view, or show the conversation again", keywords: "crew browser expand maximize bigger full size restore", run: () => runAppCommand("board-browser-fill") },
               ...(browserTab
                 ? [
-                    { id: "board-browser-reload", group: "Actions", page: "Command" as const, label: `Reload ${tabLabel(browserTab)} in ${browserOf}`, keywords: "dungeon crew browser refresh page", run: () => runAppCommand("board-browser-reload") },
-                    ...(browserTab.back ? [{ id: "board-browser-back", group: "Actions", page: "Command" as const, label: `Go back in ${browserOf}`, keywords: "dungeon crew browser previous page history", run: () => runAppCommand("board-browser-back") }] : []),
-                    ...(browserTab.forward ? [{ id: "board-browser-forward", group: "Actions", page: "Command" as const, label: `Go forward in ${browserOf}`, keywords: "dungeon crew browser next page history", run: () => runAppCommand("board-browser-forward") }] : []),
-                    { id: "board-browser-close-tab", group: "Actions", page: "Command" as const, label: `Close ${tabLabel(browserTab)} in ${browserOf}`, keywords: "dungeon crew browser tab remove", run: () => runAppCommand("board-browser-close-tab") },
-                    ...(browserTab.url ? [{ id: "board-browser-conquer", group: "Navigate", page: "Conquer" as const, label: crewShown ? "Open the browser’s page in Conquer" : "Open the board browser’s page in Conquer", keywords: "dungeon crew browser tab move own logins", run: () => runAppCommand("board-browser-conquer") }] : []),
+                    { id: "board-browser-reload", group: "Actions", page: "Command" as const, label: `Reload ${tabLabel(browserTab)} in ${browserOf}`, keywords: "crew browser refresh page", run: () => runAppCommand("board-browser-reload") },
+                    ...(browserTab.back ? [{ id: "board-browser-back", group: "Actions", page: "Command" as const, label: `Go back in ${browserOf}`, keywords: "crew browser previous page history", run: () => runAppCommand("board-browser-back") }] : []),
+                    ...(browserTab.forward ? [{ id: "board-browser-forward", group: "Actions", page: "Command" as const, label: `Go forward in ${browserOf}`, keywords: "crew browser next page history", run: () => runAppCommand("board-browser-forward") }] : []),
+                    { id: "board-browser-close-tab", group: "Actions", page: "Command" as const, label: `Close ${tabLabel(browserTab)} in ${browserOf}`, keywords: "crew browser tab remove", run: () => runAppCommand("board-browser-close-tab") },
+                    ...(browserTab.url ? [{ id: "board-browser-conquer", group: "Navigate", page: "Conquer" as const, label: "Open the browser’s page in Conquer", keywords: "crew browser tab move own logins", run: () => runAppCommand("board-browser-conquer") }] : []),
                   ]
                 : []),
             ]
@@ -1906,62 +1603,6 @@ function App() {
           },
         ]
       : []),
-    ...(talkable && !confirming ? [
-      ...[["waiting", "Show agents waiting on you"], ["replies", "Show unread replies on the command belt"], ["problems", "Show failures and blocked work"], ["review", "Show GitHub review requests"], ["assigned", "Show assigned pull requests"], ["issues", "Show assigned Linear issues"], ["inbox", "Show unread Linear Inbox"], ["running", "Show running agents on the command belt"]].map(([id,label])=>({id:`dungeon-${id}`,group:"Navigate",page:"Command" as const,label:hudTray === id ? label!.replace(/^Show/,"Close") : label!,keywords:"dungeon command belt GitHub Linear notification assigned review request problems failures blocked issues inbox",run:()=>runAppCommand("dungeon-tray",id)})),
-      ...(["review","assigned","issues","inbox","problems"].includes(hudTray ?? "") ? [{id:"dungeon-tray-settings",group:"Actions",page:"Settings" as const,label:hudTray === "review" || hudTray === "assigned" ? "Open GitHub integration settings" : "Open Linear integration settings",keywords:"dungeon integration token key",run:()=>runAppCommand("dungeon-tray-settings")}] : []),
-      ...(hudTray === "review" || hudTray === "assigned" ? [{id:"dungeon-all-github",group:"Navigate",page:"GitHub" as const,label:hudTray === "review" ? "Open all review requests on GitHub" : "Open all assigned PRs on GitHub",keywords:"dungeon full list GitHub search",run:()=>openExternal(`https://github.com/pulls?q=${encodeURIComponent(`is:pr is:open ${hudTray === "review" ? "review-requested" : "assignee"}:@me`)}`)}] : []),
-      ...(hudTray ? [{ id: "dungeon-tray-close", group: "Actions", page: "Command" as const, label: "Close the command belt tray", keys: [["Esc"]], keywords: "dungeon quest log dismiss", run: () => runAppCommand("dungeon-tray-close") }] : []),
-    ] : []),
-    // The Dungeon Board's dialogue box for the selected robot (src/worldChat/).
-    ...(agent && talkable && !selection?.subagent && !talkShown
-      ? [
-          {
-            id: "world-talk",
-            group: "Actions",
-            page: "Command" as const,
-            label: `Talk to ${agentName(agent, workspaceOf(agent)?.branch)} on the board`,
-            keys: [["T"]],
-            keywords: "dungeon board dialogue dialog conversation chat speak reply robot in world",
-            run: () => setTalking(true),
-          },
-        ]
-      : []),
-    ...(talkShown
-      ? [
-          {
-            id: "world-talk-leave",
-            group: "Actions",
-            page: "Command" as const,
-            label: "Leave the conversation on the board",
-            keys: [["Esc"]],
-            keywords: "dungeon board dialogue dialog close end talk",
-            run: () => setTalking(false),
-          },
-          ...(!talkLog ? [{
-            id: "world-talk-actions", group: "Actions", page: "Command" as const,
-            label: "Show conversation actions on the board", keywords: "dungeon dialogue reply follow-up choices menu actions",
-            run: () => runAppCommand("world-talk-actions"),
-          }] : []),
-          {
-            id: "world-talk-log",
-            group: "Actions",
-            page: "Command" as const,
-            label: talkLog ? "Back to the dialogue box on the board" : "Show the whole conversation on the board",
-            keys: [["H"]],
-            keywords: "dungeon board dialogue log history transcript scroll expand earlier messages forks ask answer subagents tools",
-            run: () => setTalkLog(!talkLog),
-          },
-          // Its browser, over the board above the box (src/worldChat/BoardBrowser.tsx).
-          ...browserEntries,
-          // The whole conversation's + (its header): an empty conversation in its place, in the same workspace.
-          ...(talkLog && online ? [{
-            id: "world-talk-new", group: "Actions", page: "Command" as const,
-            label: "Start a new conversation in this workspace on the board",
-            keywords: "dungeon board dispatch new agent fresh empty conversation workspace plus",
-            run: () => openWorldDispatch(undefined, true),
-          }] : []),
-        ]
-      : []),
     ...(linkPr
       ? [
           {
@@ -2025,7 +1666,7 @@ function App() {
             page: "Command" as const,
             label: `Archive workspace “${placeText(archivable.name, "workspace")}”…`,
             keywords: "remove delete",
-            run: () => openArchive(archivable, talkShown),
+            run: () => openArchive(archivable),
           },
         ]
       : []),
@@ -2137,63 +1778,7 @@ function App() {
           },
         ]
       : []),
-    ...(macApp() && !crewShown
-      ? [
-          {
-            id: "fit",
-            group: "Navigate",
-            page: "Command" as const,
-            label: "Fit the whole map",
-            keys: [["F"]],
-            keywords: "zoom home world",
-            run: () => runAppCommand("fit-world"),
-          },
-        ]
-      : []),
-    // The panel's lists and their filters (the Dungeon Board has none: its belt's trays list who waits and runs;
-    // Crew's roster is its list).
-    ...(panelAbsent ? [] : (["Agents", "Workspaces", "Projects", "Hosts"] as const)).map((t) => ({
-      id: `tab-${t}`,
-      group: "Lists",
-      page: "Command" as const,
-      label: `Show ${t.toLowerCase()}`,
-      keywords: "tab list",
-      run: () => showList(t),
-    })),
-    ...(panelAbsent
-      ? []
-      : ([
-        [
-          "attention",
-          "Show agents that need you",
-          "approvals questions attention",
-        ],
-        ["unread", "Show unread agents", "finished"],
-        ["running", "Show running agents", "working busy"],
-        ["idle", "Show idle agents", ""],
-        ["all", "Show all active agents", "filter"],
-      ] as const)
-    ).map(([f, label, keywords]) => ({
-      id: `filter-${f}`,
-      group: "Lists",
-      page: "Command" as const,
-      label,
-      keywords: `filter ${keywords}`,
-      run: () => showList("Agents", f),
-    })),
-    ...(hostFilter !== null
-      ? [
-          {
-            id: "all-hosts",
-            group: "Lists",
-            page: "Command" as const,
-            label: "Show every host",
-            keywords: "filter clear",
-            run: () => setHostFilter(null),
-          },
-        ]
-      : []),
-    // The Dungeon Board and Crew have no side panel.
+    // The session panel, beside the other tabs while something is open (Crew's drawer has it on the Command tab).
     ...(!panelAbsent
       ? [
           {
@@ -2320,9 +1905,9 @@ function App() {
                   id: "command-show",
                   group: "App",
                   page: "Command" as const,
-                  label: "Show the map",
+                  label: "Show the crew",
                   keys: tabKeys("command"),
-                  keywords: "command atlas world mode tab",
+                  keywords: "command crew map agents mode tab",
                   run: () => postAppMenu("command"),
                 },
               ]
@@ -2833,17 +2418,6 @@ function App() {
             : []),
         ]
       : []),
-    // The map's styles: an entry for each other than the one shown.
-    ...(macApp()
-      ? MAP_STYLES.filter((m) => m.id !== mapStyleNow).map((m) => ({
-          id: `map-style-${m.id}`,
-          group: "App",
-          page: "Settings" as const,
-          label: `Use the ${m.name} map`,
-          keywords: `map style look world ${m.id === "dungeon" ? "dungeon board cutaway floors alcoves" : m.id === "overworld" ? "overworld castle halls booths theme" : "islands hex sea"}`,
-          run: () => setMapStyle(m.id),
-        }))
-      : []),
     {
       id: "sounds",
       group: "App",
@@ -2855,23 +2429,13 @@ function App() {
     ...(macApp()
       ? [
           {
-            id: "world-talk-on-pick",
-            group: "App",
-            page: "Settings" as const,
-            label: talkOnPick
-              ? "Don't open a robot's dialogue box when it's picked on the Dungeon Board"
-              : "Open a robot's dialogue box when it's picked on the Dungeon Board",
-            keywords: "dungeon board talk conversation dialogue dialog chat map pick click",
-            run: () => setTalkOnPick(!talkOnPick),
-          },
-          {
             id: "board-browser-tools",
             group: "App",
             page: "Settings" as const,
             label: browserTools
-              ? "Stop agents’ browser tools opening tabs in the Dungeon Board’s browser"
-              : "Let agents’ browser tools open tabs in the Dungeon Board’s browser",
-            keywords: "dungeon board browser host agent tool browser_new_tab automation paseo attach web page",
+              ? "Stop agents’ browser tools opening tabs in their browser here"
+              : "Let agents’ browser tools open tabs in their browser here",
+            keywords: "crew browser host agent tool browser_new_tab automation paseo attach web page",
             run: () => setBrowserTools(!browserTools),
           },
           {
@@ -2879,9 +2443,9 @@ function App() {
             group: "App",
             page: "Settings" as const,
             label: browserFollows
-              ? "Don’t show the board’s browser when the agent you’re talking to opens a tab"
-              : "Show the board’s browser when the agent you’re talking to opens a tab",
-            keywords: "dungeon board browser open tab automatically follow agent",
+              ? "Don’t show the browser when the open agent opens a tab"
+              : "Show the browser when the open agent opens a tab",
+            keywords: "crew browser open tab automatically follow agent",
             run: () => setBrowserFollows(!browserFollows),
           },
         ]
@@ -3073,30 +2637,6 @@ function App() {
       searchOnly: true,
       run: () => choose({ type: "project", id: projectKey(p) }),
     })),
-    ...(hosts.length > 1
-      ? hosts.map((h) => ({
-          id: `host:${h.serverId}`,
-          group: "Hosts",
-          page: "Command" as const,
-          kind: "Host",
-          label: h.label || (h.local ? "This computer" : "Host"),
-          detail: h.local ? "local" : undefined,
-          keywords: "host filter",
-          searchOnly: true,
-          run: () => {
-            setHostFilter(h.local ? "" : h.serverId);
-            setBrowsing(true);
-            if (nativeAvailable()) soundEvent("focused");
-            postNative({
-              type: "camera",
-              command: {
-                type: "focus",
-                target: { kind: "host", key: hostWorldKey(h) },
-              },
-            });
-          },
-        }))
-      : []),
   ];
   // The tabs' Show entries in the mode bar's order (Command, Files, GitHub, Conquer, Activity),
   // in the places they take among the rest.
@@ -3112,29 +2652,18 @@ function App() {
     prev: () => step(-1),
     next: () => step(1),
   };
-  // The dialogue controls name the neighbouring robots in their stable roster.
-  const stepTo = (delta: number) => {
-    const n = navigationOrder.length;
-    if (!n) return undefined;
-    const row = navigationOrder[position.index < 0 ? (delta > 0 ? 0 : n - 1) : (position.index + delta + n) % n];
-    return row && agentName(row, workspaceOf(row)?.branch);
-  };
-  const talkPosition = talkShown ? { ...position, prevName: stepTo(-1), nextName: stepTo(1) } : position;
 
   // What the panel's detail shows (a conversation, New agent, a workspace or project, Add project), or, on Crew,
   // its conversation side (one copy at a time: the panel's is empty while Crew shows).
   const detailView = (
     <>
-                  {addingProject && !talkable ? (
+                  {addingProject ? (
                     <AddProject
                       hosts={hosts}
                       projects={projects}
-                      initialHost={hostFilter}
+                      initialHost={null}
                       online={online}
-                      onClose={() => {
-                        setAddingProject(false);
-                        setBrowsing(!selection);
-                      }}
+                      onClose={() => setAddingProject(false)}
                       onNotice={setNotice}
                       onAdded={async (projectId, host) => {
                         await refresh();
@@ -3155,10 +2684,7 @@ function App() {
                       initial={dispatchTarget}
                       fallback={busiestProject}
                       online={online}
-                      onClose={() => {
-                        setDispatchTarget(null);
-                        setBrowsing(!selection);
-                      }}
+                      onClose={() => setDispatchTarget(null)}
                       onNotice={setNotice}
                       onDispatched={async (rawId, host) => {
                         const id = rawId ? agentClientId(rawId, host) : undefined;
@@ -3166,7 +2692,6 @@ function App() {
                         setDispatchTarget(null);
                         await refresh();
                         if (id) select({ type: "agent", id });
-                        else setBrowsing(!selection);
                       }}
                     />
                   ) : agent && subagent ? (
@@ -3273,14 +2798,13 @@ function App() {
                       </h2>
                       <p>
                         {activeTarget
-                          ? "Choose another item from the sidebar."
-                          : "Select an agent from the sidebar to open its conversation."}
+                          ? "Choose another from the crew."
+                          : "Pick an agent in the crew to open its conversation."}
                       </p>
                     </div>
                   )}
     </>
   );
-  const detailEmpty = !(addingProject && !talkable) && !dispatchTarget && !agent && !workspace && !project;
 
   return (
     <MotionConfig reducedMotion="user" transition={spring}>
@@ -3290,34 +2814,8 @@ function App() {
       >
         {native && (
           <div className="native-world-frame" ref={worldFrame}>
-            {mapStyleNow === "crew" ? (
-              crewShown && (
-                <React.Suspense fallback={null}>
-                  <CrewMap
-                    hosts={hosts}
-                    projects={projects}
-                    workspaces={workspaces}
-                    agents={active}
-                    permissions={permissionAgents}
-                    questions={questionAgents}
-                    asking={asking}
-                    unread={unread}
-                    selection={selection}
-                    select={choose}
-                    workingOn={workingOn}
-                    detail={detailView}
-                    empty={detailEmpty}
-                    loaded={!loading}
-                    blocked={confirming}
-                    onDispatch={() => openDispatch()}
-                    {...(crewBrowsing ? { browser: { shown: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser } } : {})}
-                  />
-                </React.Suspense>
-              )
-            ) : (
-            <React.Suspense fallback={null}>
-              <NativeWorld
-                workingOn={workingOn}
+            {crewShown && (
+              <CrewMap
                 hosts={hosts}
                 projects={projects}
                 workspaces={workspaces}
@@ -3327,174 +2825,29 @@ function App() {
                 asking={asking}
                 unread={unread}
                 selection={selection}
-                focusRevision={focusRevision}
-                select={pickOnMap}
-                host={hostFilter}
-                chooseHost={chooseHost}
-                hover={() => {}}
-                onNotice={setNotice}
-                blocked={confirming}
+                select={choose}
+                workingOn={workingOn}
+                detail={detailView}
+                empty={detailEmpty}
                 loaded={!loading}
-                talking={talkShown}
-                talkInset={talkInset}
-                hudVisible={appMode === "command" && !settingsShown}
-                onDispatch={() => (talkable ? openWorldDispatch() : openDispatch())}
-                onBrowseHud={() => {
-                  setTalking(false);
-                  setWorldDispatch(null);
-                }}
-                onHudTray={setHudTray}
-                menu={boardMenu}
+                blocked={confirming}
+                onDispatch={() => openDispatch()}
+                onAddProject={addProject}
+                onArchive={(w) => openArchive(w, true)}
+                archiving={archiving}
+                {...(poolBoxes.length ? { pool: { boxes: poolBoxes, job: poolJob, release: openReleasePool } } : {})}
+                {...(crewBrowsing ? { browser: { shown: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser } } : {})}
               />
-            </React.Suspense>
-            )}
-            {talkShown && agent && (
-              <React.Suspense fallback={null}>
-                <PeersContext.Provider value={peers}>
-                <WorldChat
-                  key={agent.id}
-                  agent={agent}
-                  workspace={workspaceOf(agent)}
-                  asks={asks[agent.id]}
-                  workingOn={workingOn[agent.id]}
-                  waiting={permissionAgents.has(agent.id)}
-                  question={questionAgents.has(agent.id)}
-                  unread={unread.has(agent.id)}
-                  online={online}
-                  blocked={confirming}
-                  onClose={() => setTalking(false)}
-                  onOpenChat={openTalkChat}
-                  onNotice={setNotice}
-                  onChanged={refresh}
-                  onInset={setTalkInset}
-                  log={talkLog}
-                  onLog={setTalkLog}
-                  position={talkPosition}
-                  archiveRequest={talkArchive}
-                  onArchiveRequestTaken={() => setTalkArchive(null)}
-                  browser={{ open: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser, beside: browserBeside }}
-                  onFreshDraft={(a, settings, conversation) => {
-                    const target = freshTarget(a, settings);
-                    select(null);
-                    openWorldDispatch(target, conversation);
-                  }}
-                  onSelectWorkspace={() => {
-                    const ws = workspaceOf(agent);
-                    if (ws) choose({ type: "workspace", id: workspaceKey(ws) });
-                  }}
-                  onNewAgent={() => openWorldDispatch(undefined, true)}
-                  onArchiveWorkspace={(() => {
-                    const ws = workspaceOf(agent);
-                    return ws && realWorkspaceIds.has(workspaceKey(ws)) && !archiving.has(workspaceKey(ws))
-                      ? () => openArchive(ws, true)
-                      : undefined;
-                  })()}
-                />
-                </PeersContext.Provider>
-              </React.Suspense>
             )}
             {browserShown && agent && (
               <React.Suspense fallback={null}>
                 <BoardBrowser
                   agent={agent}
                   name={agentName(agent, workspaceOf(agent)?.branch)}
-                  inset={crewShown ? 0 : talkInset}
-                  beside={crewShown || browserBeside}
-                  crew={crewShown}
                   blocked={confirming}
                   github={integrations.github}
                   onClose={() => setBrowserOpen(false)}
                   onNotice={setNotice}
-                />
-              </React.Suspense>
-            )}
-            {boardPlace && (
-              <React.Suspense fallback={null}>
-                <WorldPlace
-                  key={boardPlace}
-                  kind={addingProject ? "add" : workspace ? "workspace" : "project"}
-                  title={addingProject ? "Add a project" : workspace ? "Workspace" : "Project"}
-                  onClose={() => (addingProject ? setAddingProject(false) : select(null))}
-                >
-                  {addingProject ? (
-                    <AddProject
-                      hosts={hosts}
-                      projects={projects}
-                      initialHost={hostFilter}
-                      online={online}
-                      onClose={() => setAddingProject(false)}
-                      onNotice={setNotice}
-                      onAdded={async (projectId, host) => {
-                        await refresh();
-                        // A new project has no workspace (so no place on the board): its first agent makes one.
-                        openDispatch({ projectId: projectKey({ projectId, host }) });
-                      }}
-                    />
-                  ) : workspace ? (
-                    <WorkspaceView
-                      workspace={workspace}
-                      agents={agentsAt(workspaceKey(workspace))}
-                      real={realWorkspaceIds.has(workspaceKey(workspace))}
-                      busy={busy}
-                      online={online}
-                      onBack={() => select(null)}
-                      onDispatch={() => openDispatch()}
-                      onArchive={() => openArchive(workspace)}
-                      archiving={archiving.has(workspaceKey(workspace))}
-                      onNotice={setNotice}
-                      select={talkTo}
-                      permissionAgents={permissionAgents}
-                      unread={unread}
-                      onChanges={showWorkspaceChanges}
-                    />
-                  ) : project ? (
-                    <ProjectView
-                      project={project}
-                      workspaces={listedWorkspaces.filter((w) => w.project === project.name && sameHost(w, project))}
-                      agentsAt={agentsAt}
-                      agents={active.filter((a) => projectOf(a) === project)}
-                      online={online}
-                      onBack={() => select(null)}
-                      onDispatch={() => openDispatch({ projectId: projectKey(project) })}
-                      onRemove={() => openRemoveProject(project)}
-                      removing={removingProjects.has(projectKey(project))}
-                      onNotice={setNotice}
-                      select={talkTo}
-                      permissionAgents={permissionAgents}
-                      unread={unread}
-                    />
-                  ) : null}
-                </WorldPlace>
-              </React.Suspense>
-            )}
-            {worldDispatchShown && (
-              <React.Suspense fallback={null}>
-                <WorldDispatch
-                  key={`world-dispatch-${worldDispatchRevision}`}
-                  projects={projects}
-                  workspaces={workspaces}
-                  providers={providers}
-                  hosts={hosts}
-                  initial={worldDispatch!}
-                  fallback={busiestProject}
-                  online={online}
-                  conversation={worldDispatchConversation}
-                  onClose={() => setWorldDispatch(null)}
-                  onNotice={setNotice}
-                  onDispatched={async (rawId, host) => {
-                    const id = rawId ? agentClientId(rawId, host) : undefined;
-                    const conversation = worldDispatchConversation;
-                    soundEvent("dispatched");
-                    setWorldDispatch(null);
-                    await refresh();
-                    // The new robot is picked on the board, so its dialogue box opens as a pick's does.
-                    if (id) pickOnMap({ type: "agent", id });
-                    // Begun in a conversation's place, its own conversation opens there.
-                    if (id && conversation) {
-                      setTalking(true);
-                      setTalkLog(true);
-                    }
-                  }}
                 />
               </React.Suspense>
             )}
@@ -3549,7 +2902,6 @@ function App() {
           enabled={unity}
           suppressed={panelAbsent}
           activeKey={activeKey}
-          openOnSelect={!talkShown || !!dispatchTarget || addingProject}
           activeLabel={
             addingProject
               ? "Add project"
@@ -3561,88 +2913,29 @@ function App() {
           }
           hasActive={!!activeTarget || !!dispatchTarget || addingProject}
           openRevision={focusRevision}
-          browsing={browsing}
-          onBrowse={() => {
-            setTab("Workspaces");
-            setBrowsing(true);
-          }}
-          onActive={() => {
-            if (activeTarget) setBrowsing(false);
-          }}
           onVisibility={setFloatingVisibility}
           usage={usage}
           attention={permissions.length}
-          onAttention={() => {
-            // On the Dungeon Board, the belt's own tray of who waits; on Crew, the next agent that needs you.
-            if (talkable) return runAppCommand("dungeon-tray", "waiting");
-            if (crewShown) return nextAttention();
-            setTab("Agents");
-            setFilter("attention");
-            setBrowsing(true);
-          }}
+          onAttention={nextAttention}
         >
           <AppPanel>
-            <div
-              className="app-workspace"
-              data-browsing={
-                browsing || (!activeTarget && !dispatchTarget && !addingProject)
-              }
-            >
-              <aside className="fleet-sidebar" aria-label="Fleet sidebar">
-                <FleetSummary onDispatch={() => openDispatch()} />
-                <Fleet
-                  tab={tab}
-                  setTab={setTab}
-                  filter={filter}
-                  setFilter={setFilter}
-                  attention={fleet.attention}
-                  unreadRows={fleet.unread}
-                  groups={fleet.groups}
-                  workspaces={listedWorkspaces}
-                  realWorkspaceIds={realWorkspaceIds}
-                  projects={projects}
-                  hosts={hosts}
-                  agents={active}
-                  agentsAt={agentsAt}
-                  permissions={permissions}
-                  permissionAgents={needYou}
-                  asking={asking}
-                  unread={unread}
-                  finishedAt={attention.finishedAt}
-                  selection={selection}
-                  select={choose}
-                  hostFilter={hostFilter}
-                  setHostFilter={setHostFilter}
-
-                  onApprove={(p, allow) => void respond(p, allow)}
-                  onMarkRead={markRead}
-                  onArchiveWorkspace={openArchive}
-                  archiving={archiving}
-                  onRemoveProject={openRemoveProject}
-                  removingProjects={removingProjects}
-                  poolBoxes={poolBoxes}
-                  poolJob={poolJob}
-                  onReleasePool={openReleasePool}
-                  onDispatch={openDispatch}
-                  onAddProject={addProject}
-                  workspaceOf={workspaceOf}
-                  projectOf={projectOf}
-                  counts={filterCounts}
-                  loading={loading}
-                  online={online}
-                  busy={busy}
-                  viewState={fleetView}
-                />
-              </aside>
-              <section
-                className="chat-workspace"
-                aria-label="Open conversations"
-              >
-                <div className="detail-content" {...(crewShown ? {} : { id: "detail-panel" })}>
-                  {!crewShown && detailView}
-                </div>
-              </section>
-            </div>
+            {/* Beside the other tabs, what is open shows here exactly as in Crew's drawer on the Command tab. */}
+            {!crewShown && !detailEmpty && (
+              <CrewDetail
+                hosts={hosts}
+                projects={projects}
+                workspaces={workspaces}
+                agents={active}
+                permissions={permissionAgents}
+                questions={questionAgents}
+                asking={asking}
+                unread={unread}
+                selection={selection}
+                select={choose}
+                workingOn={workingOn}
+                detail={detailView}
+              />
+            )}
           </AppPanel>
         </FloatingPanel>
         <div className="toast-stack">

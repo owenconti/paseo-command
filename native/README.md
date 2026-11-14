@@ -1,8 +1,9 @@
-# Paseo Command for macOS (native Atlas)
+# Paseo Command for macOS
 
-A macOS app that shows the Paseo Command React app in a `WKWebView` and draws the Atlas world
-natively with SpriteKit (Metal) underneath it. It builds with the Command Line Tools alone
-(`swift build`; no Xcode project).
+A macOS app that shows the Paseo Command React app in a `WKWebView`. The page draws the fleet
+itself (Crew) as well as its panels and pages; the app adds the native mode bar, Conquer, the
+Terminal tab, the Files editors' terminals and the robot's browser. It builds with the Command
+Line Tools alone (`swift build`; no Xcode project). There is no SpriteKit map any more.
 
 ```sh
 npm run native:build                 # swift build -c release, wrapped as native/build/Paseo Command Dev.app
@@ -31,7 +32,7 @@ runs the server it carries, wherever it is installed: `Contents/Resources/node/n
 Contents/Resources/server/server.mjs` (`ServerManager.swift`), with the environment of your shell
 as an interactive login shell, read once at launch, so your `gh` and keys are found
 (`ShellEnvironment.swift`). Its data, `logs/server.log` and the app's own `logs/native.log` (what it
-notes, such as the map's stalls and recoveries and display changes, also on standard error) are in
+notes, also on standard error) are in
 `~/Library/Application Support/<app name>/`. The server is tied to the app: it is started
 again if the page later finds it gone, and stops when the app quits (and exits by itself if the
 app dies). `scripts/app-server.mjs` is for browser-only work from a checkout and is not used by the
@@ -46,9 +47,7 @@ migration this launch if you decline; a folder that fails to copy is retried nex
 folder). Otherwise copy them by hand while the app is closed.
 
 The app shows whatever Paseo Command server it is pointed at (`--url`, or `PASEO_COMMAND_URL`;
-default its own server, above). That server must serve
-a build that includes `rendering/src/native/bridge.ts` (any build from this commit on). Against a
-mocked fleet instead of a daemon:
+default its own server, above). Against a mocked fleet instead of a daemon:
 
 ```sh
 npm --prefix web run build
@@ -56,57 +55,30 @@ npm run native:mock -- --fleet large --port 4331   # web/dist plus a mocked API;
 npm run native:run -- --url http://127.0.0.1:4331/
 ```
 
-`native:mock -- --dungeon` serves the Dungeon Board's concept fleet and prints an address that opens the map in
-that style (`?map=dungeon`). The map's styles each have a scene (`MapScene.swift`: `AtlasScene` for the Islands and
-the Overworld, `DungeonScene` for the Dungeon Board); the page's
-`art` message names it and the window swaps it in (`WorldWindow.adopt`). The Dungeon Board's `talk` message
-(`{id, inset}`, from the world's `talk`; the page posts it on every `ready`, a null `id` too, so a reloaded page ends
-a conversation the kept scene still holds) frames the robot the page's dialogue box talks to above the box, which
-covers the map's bottom `inset` points, and fades the count bar under it; a scene posted again re-frames it only if
-it was in view (a user who looked away keeps their camera). A null `id` puts the camera back where it was (fitted
-again if it showed the whole board), the box's room kept until it's within the board's usual limits, so a click on
-the way doesn't make it jump (`DungeonScene.talk`, `talk` in the scene's state; the other scenes ignore it).
-
 The icon (`native/AppIcon.icns`) is drawn from the Atlas's own robot art by
 `swift native/scripts/icon.swift`.
 
-Options: `--ambient <fps>`
-(ambient frame rate, default 30), `--size <w>x<h>`, `--front` (show in front without activating),
-`--ignore-occlusion`, `--checks`, `--info <path>` (window number and process ids as JSON; also the
-base path for the `notifyutil` hooks below).
+Options: `--size <w>x<h>`, `--front` (show in front without activating), `--background`,
+`--ignore-occlusion` (the page and the robot's browser keep drawing while covered), `--no-server`,
+`--info <path>` (window number and process ids as JSON; also the base path for the `notifyutil` hooks below).
 
 ## How it fits together
 
-- **Layout and art stay in JavaScript.** Inside the app, `mountAtlas` (rendering/src/atlas.ts)
-  returns the bridge world (`rendering/src/native/bridge.ts`). It runs the shared `layoutAtlas`,
-  `placeStructures`, `placeFlags`, `plaza`, `labels`, `tiles`, `lights` and `robots` rules and the
-  painters (`art.ts`, `terrain.ts`), and posts the result to Swift
-  through the `paseoWorld` message handler: sprite frames and sea tiles once, terrain and banners
-  as PNGs (only pieces Swift doesn't already hold), and positions. SpriteKit only draws.
-- **SpriteKit draws and animates** (`AtlasScene.swift`): terrain, buildings, props, camp flags,
-  banners, PR flags (the running CI one sways), state tiles (pulse periods and the running light from the shared rules), lamps and
-  beacon, walking robots and orbiting drones, sea glints and cloud shadows, hover and selection
-  rims. It owns the camera (pan, zoom, fit, focus, minimum zoom and pan limits, ported from
-  `camera.ts`) and picking (`pick.ts`), and reports picks, hover and zoom back as `paseo:world`
-  events. The React app keeps every daemon action.
-- **Overlays: a transparent page over the world.** The web view covers the whole window and
-  draws no background; where the map is, the page is transparent and SpriteKit shows through.
-  The page keeps every pointer and key event, so its toolbar, legend, tooltips, panels and dialogs
-  work exactly as in a browser, and the map surface forwards its own pointer, wheel, pinch and
-  key events to Swift. Nothing needs hit-region syncing, the web view stays first responder (its
-  shortcuts and focus behave as before), and the SpriteKit view never takes input. The cost is a
-  message per pointer event while the map is handled.
-- **Rendering on demand** (`AtlasView.swift`): the display's full rate only while the map is
-  handled or the camera moves, 30 Hz for ambient motion, 15 Hz when only the sea drifts, paused
-  when nothing moves (reduced motion with no interaction) or the window is occluded or minimised.
-- **No web renderer.** The Phaser Atlas and Galaxy were removed; in a plain browser the panels work
-  and the map area says the map is drawn by this app.
+- **The page draws everything in the window's body.** Crew (the fleet as a chat app), the session
+  panel and the pages (GitHub, Activity, Files, Settings) are the React app's, as in a browser; the
+  page keeps every pointer and key event, and the web view stays first responder.
+- **Native views stand in the map's place.** Conquer, the Terminal tab, the Files editors' terminals
+  and the robot's browser lie in `content`, a pass-through view over the page, below the mode bar.
+  The page says where its map area is (`viewport`, in its CSS pixels; until it does, the whole of
+  `content`), where the Files editor and the robot's browser go (`editor`, `browser`), and which
+  workspace the Terminal tab follows (`workspace`).
+- **The splash** covers the window until the page posts `loaded` (its fleet is in), or a minute at most.
 
 ## Terminal tab
 
 The terminals live only in the Terminal tab (there is no side or bottom panel): the mode bar's tab after Files, ⌘3 by its
 place, ⌘` through the tabs, View → Show Terminal (⌃`) from anywhere, ⌘K "Show terminal". It shows the daemon's terminals for
-the selected workspace (or the selected agent's) full size in the map's place, as Conquer lies, the chat panel beside it (⌘B
+the selected workspace (or the selected agent's) full size in the map's place, as Conquer lies, the session panel beside it (⌘B
 hides it, the terminal keeping the keyboard), and starts a terminal as it opens if the workspace has none. In the tab ⌃` (View →
 Back from Terminal) goes back to the side before it. One tab per terminal: + opens another, a tab's × ends it (after asking,
 unless told not to ask again). A tab dragged onto a pane's edge splits that pane and shows there; dropped in a pane's middle it
@@ -132,7 +104,7 @@ took out, answered and dropped (`TerminalQueries.swift`).
 
 ## Conquer
 
-The strip across the top switches the map's place between the map, Files, the Terminal tab, GitHub, Conquer, Activity and Settings (Activity and GitHub only while enabled; View → Show Files, ⇧⌘E, shows Files from anywhere; a GitHub pull request's link opens in the GitHub tab, and a Linear issue's in Linear's desktop app when it's installed (`LinearLink.swift`), else in Conquer; ⌘` steps through them in turn; Activity's tab shows its unread count); Conquer is a tabbed browser with its own persistent
+The strip across the top switches the map's place between Crew (Command), Files, the Terminal tab, GitHub, Conquer, Activity and Settings (Activity and GitHub only while enabled; View → Show Files, ⇧⌘E, shows Files from anywhere; a GitHub pull request's link opens in the GitHub tab, and a Linear issue's in Linear's desktop app when it's installed (`LinearLink.swift`), else in Conquer; ⌘` steps through them in turn; Activity's tab shows its unread count); Conquer is a tabbed browser with its own persistent
 cookie store. ⌘B toggles the React app panel even while a browser page has focus; ⌘S toggles Conquer's tab sidebar, restoring its width.
 With the keyboard in Conquer, ⌘R reloads the current page and ⇧⌘R reloads it without cache; both are also in the Conquer menu and command palette.
 Its native toolbar, tab list, find bar, suggestions and downloads use shared flat control primitives matching the React panel.
@@ -157,7 +129,7 @@ cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<ru
 opens `<info>.url`'s address in a tab, `….conquer.<run>` runs `<info>.do`'s steps a second apart (a command's name,
 `folder <name>`, `into <n>`, `drag <tab> <folder|-> <index>`, `type <text>`, `find <text>`, `roundtrip`; see
 `ConquerView.check`), `….key.<run>` presses `<info>.key`'s key (a character, `tab`, `→` or `←`, after any of ⌃ ⌥ ⇧; with ⌘ unless it starts with ⌃) as a key press would (key equivalents to the views, then the menu, else a key press to the focused view), and the snapshot hook
-draws Conquer over the map while it shows. `….appopen.<run>` opens `<info>.url` as a link clicked in the chat would.
+draws Conquer over the page while it shows. `….appopen.<run>` opens `<info>.url` as a link clicked in the chat would.
 
 ## Checks without screen recording
 
@@ -165,21 +137,14 @@ draws Conquer over the map while it shows. `….appopen.<run>` opens `<info>.url
 launched with `--info` listens, under names ending in its info file's name, so the user's own copy
 ignores them; such a copy keeps its page storage in memory, apart from the user's copy):
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
-`.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot; it draws the Terminal tab's text blank, and shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or the map pauses while covered); `.info` rewrites
-`/tmp/x.json` (with the Terminal tab's state); `.pan` drags the map for 10 s; `.resize` alternates
+`.snapshot` writes `/tmp/x.png` (the page's snapshot with the native views over it; it draws the Terminal tab's text blank, and shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or WebKit throttles while covered); `.info` rewrites
+`/tmp/x.json` (with the Terminal tab's state); `.resize` alternates
 the window size; `.reload` runs the palette’s Restart app command; `.terminal` is ⌃` (the Terminal tab, or back from it); `.terminaltab` shows the Terminal tab (`--info`'s `terminalPlace`: `map` while it shows, else `hidden`); `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
-`/tmp/x.type` into its terminal; `.files` shows the Files tab and `.command` the map; `.quit`.
-The Dungeon Board's browser (`BoardBrowser.swift`; `--info`'s `browser`: each robot's tabs and where their pages are, the stage's
+`/tmp/x.type` into its terminal; `.files` shows the Files tab and `.command` Crew; `.quit`.
+The robot's browser (`BoardBrowser.swift`; `--info`'s `browser`: each robot's tabs and where their pages are, the stage's
 frame and holes, hosting): `.browser` runs `/tmp/x.browser`'s requests (a JSON list, each as the server relays an agent's
 browser tool call: `{"host": "local", "request": {"requestId", "agentId", "workspaceId", "command": {"command", "args"}}}`) one
 after another and writes their answers to `/tmp/x.browser.out`; `.browserfocus` gives the shown page the keyboard. With
 `--ignore-occlusion` its pages draw while the window is covered, as the app's page does. The fake server serves a page at
 `/__page` and takes `POST /__browser {"command": "new_tab", "args": {"url": …}}` as an agent's call through its fake daemon
 (the app registers with it once the page has `world:browserTools` on).
-The map's watchdog (`--info`'s `map`: pause, rates, frames, revisions applied, recoveries; `page`: the page's side):
-`.stallview` and `.stallscene` pause the view or its scene behind the scheduler's back, `.stallvisible` takes the
-window for hidden as a missed notification would, `.stallcv` stops SpriteKit's CVDisplayLink and `.stalllink` leaves
-its frame callback "in progress" (only a fresh view mends that); `.sleep` and `.wake` post NSWorkspace's notifications.
-
-Measurements against the web Atlas are in [MEASUREMENTS.md](MEASUREMENTS.md)
-(`node native/scripts/measure.mjs`).

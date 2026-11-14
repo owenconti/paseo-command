@@ -90,7 +90,7 @@ export function ReleasePoolDialog({
             <b>Work on the box is lost</b>
             <p>
               Everything changed on the box since it was claimed (commits not pushed, worktrees, the database, its agents'
-              conversations) goes with the restore. Push anything you want to keep first{warning ? ", or keep the box claimed and release it from the Hosts tab later" : ""}.
+              conversations) goes with the restore. Push anything you want to keep first{warning ? ", or keep the box claimed and release it from its host in the crew later" : ""}.
             </p>
           </div>
           {agents.length > 0 && (

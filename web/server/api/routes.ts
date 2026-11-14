@@ -17,7 +17,6 @@ import {
 import { workingOn } from "../workingOn";
 import { replyAsks } from "../asks";
 import { probeRoute } from "../probe";
-import { hostStatsRoute } from "../hostStats";
 import { readVisualPage } from "../visual";
 import { linearRoute } from "../linear/route";
 import { activityRoute } from "../activity/route";
@@ -210,9 +209,6 @@ export async function handleApi(
             break;
           case "probe":
             result = await probeRoute();
-            break;
-          case "hoststats":
-            result = await hostStatsRoute();
             break;
           case "visual": {
             const host = await resolveHost(url.searchParams.get("host"));

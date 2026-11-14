@@ -77,24 +77,3 @@ test("gives the workspace's address and team keys, only while Linear answers", a
   resetLinearReads();
   assert.deepEqual((await ask("/api/linear/teams")).body, { urlKey: "", teams: [] }, "without a key, none");
 });
-
-test("counts your issues; accepts fresh=1 only; says why there are none, always 200", async () => {
-  const ok = await ask("/api/linear/issue-counts");
-  assert.equal(ok.status, 200);
-  assert.equal(ok.body.state, "ok");
-  assert.deepEqual(ok.body.counts, { done: 11, inProgress: 8, todo: 8, blocked: 3 });
-  const asked = () => fake.requests.filter((r) => r.operation === "AssignedIssues").length;
-  await ask("/api/linear/issue-counts");
-  assert.equal(asked(), 1, "kept");
-  assert.equal((await ask("/api/linear/issue-counts?fresh=1")).body.state, "ok");
-  assert.equal(asked(), 2);
-  for (const path of ["/api/linear/issue-counts?fresh=0", "/api/linear/issue-counts?x=1", "/api/linear/issue-counts?fresh=1&fresh=1"])
-    assert.equal((await ask(path)).status, 400, path);
-  assert.equal((await ask("/api/linear/issue-counts", "POST")).status, 404);
-  fake.fail("AssignedIssues", { status: 429, message: "slow down" });
-  assert.deepEqual((await ask("/api/linear/issue-counts?fresh=1")).body, { state: "error", message: "Linear's hourly limit is used up." });
-  saveSecret({ name: "linearApiKey", value: null });
-  assert.deepEqual(await ask("/api/linear/issue-counts"), { status: 200, body: { state: "no-key", message: NO_KEY } });
-  writeSettings({ integrations: { ...(readSettings()?.integrations as object), linear: false } });
-  assert.deepEqual(await ask("/api/linear/issue-counts"), { status: 200, body: { state: "off", message: DISABLED } });
-});

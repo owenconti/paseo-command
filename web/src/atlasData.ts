@@ -1,9 +1,8 @@
-/** The fleet as the maps take it (`AtlasData`): the world snapshot's rows with each agent's truthful state (a pending
- * request a question or an approval, an idle reply that waits on you, unread as done, stale as offline), each
- * workspace's PR labels, Probe's verdict and auto-merge, and each host's load. Shared by the native worlds
- * (NativeWorld.tsx) and the page-drawn Crew map (src/crew/). */
-import type { AtlasData, HostStats } from "../../rendering/src/world";
-import type { ProbeVerdict } from "../../rendering/src/probe";
+/** The fleet as Crew takes it (`AtlasData`): the world snapshot's rows with each agent's truthful state (a pending
+ * request a question or an approval, an idle reply that waits on you, unread as done, stale as offline), and each
+ * workspace's PR labels, Probe's verdict and auto-merge (src/crew/). */
+import type { AtlasData } from "./model/fleet";
+import type { ProbeVerdict } from "./model/probe";
 import type { WorldSnapshot } from "./worldBridge";
 import type { Selection } from "./types";
 import { projectKey, workspaceKey } from "./workspaces";
@@ -15,8 +14,6 @@ export function atlasData(
   asking: Set<string> = new Set(),
   /** Probe's verdicts, keyed `<host>:<workspaceId>` (useProbe). */
   probe: Record<string, ProbeVerdict> = {},
-  /** Each host machine's load, keyed by host id (useHostStats). */
-  stats: Record<string, HostStats> = {},
 ): AtlasData {
   return {
     hosts: snapshot.hosts.map((h) => ({
@@ -24,7 +21,6 @@ export function atlasData(
       name: h.name,
       online: !/offline|stale/.test(h.state),
       local: h.local,
-      ...(stats[h.id] ? { stats: stats[h.id] } : {}),
     })),
     projects: snapshot.projects.map((p) => ({
       key: p.key,

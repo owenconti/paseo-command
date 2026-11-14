@@ -1,40 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readUrlState, urlSearch } from "./urlState";
+import { readUrlState, selectionKey, urlSearch } from "./urlState";
 
-const defaults = { tab: "Workspaces" as const };
-
-test("an agent with its subagent, tab, filter and host round-trip through the URL", () => {
-  const state = {
-    selection: { type: "agent" as const, id: "a1", host: "srv", subagent: "s2" },
-    tab: "Agents" as const,
-    filter: "running" as const,
-    hostFilter: "",
-    browsing: false,
-  };
-  const search = urlSearch(state, defaults);
-  assert.equal(search, "?agent=a1&host=srv&sub=s2&tab=Agents&filter=running&on=local");
-  assert.deepEqual(readUrlState(search), state);
+test("an agent with its host and subagent round-trips through the URL", () => {
+  const state = readUrlState("?agent=a1&host=srv_b&sub=s9");
+  assert.deepEqual(state, { selection: { type: "agent", id: "a1", host: "srv_b", subagent: "s9" } });
+  assert.equal(urlSearch(state), "?agent=a1&host=srv_b&sub=s9");
+  assert.equal(selectionKey(state.selection), "agent:a1:srv_b:s9");
 });
 
-test("defaults stay out of the URL, and an empty query is the fleet list", () => {
-  assert.equal(
-    urlSearch({ selection: null, tab: "Workspaces", filter: "all", hostFilter: null, browsing: true }, defaults),
-    "",
-  );
-  assert.deepEqual(readUrlState(""), {
-    selection: null,
-    tab: undefined,
-    filter: undefined,
-    hostFilter: null,
-    browsing: true,
-  });
-});
-
-test("the list shown over a selection, and unknown values, are read safely", () => {
-  const state = readUrlState("?workspace=w1&list=1&tab=Nope&filter=bogus");
-  assert.deepEqual(state.selection, { type: "workspace", id: "w1" });
-  assert.equal(state.browsing, true);
-  assert.equal(state.tab, undefined);
-  assert.equal(state.filter, undefined);
+test("nothing open is an empty query; old list parameters are ignored", () => {
+  assert.deepEqual(readUrlState(""), { selection: null });
+  assert.equal(urlSearch({ selection: null }), "");
+  assert.deepEqual(readUrlState("?tab=Hosts&filter=running&on=local&list=1"), { selection: null });
+  assert.deepEqual(readUrlState("?workspace=w1&tab=Agents"), { selection: { type: "workspace", id: "w1" } });
+  // A subagent belongs to an agent only.
+  assert.deepEqual(readUrlState("?project=p1&sub=s1"), { selection: { type: "project", id: "p1" } });
 });

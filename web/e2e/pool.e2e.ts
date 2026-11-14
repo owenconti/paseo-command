@@ -90,7 +90,7 @@ test("New pool box claims a box, shows its progress, then opens the agent it sta
   await context.close();
 });
 
-test("a claimed pool box's host is released from the Hosts tab after confirming", async () => {
+test("a claimed pool box's host is released from its head in the crew after confirming", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   const released: any[] = [];
@@ -108,7 +108,7 @@ test("a claimed pool box's host is released from the Hosts tab after confirming"
     },
   });
   await page.goto(app.url);
-  await page.getByRole("tab", { name: /Hosts/ }).click();
+  // Its host has no workspaces, but a claimed box's stays on the map so it can be released.
   const release = page.getByRole("button", { name: "Release pool box pool-1" });
   await release.waitFor();
   // Only the claimed box's host has it.
@@ -124,7 +124,7 @@ test("a claimed pool box's host is released from the Hosts tab after confirming"
   await dialog.getByRole("button", { name: "Release pool-1" }).click();
   await waitFor(() => Promise.resolve(released.length), (n) => n === 1, "the release");
   assert.deepEqual(released[0], { pool: "pool-1" });
-  await waitFor(() => page.locator(".host-entry").filter({ hasText: "pool-1" }).textContent(), (t) => !!t?.includes("Releasing…"), "the row to say it's releasing");
+  await waitFor(() => page.locator(".crew-host").filter({ hasText: "pool-1" }).textContent(), (t) => !!t?.includes("Releasing…"), "its head to say it's releasing");
   lists.pool = status({ id: "pj2", kind: "release", phase: "done", pool: "pool-1", steps: [], startedAt: 1 });
   await waitFor(() => page.locator(".toast").textContent(), (t) => !!t?.includes("Released pool-1"), "the notice");
   await context.close();
@@ -166,7 +166,7 @@ test("leaving New agent mid-claim keeps the claim; a failed claim puts the messa
   await context.close();
 });
 
-/** A fleet with workspaces on pool-1 (and one on macmini), archived from the Workspaces tab. */
+/** A fleet with workspaces on pool-1 (and one on macmini), archived from their heads in the crew. */
 async function archiveScene(opts: {
   checkout?: unknown;
   remaining?: { workspaces: number; agents: number };
@@ -211,7 +211,6 @@ async function archiveScene(opts: {
     },
   });
   await page.goto(app.url);
-  await page.getByRole("tab", { name: /Workspaces/ }).click();
   const archive = async (name: string) => {
     await page.getByRole("button", { name: `Archive workspace ${name}` }).click();
     const dialog = page.getByRole("dialog", { name: "Archive this workspace?" });
@@ -232,8 +231,8 @@ test("archiving a pool box's last workspace releases the box, its checkout clean
   assert.deepEqual(posted("/api/pool/release")[0].body, { pool: "pool-1", host: "srv_pool1", workspace: "wks_pool" });
   assert.equal(await page.getByRole("dialog", { name: /Release pool-1/ }).count(), 0, "nothing asked");
   await waitFor(() => page.locator(".toast-stack").textContent(), (t) => !!t?.includes("Releasing pool-1: its last workspace was archived"), "the notice");
-  await page.getByRole("tab", { name: /Hosts/ }).click();
-  await waitFor(() => page.locator(".host-entry").filter({ hasText: "pool-1" }).textContent(), (t) => !!t?.includes("Releasing…"), "the Hosts tab's state");
+  // Its host stays in the crew while the box is released, saying so.
+  await waitFor(() => page.locator(".crew-host").filter({ hasText: "pool-1" }).textContent(), (t) => !!t?.includes("Releasing…"), "its head's state");
   await context.close();
 });
 
@@ -413,7 +412,6 @@ async function claimThenLeave(opts: { reload?: boolean } = {}) {
   if (opts.reload) await page.reload();
   else await form.getByRole("button", { name: "Fleet" }).click();
   await waitFor(() => page.locator(".new-agent").count(), (n) => n === 0, "New agent to close");
-  await page.getByRole("tab", { name: /Agents/ }).click();
   const row = page.locator(".pool-claims .pool-claim");
   return { context, page, posts, job, setJob, row, form, setAgents: (a: any[]) => (agents = a) };
 }
@@ -455,7 +453,6 @@ test("a claim that fails after New agent was left says why in the agent list and
   await waitFor(() => form.locator("#composer").inputValue(), (v) => v === "Say hello from the box", "the message back");
   // Dismissed, it leaves the list.
   await form.getByRole("button", { name: "Fleet" }).click();
-  await page.getByRole("tab", { name: /Agents/ }).click();
   await row.getByRole("button", { name: "Dismiss the failed claim of pool-2" }).click();
   await waitFor(() => row.count(), (n) => n === 0, "the row to go");
   assert.deepEqual(posts.find((p) => p.path === "/api/pool/dismiss")?.body, { id: "pj9" });

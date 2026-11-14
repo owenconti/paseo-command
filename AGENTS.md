@@ -29,18 +29,13 @@
 ## Product and references
 
 Paseo Command visualizes hosts, projects, workspaces and agents from the Paseo daemon.
-The React app and official SDK API are in `web/`. The Atlas world is drawn by the macOS app in
-`native/` (SpriteKit, under the React app in a WKWebView); its layout and art are in `rendering/`.
-The user removed the Phaser renderers (the web Atlas and the Galaxy world): in a plain browser the
-panels work and the map area says it is drawn by the macOS app, except on Crew (below), which the page draws
-itself. Do not add further worlds unless asked.
-The user’s five supplied top-down illustrations guide the Atlas world: blue water,
-parchment hex islands, project landmarks, workspace cottages, and model-colored robots (Claude orange,
-ChatGPT/Codex white; other providers keep a stable colour of their own).
-The attached illustrations are references, not full-screen backgrounds.
+The React app and official SDK API are in `web/`; the macOS app (`native/`, the React app in a WKWebView) adds the
+top bar, Conquer, the Terminal tab, the Files editors and the agent's browser. The map is Crew (below), which the page
+draws itself, in a plain browser too; the other maps (Islands, Overworld, the Dungeon Board) were removed at the user's
+request, their art kept in `rendering/` (no code). Do not add further worlds unless asked.
+Robots keep model colours (Claude orange, ChatGPT/Codex white; other providers keep a stable colour of their own).
 Real state must remain truthful: distinguish running, idle, completed/unread, approval,
 question, failure and offline. Test daemon mutations against fake daemons only.
-The Atlas uses generated painted sprites; it is not yet finished reference-quality art.
 
 ## Command palette
 
@@ -86,8 +81,8 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 
 ## Commands
 
-- `npm run app:install`: installs `rendering/` and `web/` dependencies.
-- `npm run app:dev`: React UI, SDK API and the Atlas world on port 4310, bound to `127.0.0.1`.
+- `npm run app:install`: installs `web/`'s dependencies.
+- `npm run app:dev`: React UI (Crew and the pages) and SDK API on port 4310, bound to `127.0.0.1`.
 - `npm run app:start`: detached preview of the built app and API, bound to `127.0.0.1`;
   run from a human terminal. Access it on this machine at port 4310. Do not expose this unauthenticated API through a proxy or tunnel.
 - Port 4310 is the user's installed app's. Agents' browser checks use another port:
@@ -107,16 +102,14 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
   (`scripts/dmg.mjs`; signed, notarized and stapled too), writes the Sparkle appcast, commits
   `Release v<version>`, pushes `main` and runs `gh release create`. Releases are notarized, so they open normally. `--unsigned` (with `release:setup -- --unsigned`) makes an
   ad hoc signed, non-notarized release while no Developer ID is available; its notes explain Open Anyway.
-- `npm run app:typecheck`: checks React, API and Atlas TypeScript.
-- `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
-- `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with
-  SpriteKit under the React app in a WKWebView, built as the dev flavour "Paseo Command Dev" (`io.github.owenconti.paseo-command.dev`,
+- `npm run app:typecheck`: checks the React app's and the API's TypeScript.
+- `npm run app:e2e`: browser tests of the app against a mocked fleet (no daemon is reached).
+- `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`), the React app in a WKWebView, built as the dev flavour "Paseo Command Dev" (`io.github.owenconti.paseo-command.dev`,
   port 4321, no updates, data in `~/Library/Application Support/Paseo Command Dev/`); `sh native/scripts/bundle.sh --release` (done by
   `npm run release`) builds "Paseo Command" (`io.github.owenconti.paseo-command`, port 4310, Sparkle). `native:mock` serves web/dist
   with a mocked fleet. See `native/README.md`. The app is self-contained: `Contents/Resources/node/node`, `server/server.mjs` and `ui/`
   (web/dist). It runs that server itself and the server ends with the app (`ServerManager.swift`). Check runs pass `--no-server`.
   Launch it with `open -g` and `--background` for checks; it must never take the user's focus.
-- `npm run render:test`: layout and tile tests.
 - `npm run check`: every check, run locally (the repository has no GitHub Actions; do not add any): `public:check -- --history`,
   `secrets:scan` (Gitleaks over all history, skipped with a note when `gitleaks` isn't installed), `app:test`, `app:build`, `native:test`.
 
@@ -140,14 +133,9 @@ and GitHub publication; report the published version and release link.
 
 ## Structure
 
-- `rendering/src/world.ts`: Atlas vocabulary, axial geometry and the deterministic fleet layout.
-- `rendering/src/placement.ts`, `camera.ts`, `outline.ts`, `pick.ts`, `ribbon.ts`: where structures, props,
-  flags, banners, tiles and robots stand, and the camera, outline and picking rules (ported to Swift).
-- `rendering/src/art.ts`, `terrain.ts`: the sprite frames and the painted sea, landmasses and islands.
-- `rendering/src/atlas.ts`: `mountAtlas(parent, handlers)`, the embedding API (null outside the macOS app).
-- `rendering/src/sample.ts`: illustrative fleets for the layout tests.
-- `web/src/NativeWorld.tsx`: maps the React app's host-qualified world snapshot to the Atlas,
-  forwards map picks as selections and draws app selections on the map.
+- `web/src/model/`: the fleet's vocabulary (`fleet.ts`: states, models and robot colours, `AtlasData`), PR flags
+  (`prStatus.ts`) and Probe's verdicts (`probe.ts`), shared by Crew, the hover tips and the server.
+- `web/src/crew/`: Crew, the map (below). `rendering/`: the old maps' art only (`src/assets/`, `artifacts/`, `ASSETS.md`).
 - `web/server/`: inherited official Paseo SDK API, served with the app on loopback only. `native.ts` is the entry the app
   bundle runs (`server.mjs`, env `PASEO_COMMAND_DATA`, `PASEO_NATIVE_OWNER_PID`); `scripts/app-server.mjs` (`app:start`) instead serves a checkout's `web/dist` and API through Vite preview for browser-only work.
 - `web/server/releases.ts`: `GET /api/releases`, the GitHub releases and their notes; `web/src/ReleasesButton.tsx` (top bar,
@@ -201,9 +189,6 @@ and GitHub publication; report the published version and release link.
   preserving other credentials in an atomic owner-only file. Saved values never return to the page.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
   `web/server/settings.ts`), which the page once kept in localStorage and moves into the file on load.
-- `rendering/src/native/bridge.ts`: inside the native app, the Atlas world `mountAtlas` returns: it lays out and paints
-  with the shared modules (`placement.ts`, `art.ts`, `terrain.ts`) and posts the result to Swift (`native/Sources/`),
-  which draws, animates and owns camera, hover and picking under a transparent page.
 - `native/Sources/PaseoCommandNative/TerminalDrawer.swift`: the Terminal tab, the macOS app's only terminals (the Files editor's aside; there is no side or
   bottom terminal panel: the user removed it). The mode bar's tab after Files (`Mode.terminal`; ⌘3 by its place, ⌘` steps through it; View → Terminal
   and View → Show Terminal, ⌃`, from anywhere, which in the tab goes back to the side before it (`toggleTerminal`, its title then Back from Terminal);
@@ -250,8 +235,7 @@ and GitHub publication; report the published version and release link.
   use `KEY · Issue title`, verified through the enabled Linear integration. `workspace-names.json` in the app's data folder remembers
   assignments per host/workspace so later custom names survive. Agents with no title or a copied opening message get a stable short
   task title from the host's metadata model, written back with `paseo-command.auto-title`; custom titles, helpers and subagents stay alone.
-  An unnamed sole-agent worktree gets that task title too. Map hover cards use the chat panel's display name, including workspace titles,
-  and read it from the current snapshot while hovered. `PASEO_COMMAND_AUTOMATIC_NAMES=off` disables the observer (other test fixtures
+  An unnamed sole-agent worktree gets that task title too. `PASEO_COMMAND_AUTOMATIC_NAMES=off` disables the observer (other test fixtures
   use it; `automaticNames.test.ts` exercises the service with fake clients). Naming never sends a task to a real daemon during tests.
 - `web/server/asks.ts`: what an idle agent's last reply asks of you, judged once per reply by TypeSafe's Jev
   (opt-in `integrations.typesafe` in `settings.json`, with `typesafeApiKey` in the data directory's `secrets.json`): code splits the reply into
@@ -270,18 +254,17 @@ and GitHub publication; report the published version and release link.
   "Drafting answers…" ends within `ANSWERS_MS` (90 s): a helper that fails or doesn't finish leaves the question without answers;
   the page (`web/src/useAsks.ts`) keeps polling while `answering`.
   Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
-- `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
-  the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
-- `web/src/games/`: the top bar's mini games (gamepad button, or ⌘⇧B from anywhere, in a field too; plain B is the Dungeon Board's browser), a floating non-modal window with one game dealt at
+- `web/src/urlState.ts`: what is open (the selection and any subagent) kept in the page's query, so a refresh returns
+  there; a new selection pushes history, a subagent's opening or closing replaces it.
+- `web/src/games/`: the top bar's mini games (gamepad button, or ⌘⇧B from anywhere, in a field too; plain B is the agent's browser on Crew), a floating non-modal window with one game dealt at
   random by the server (`web/server/games.ts`, `/api/games`): no choosing or restarting, the next game only once it ends.
   Progress and each game's best score are kept in the data directory's `games.json`. Games implement `types.tsx`'s
   `GameDef` (plain JSON state) and are listed in `catalog.ts` and `registry.ts`.
 - `web/server/probe.ts`: Probe's verdict (Diagonal's `diagonalprobe` review bot) on each workspace's open PR, from one
   read-only GitHub GraphQL query per PR (`githubApi.ts`, the GitHub token) (`GET /api/probe`, polled by `web/src/useProbe.ts`): reviewing, approved,
-  findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas sets a medallion of its own in the
-  workspace's first cell (the one facing its landmark): enamel in the verdict's colour round an original review magnifier,
-  with a glyph badge (`rendering/src/probe.ts`, `placeProbes`, `paintProbe`); its hover card
-  says the verdict. `native:mock -- --probe` shows each.
+  findings open (with their count), stale (new commits since, or deferred) or failed. Crew shows it as a medallion on the
+  workspace's head (`web/src/model/probe.ts`, `medalsOf` in `crew/sheets.ts`), its tooltip saying the verdict.
+  `native:mock -- --probe` shows each.
 - Pool boxes (`web/src/pool.ts`, pure; `web/server/pool.ts`): warm-pool Sprites the user's paseo-boxes scripts on this Mac claim and
   release. Opt-in (`integrations.pool`, Settings → Integrations → Pool boxes), with `pool: {dir}` in `settings.json` (the scripts'
   folder, absolute or `~/…`; no default, so no personal path is in the repository: `web/src/PoolSettings.tsx`). paseo-boxes is the source
@@ -291,12 +274,12 @@ and GitHub publication; report the published version and release link.
   the checkout, why it can't work yet, and the job. One job at a time. The job is the server's: claim, wait and dispatch
   run there whatever the page does, and recent claims (`jobs`: title, where, phase, how each ended) are kept, also in the data
   folder's `pool-jobs.json` (one the server stopped during reads as failed, saying so), so leaving New agent or reloading loses
-  nothing. The agent lists (Agents tab, Crew) head with them as pending rows (`web/src/PoolClaims.tsx`, `pendingClaims`): running
+  nothing. Crew heads with them as pending rows, under its head (`web/src/PoolClaims.tsx`, `pendingClaims`): running
   ones with their latest step, failed ones with why until dismissed (`POST /api/pool/dismiss {id}`), done ones until the fleet lists
   the agent; New agent reopened says why its claim failed (`dispatch-pool-failed`). A dispatch the box's daemon refuses says the box
   is claimed and online (`dispatchFailure`; gh's auth failure names `gh auth status`). New agent's Host has
   "New pool box · N idle" (`POOL`, `poolOption` in `Dispatch.tsx`; disabled with why when none is idle): its place is the box's checkout
-  (Local, or Worktree with a branch; no pull request), Claude only, no /skills; the first message is `POST /api/pool/claim`, checked first
+  (Local, or Worktree with a branch or a pull request's branch), Claude only, no /skills; the first message is `POST /api/pool/claim`, checked first
   (`checkPoolDispatch`), which answers at once and runs `claim.sh --any` (the fast claim, never `--up`: the user's call; the agent can run
   `paseo-box-up`), then waits for the Paseo host labelled as the box to be online (`POOL.onlineMs`), then dispatches into the checkout
   (`poolDispatch` in `commands.ts`, as a directory or worktree workspace, so the daemon needn't have it registered), asked again only while
@@ -311,7 +294,7 @@ and GitHub publication; report the published version and release link.
   Each box is registered once as Paseo host `pool-N` (by `provision-named.sh`); claims and releases never add or remove hosts, and a
   released box's daemon is down until it's claimed again. (Paseo CLI 0.15.4's `--host` takes an endpoint, not a host label: the app
   dispatches through the SDK by the host's serverId.) The form shows the script's step lines (`progressLine`) and opens the agent when it's done; a notice says how each job
-  ended (`onPoolJobEnd` in main). A claimed box's host in the Hosts tab has Release (↺), which confirms (`ReleasePoolDialog.tsx`: the box is
+  ended (`onPoolJobEnd` in main). A claimed box's host head in Crew has Release, which confirms (`ReleasePoolDialog.tsx`: the box is
   restored, so its work and agents go) and runs `release.sh pool-N` (`POST /api/pool/release`). Archiving a claimed box's last
   workspace releases it (`web/src/poolArchive.ts`, every workspace archive goes through `archiveWorkspace`): before the archive
   request (the toast shows at once; bounded by `POOL_ARCHIVE.checkMs`, never stopping the archive) `POST /api/pool/before-archive
@@ -327,13 +310,9 @@ and GitHub publication; report the published version and release link.
   lines kept. Tests: `server/pool.test.ts` (fake scripts in a temporary folder; `POOL_DEPS` fakes the host, dispatch, checkout and
   what's left on a host),
   `src/pool.test.ts`, `e2e/pool.e2e.ts`.
-- Host load: `web/server/hostStats.ts` (`GET /api/hoststats`, polled by `web/src/useHostStats.ts`) asks each online host's
-  daemon for the `host-stats` plugin's `stats.snapshot` (github.com/owenconti/paseo-cc-plugins, installed per daemon) over
-  `invokePluginRpc`; a host without it is left out. Its host banner gains a second line, `CPU · MEM · DISK` percents
-  (`statParts` in `rendering/src/placement.ts`, `RIBBON_DETAIL` in `ribbon.ts`; 90% and over in red). `native:mock -- --stats` shows it.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else GitHub's API (`web/server/links.ts`, the GitHub token).
-  While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
-  `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
+  While it's on, Crew's workspace head carries the auto-merge seal (`AUTO_MERGE` in `web/src/model/prStatus.ts`), its tooltip saying how
+  it merges and who turned it on.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
   lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Files, Terminal, GitHub, Conquer, Activity, those enabled;
   ⌘1…⌘6 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
@@ -686,13 +665,13 @@ and GitHub publication; report the published version and release link.
   the terminal and Conquer's pages (`AppKeys.swift`) except while Conquer has the keyboard, where it stays Conquer's Find Previous, and which
   asks the page's `branch-changes` (`AppKeys.branchChangesCommand`); in a browser the page takes the key itself and, as with nothing selected,
   only says why. Tests: `e2e/changes.e2e.ts`, `e2e/diff-comments.e2e.ts`.
-- Chat Markdown renders fenced `mermaid` blocks (`web/src/mermaid/`), in the session panel and both map
-  conversation views. The engine loads near the viewport, with serialized strict-mode renders and each view's
+- Chat Markdown renders fenced `mermaid` blocks (`web/src/mermaid/`), in every conversation (Crew's drawer and the
+  session panel). The engine loads near the viewport, with serialized strict-mode renders and each view's
   palette; its SVG is shown as an isolated image. Source/copy, zoom/reset and an expanded focus-trapped view have
   matching context-sensitive palette entries (`mermaidCommands.ts`, `mermaid-diagram` in `appCommands.ts`). An
-  incomplete streamed fence waits, invalid/oversized diagrams keep their source, and map paging keeps a chart whole.
+  incomplete streamed fence waits, and invalid/oversized diagrams keep their source.
   Mermaid stays on the 11.x line for the app's older WebKit support; its KaTeX override keeps the patched trust checks.
-  Tests: `web/e2e/mermaid.e2e.ts`, the Mermaid case in `world-chat.e2e.ts`, and `worldChat/script.test.ts`.
+  Tests: `web/e2e/mermaid.e2e.ts`.
 - Visual replies (`web/src/visual/`, after T3 Code's): an agent answers with a page (a chart, table, diagram, collage, mockup) by
   writing a fenced `html-render` block holding a whole HTML document, first in its reply; the chat (the session panel, both map
   conversation views, a Markdown file's preview) draws it in a sandboxed frame instead of code (`CodeBlock` in `Markdown.tsx` →
@@ -717,9 +696,8 @@ and GitHub publication; report the published version and release link.
   larger) and copying the HTML are in ⌘K, through the registry shared with Mermaid (`mermaidCommands.ts`, `page: true`); ⌘K "Show the visual reply's HTML" / "…page",
   "Expand the visual reply", "Zoom in on / out of the visual reply", "Reset the visual reply's zoom", "Copy the visual reply's HTML"
   (page Command), only while one is in view. A block still streaming shows its source until its fence closes; over 512 KB it stays
-  source. The Dungeon dialogue keeps a page whole when paging (`script.ts`), and the tray's reply previews leave its HTML out
-  (`withoutPages`). Not done, unlike T3's: no headless-browser preview for the agent, and no MCP apps. Tests: `src/visual/page.test.ts`,
-  `e2e/visual.e2e.ts`, `server/agentPrompt.test.ts`, `worldChat/script.test.ts`.
+  source. Not done, unlike T3's: no headless-browser preview for the agent, and no MCP apps. Tests: `src/visual/page.test.ts`,
+  `e2e/visual.e2e.ts`, `server/agentPrompt.test.ts`.
   Published with a tool, where the host's daemon has the `visual-replies` plugin (github.com/owenconti/paseo-cc-plugins, installed per
   daemon as `host-stats` is; `paseo plugin install github:owenconti/paseo-cc-plugins:plugins/visual-replies`): its `agent.open.before`
   hook gives every agent there an `html_render` tool (title, and `html` or the absolute `path` of an `.html` file), whoever created the
@@ -731,13 +709,13 @@ and GitHub publication; report the published version and release link.
   row, without its HTML; `GET /api/visual?id=&host=` reads the page from that host's plugin (`invokePluginRpc` `page.read`, the id
   checked, 15 s, 25 MB). The page draws it in the call's place as a block of its own (`toBlocks` kind `visual`, `PublishedPage.tsx`:
   read once and kept, Try again if the host can't answer; then the same `VisualBlock`, `prepared`, named by the call's title). A running
-  or refused call stays an ordinary tool row. The Dungeon dialogue shows such a page in its Conversation log, not in the box.
+  or refused call stays an ordinary tool row.
   Tests: `server/visual.test.ts` (over the row a real daemon gave), `e2e/visual.e2e.ts`; the plugin's own in its repository.
   In the macOS app the window's navigation policy (`WorldWindow.swift` `decidePolicyFor`) cancels everything off the app's origin, so it
   allows a frame's inline document by name (`WebOrigin.inlineFrame`: `about:srcdoc`, never in the main frame; `WebOriginTests`): without
   it the frame stays blank (0.31.0 shipped so; Chrome's tests can't see it). A page's frame going anywhere else is still cancelled there.
   Check a page in a copy of the app (`--info`, `.eval`, `.windowshot`), not only in the browser tests.
-- Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` and the map dialogue provide `Autolinks` from
+- Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` provides `Autolinks` from
   `useAutolinks` in `web/src/autolinkStore.ts`), its replies (`Markdown.tsx` adds `remarkAutolink`, a remark step over text nodes) and
   your messages (`autolinkRuns`), but not tool output. Linear keys only of the Linear workspace's teams (`GET /api/linear/teams`, asked
   once per five minutes while Linear is on; never a bare `[A-Z]+-\d+` guess) link to `https://linear.app/<urlKey>/issue/<KEY>`;
@@ -767,8 +745,8 @@ and GitHub publication; report the published version and release link.
   in that folder; only paths that host's own transcript gave, `rememberTimelineImages(items, <server id>)`, or its prompt
   attachments; PNG, JPEG, GIF or WebP by their header, 20 MB at most; never this Mac's same-named file). Tests:
   `server/remoteImage.test.ts`, `src/imageSource.test.ts`.
-- A conversation's context window (`web/src/ContextMeter.tsx`, pure `contextUsage.ts`): its header (the side panel's, Crew's,
-  the Dungeon Board's whole conversation) shows a ring filling with the window and "476k / 1M · 48%", amber from 70% and red
+- A conversation's context window (`web/src/ContextMeter.tsx`, pure `contextUsage.ts`): its header (Crew's drawer, or the side panel's
+  beside the other tabs) shows a ring filling with the window and "476k / 1M · 48%", amber from 70% and red
   from 90%, from the daemon's `lastUsage.contextWindowUsedTokens` / `contextWindowMaxTokens` (`ContextUsedTokens`,
   `ContextMaxTokens` in `LastUsage`: `agentDetail` in `server/api/agents.ts`, `inspectOf` in `server/rows.ts`; live as the
   feed pushes the record); its tooltip (`data-summary`) gives the exact tokens and the last turn's in, cached, out and cost.
@@ -798,322 +776,81 @@ and GitHub publication; report the published version and release link.
   only when Launch Services names an app for it (`NSWorkspace.urlForApplication(toOpen:)`); nothing is installed and no other app
   launched. Slack links are ordinary links (Conquer).
 
-## Atlas world
+## Crew
 
-The app bundles `rendering/` directly; the bridge paints its art in the page and SpriteKit draws it.
-Each project with workspaces is its own island (projects without workspaces are hidden, as are hosts without any; if no host has workspaces, each shows as a bare clearing): a ten-hex
-landmark (rows of 3, 4, 3) in the middle, ringed by its workspaces, each touching it. Workspaces are placed
-oldest first (then by id; never by their changing titles, so nothing swaps places): bottom, lower-left, lower-right, upper-left, upper-right, then top, a cell apart (later ones stand against
-that ring). A workspace is a three-hex light-dirt triangle pointing at the landmark, its cottage larger and centred
-across all three, with no plants beside it so its PR medallions stand clear. Each agent is a robot on its own light-tiled hex beside its workspace, growing away from
-the landmark, oldest first: straight out, then alternating left and right. Islands are only these built cells:
-no empty sand around them (the user removed it). A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
-banner (offline hosts are faded and labeled). Each agent's state shows only on its sand hex (fill, border colour, border motion: a light runs round
-running borders, states that need you pulse); robots carry no rings or badges. Running subagents circle their agent as drones (up to four), each in its own provider's colour (`subagentModels` → `droneArts`), its agent's where the daemon doesn't say. Hosts, projects, workspaces and
-agents each have their own hover border colour; hosts are not interactive on the map (no hover, no pick from land or banner). The user asked for water back (rejecting chart paper, and a plain meadow background), with each
-host as a landmass; project islands sit on it on earthen banks with soft shadows.
-The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack vertically.
-Agents the daemon reports without a workspace wait at a flagged camp, laid out like a workspace.
-Each landmark's paving carries props (`props.png`): three seeded pieces of greenery and workshop gear, two lamps
-lit while any of the project's agents is running, and a beacon that flares, in the most urgent state's colour,
-when one needs approval, has a question or failed. Props keep off the landmark's art, its name and the kerb.
-Every item (landmarks, cottages, plaza props, lamps and beacons, robots, PR medallions) casts a soft shadow under a noon sun: centred
-beneath it and showing evenly on every side, so it never turns as a robot does. The page paints each frame's `<frame>-shadow`
-(`shadowOf`, `SHADOW` in `rendering/src/native/bridge.ts`); structures' come as sprites, and Swift places those of lamps, PR medallions and robots (lighter).
-The world is assembled from generated transparent sprite atlases, a terrain texture,
-and a strict axial hex grid. It is not a screenshot used as a background.
-The sea's glints and cloud shadows drift slowly in 15 Hz steps. The world renders on demand: 30 fps for ambient
-motion, full rate while handled, paused when nothing moves or the window is hidden.
-It never stays frozen (the map once stopped updating and animating while hover and clicks still worked): a watchdog
-(`AtlasView.watch`, every 2 s) finds, on two looks in a row, a visibility kept out of step with the window's, the view or
-its scene paused while the map should draw, or no frame for 3 s, and restarts the loop (pausing and unpausing restarts
-SpriteKit's CVDisplayLink); a second stall with no frame between gives the scene a fresh `AtlasView`
-(`WorldWindow.rebuildAtlasView`), the only mend for a display link whose frame callback stays "in progress". A display
-change restarts the link at once. Each recovery is logged to `<data>/logs/native.log` (`Log.file`; display changes too)
-and asks the page to post its world again (`stalled`). The page's side (`rendering/src/native/watch.ts`): every scene and
-agents post carries a revision, Swift reports what it applied (`sceneRevision`, `agentsRevision` in its state), and a
-bridge behind for 10 s posts the world again; every 5 s it tells Swift how it stands (`pageStatus`: since its last data
-and post, the live connection), shown in `--info`'s `page` beside the view's `map`. The live connection (`web/src/live.ts`
-`verify`) reads the fleet after 2 minutes without a message and, if the read is newer than its pushes, connects again.
-Check hooks `stallview`, `stallscene`, `stallvisible`, `stallcv`, `stalllink` (native/README.md); `native/tests/AtlasViewTests.swift`.
-The inherited React UI is preserved; its panels follow the system's appearance: the Galaxy theme (as in the user's
-reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). In dark, the pages (GitHub, Activity, Files, Settings) use neutral near-black greys of their own instead of the Galaxy navy (`pages.css`). The Terminal tab and Conquer's chrome and pages follow it too
-(their tones are `Ink` in `native/Sources/PaseoCommandNative/Textures.swift`).
-Five original references may be retained locally in ignored `design/references/atlas-01.webp` through `atlas-05.webp`; they are not redistributed.
-Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
-Architecture uses the original `buildings.png` plus `structures.png`: eight project landmarks
-and seven workspace cottages, balanced deterministically across neighbours (`STRUCTURE_SAMPLE` in the tests).
+Crew (`web/src/crew/`) is the only map (the user's call: the Islands, Overworld and Dungeon Board maps were removed, below).
+It is the fleet as a chat app, drawn by the page itself on the Command tab, in a plain browser as in the macOS app
+(main's `crewShown`: the Command tab, Settings not showing). It began as the user's ask for a simpler, more traditional
+chat/AI interface that keeps the robots, their progress animations and the status medallions; then: no left sidebar,
+grouped Host › Project › Workspace, larger nodes, the agent's browser, equal-height cells, what is open beside the map and
+closed with Esc, the robot's strip above the message box; then that the session panel beside the other tabs be exactly
+the component Crew's drawer is.
 
-### Overworld style
+- The macOS app draws nothing in the map's place (its SpriteKit world is gone): `useMapBridge` (`web/src/mapBridge.ts`,
+  always mounted) sets the Galaxy theme while dark (the pages' near-black palette keys on it) and tells the app `loaded`
+  (the splash lifts), `workspace` (the Terminal tab's: the selected workspace or agent's) and `viewport`, the map's place
+  in CSS px (`.native-world-frame`, posted as it resizes or moves: the panel opening, resizing or changing sides), which
+  Conquer, the Terminal tab and the Files editors are laid over.
+- The map (`CrewMap.tsx`, `.crew-board`, `buildRoster` in `roster.ts`, pure): "Your crew" with its counts, a filter (⌘K
+  "Filter the crew…", `crew-filter`; Esc clears; by agent, workspace, project or host) and New agent; then each host (its
+  head folds it; offline faded) › project (by name; a chevron folds it, its name opens the project) › its workspaces as
+  panels in one grid of equal columns for every row (oldest first; `--crew-cols`, as many one-robot cards as fit,
+  `columnsFor`, measured as the map resizes; each card spans as many columns as it has robots, at most all of them, never
+  following its text's length; `grid-auto-flow: dense`; a row's panels one height, as are all nodes: a name keeps two
+  lines' room). A workspace's head opens it and carries its CI, review, Probe and auto-merge medallions, each with a hover
+  tooltip (`data-summary`: its name and `flagTip`'s facts, else its description; the seal `autoMergeLine`), and Archive
+  beside it (shown on hover or focus; the app's confirmation, `openArchive`; a pool box's last workspace releases the
+  box, src/poolArchive.ts). A claimed pool box's host head has Release (`.crew-head-action`, its confirmation;
+  "Releasing…" while it runs), and such a host stays on the map with nothing on it (`buildRoster`'s `keepHosts`) so it can
+  be released. Agents without a workspace sit in a dashed panel of their project's, or their host's. Each workspace holds
+  its agents (oldest first) as large nodes (standing; under 960 px wide, `@container crew-board`, on their side): the robot
+  (72 px) over its state's glow (pulsing for states that need you) with its mark (the running gear turning) and running
+  drones (`subagentModels`' colours), its name, a dot and its state with its model, what it is doing while it runs
+  (`workingOn`, shimmering) over a sliding bar, on a soft wash of its state's colour; nodes that need you are tinted, an
+  unread reply has a gold dot. Projects and hosts without workspaces are left out; folds are kept in `crew:collapsed`. The
+  arrow keys, Home and End move through the map's nodes and heads.
+- What is open (`CrewDetail.tsx`: main's `detailView`, the agent's `Session`, a subagent's, New agent, a workspace, a
+  project, Add project, with `ChatDecorContext` putting the robot beside each reply and in the working row, and
+  `ChatFooterContext` the strip above the message box, `Stage` in `parts.tsx`: its robot, glow, mark and drones, its
+  state, model and subagents, what it is doing with a progress bar, its workspace's chip and medallions, and (the macOS
+  app's) its Browser button) shows in Crew's drawer, `.crew-drawer` on the map's right (440–760 px, 46% by default; under
+  a 900 px window over the map), its left edge resizing it (`ResizeEdge`; at least 360 px, leaving the map 320 px; kept in
+  `crew:drawerWidth`, set as `--crew-drawer` on the map's frame, which the agent's browser follows), the map staying, its
+  node or head marked and kept in view. Esc closes it from anywhere on Crew, its message box too (main's key handler:
+  after menus, pickers, previews and confirmations; a subagent goes back to its agent first), as does Back (Fleet).
+- Beside the other tabs (GitHub, Files, Terminal, Conquer, Activity) the session panel (`FloatingPanel`, one column) shows
+  what is open as the same `CrewDetail`, only while something is (main's `panelAbsent` = `crewShown || detailEmpty`: the
+  panel takes no width and the bar's panel buttons go). It keeps its side, width and ⌘B; choosing something (J/K, ⌘K, a
+  notification, the GitHub tab's Open in agent) opens it. There are no lists (the Agents, Workspaces, Projects and Hosts
+  tabs, their filters and the host filter were removed: Crew is the list). The bar's "need you" opens the next agent
+  that needs you.
+- J/K (and → / ←, ‹ › in the conversation's header) and N walk a stable roster (`conversationOrder.ts`: host, project,
+  workspace, age). The shortcuts dialog's "The crew" group lists Crew's keys.
+- The robots, drones, glows, marks and medallions are `parts.tsx`'s, from the art in `rendering/src/assets/dungeon/`
+  (`sheets.ts`, sizes checked against the PNGs in `roster.test.ts`); an agent's report in the chat shows its robot
+  (`Robot`). All motion is CSS and stops with reduced motion. The fleet's vocabulary (states, models and robot colours,
+  `AtlasData`) is `web/src/model/fleet.ts`; PR flags and Probe's verdicts `model/prStatus.ts` and `model/probe.ts`.
+- Tests: `web/src/crew/roster.test.ts`, `web/e2e/crew.e2e.ts`, `web/e2e/pool.e2e.ts` (Release and Archive on the heads).
+  `npm run native:mock -- --dungeon --probe --pr-flags` serves a fleet for it (the `dungeon` fleet is a test fixture).
 
-A second map style (Settings → Map, ⌘K "Use the Overworld map" / "Use the Islands map"; `web/src/mapStyle.ts`, localStorage
-`atlas:style`, Islands by default), from the user's concept render (ignored `design/references/overworld-concept.png`): each host a
-terraced island region with its castle on top (lit while online, dark and grey while offline), project halls left and right of it, two
-a row, and each project's workspaces as market booths beneath it (rows of up to three; a camp for agents without a workspace). A hall's roof is also its project's mark: seeded from the project's name (the same project has the same roof on every host; two
-halls on a host never share one), and a host's scenery theme is seeded from it but never its neighbour's (the host before it takes the
-first other theme, forest before farm before volcanic). It is a painted world with nothing laid over it (the user asked for it to feel real, without fake overlay
-layers): no plaques, emblems, icon badges, banners, connector lines, PR / Probe medallions, clouds or glows. The only text is
-on wooden signboards that belong to the buildings (the user's call): each host's name on a board hung on two chains from its
-castle's corbels over the gate, and each project's on a smaller board on two iron brackets on its hall's front eave over the
-door (`SignItem` in `layout.ts`, `paintSign` in `rendering/src/signboard.ts`: planks lit from the upper left with grain, seams and iron bolts,
-the name in cream capitals in the Dungeon Board's old-style serif with a carved inset, sized to the name, tracking tightening,
-then "…" past `maxW`; an offline host's board dull). Workspaces and agents carry no names. The
-castle's and halls' painted emblem discs and parchment signs were repainted out of `host.png` and `halls.png` (their badge, banner and
-emblem frames dropped, the `ui-world` and `status` sheets removed). Pull requests are in the hover cards: a project, workspace
-or agent says its name, and a workspace its PR, CI and review flags, Probe's verdict and auto-merge (`workspacePrLines` in
-`web/src/flagTip.ts`, only on the Overworld; its legend lists no medallions). Hosts stay uninteractive; the Overworld shows no
-CPU · MEM · DISK (the other map styles do). An agent's state is the light it casts in its booth
-(`stateLight` in `native.ts`, in its `STATE_TILE` colour, no ring or outline: a pool on the floor at its feet, a booth slot wide so
-neighbours never blend, and a wash on the back wall behind it, which the robot doesn't hide; both pulse while it needs you; idle casts
-none), its work frames while running, and a faded robot offline. Booths are a neutral stage for it (the stalls sheet darker and
-greyer, no warm glow; awnings undyed canvas, never a state's colour; only sacks, barrels and crates in empty slots), with no tree or
-bush before them; halls keep a forecourt clear before their doors.
-One natural palette, as a lit scene has (the user's example: a dungeon board where the world is one muted family and the agents carry
-the colour): each world sheet is recoloured as it loads (`SHEET_COLOURS`, `recolourSheets` in `paint.ts`: colour thinned, values kept
-mid-range, split-toned cool grey in the shadows and warm daylight in the light; `greens` pulls acid yellow-greens to a leaf green and
-`bands` quiet hue families that read as plastic, optionally darkening where they're strong: enamel roofs to slate, verdigris and moss,
-turquoise surf, violet peaks and rocks, glowing golds to brass (`GOLDS`: the warm saturated colours are the robots' and states'), lava
-to smouldering rust seams),
-in two allocation-free passes (`shiftHues`, `liftAndSplit`); there is no overlay or wash on the finished painting (the user rejected one).
-The sea is a deep, slightly green blue (`sea2.png`'s calm tile, `SEA_LIFT`) with lighter shallows round every coast and quiet
-grey-white surf (`paintSea`, over each island's own wider sea field, `seaFieldAt`; the coast sheet's surf ribbons are left out; a host
-has open sea below its last coast); meadows sage, woods mostly green (autumn and blossom canopies only as accents), rivers teal. Robots and their state light
-are the only saturated colour: they keep provider colours (Claude orange, ChatGPT/Codex pearl, others the neutral robot tinted), stand
-in a contact shadow with no rim glow (`litRobot`), and step through their pose's frames (idle or working; Swift cycles a streamer's
-`frames`, the first only with reduced motion). Scenery is a theme seeded per host, kept to a few landmarks: forest (snowy peaks, a fall
-off the plateau), farmland (windmill, fields, hay) or volcanic (dark peaks, a smoking volcano); forests are canopy masses (`foliage.png`),
-with bushes and the odd boulder between open meadow, and islands' fronts carry cliff faces, headlands and rocks (`coast.png`,
-`paintCoast`). Its sprites are HD painted sheets in `rendering/src/assets/overworld/` (frame maps beside them; provenance in
-`rendering/ASSETS.md`). `rendering/src/overworld/`: `fleet.ts` maps the fleet, `layout.ts` lays a host out in concept pixels
-(deterministic; no emblems or banners, text only on the signs; `rendering/tests/overworld.test.mjs`), `paint.ts` paints it (sea and shallows, islands
-with perspective cliffs and surf, rivers, scenery, buildings), `native.ts` (`OverworldMap`) paints each host once per layout change into
-tiles, a few at a time, arranges hosts in columns to suit the map's shape, and posts the robots and their state light as overlays, with
-each entity's rectangle. Swift (`AtlasScene`, scene `style: "overworld"`) tiles the page's graded sea tile (`overworldSeaTile`, scene
-`seaTile`, image `ow-sea`) over the whole view in place of the Islands sea, glints and clouds, picks the smallest rectangle under the
-pointer. Hover and selection glow as the Dungeon Board's do (the user's call: no borders): the page paints each hall's and booth's own
-silhouette, cut to its own pixels (`paintSilhouette`, `ow-sil:` images, the entity's `glow`), and robots use their first frame;
-`SpriteGlow.overlay` adds a warm white halo just outside that silhouette and a faint lift over it on hover, its breathing
-gold (with a wider pass) when selected. Halls and booths spread by `SpriteGlow.structureSpread` (17 units),
-robots by 5% of their frame. `rendering/overworld-preview/` renders the concept's fleet beside the concept for
-comparison (`build.sh`, then `node shoot.mjs <out.png> [k] [dy] [query]` against a static server on the rendering folder, port 4391;
-`?fleet=crowded|sample`), and `?app=user|dungeon|sample` (`app.ts`) composites exactly what the macOS app is sent (the hosts' tiles over
-the sea tile, robots and state light) for a fleet shaped like the user's, the Dungeon Board's or the sample.
+### The agent's browser
 
-### Map styles and the Dungeon Board
-
-The map's styles are `MAP_STYLES` in `web/src/mapStyle.ts` (localStorage `atlas:style`; a page opened with `?map=<style>` starts in that
-style and keeps it): Islands (the default), Overworld, the Dungeon Board (below) and Crew (below; the Village was removed). Settings → Map lists them; ⌘K offers "Use the <name> map"
-for each one not shown (page Settings); the macOS app's View → Map Style lists them with the shown one checked (`MapStyles` in
-`MapScene.swift`; the page reports its style with a `mapStyle` message, and an item asks the page's `map-style-<id>` app command, then
-shows Command). Islands and Overworld are one world (`mountNativeAtlas`, switched in place by `AtlasWorld.style`); the Dungeon Board is a
-world of its own (`mountNativeDungeon`), which `NativeWorld.tsx` mounts in their place, and back, when the style crosses that line.
-`AtlasView` hosts a `MapScene` (`MapScene.swift`, `kind` "atlas" or "dungeon": `AtlasScene` or `DungeonScene`); the page's `art`
-message names its `scene`, and `WorldWindow.adopt` swaps in that scene in a fresh view. Both worlds share the page's input forwarding
-(`rendering/src/native/surface.ts`), revisions and watchdog (`native/watch.ts`, `AtlasView.watch`). The Atlas legend hides on the board.
-Every style's hover cards (`.atlas-world-tip`, the vault's `.atlas-world-card`; `MapCard` in `web/src/NativeWorld.tsx`) stay inside
-the map the user sees (the user's call): `placeCard` (`web/src/cardPlace.ts`, pure) puts a card above the hovered thing when it fits,
-else below it (each scene's hover report carries the thing's `bottom` as well as its top centre, threaded through `ScreenPoint`), else
-on the side with more room, held 8 px inside the map's edges, centred and clamped sideways, and cut to the map's height when taller;
-measured before paint, placed again as the map resizes. Tests: `web/src/cardPlace.test.ts`, `web/e2e/map-cards.e2e.ts`,
-`native/tests/MapHoverTests.swift` (the `bottom` the Atlas sends), `DungeonSceneTests.swift`.
-The Dungeon Board (`rendering/src/dungeon/`; the user's concept is ignored `design/references/dungeon-concept.png`): a front
-cutaway of a dungeon, one floor per host with workspaces (the Atlas's host order), 365 concept px tall, stacked; its gate
-column central (the round surround, its top a plain dark keystone opening with no icon (the user's call), the host's sign (the user's call: part of the world): a wooden board hanging on chains from two brackets
-between the surround's opening and the arch, its name painted in capitals (cream, in an old-style serif, `SIGN_FONT`, Iowan Old Style
-then Palatino, with a worn inset), a status gem on its left (online, warning when a reading is ≥ 90%, dark offline) and the
-host-stats `CPU · MEM · DISK` beneath, ≥ 90% painted red, lit by a warm wash; an offline host's board dull, unlit, "OFFLINE" painted, a gold node, the portcullis lit while online, stairs to the next floor); projects
-with workspaces outward from the gate, each hall on its floor's lighter side so far (the left on a tie; `floorBlocks`; `hostGroups` in `world.ts`, shared with the Atlas), each
-marked by its hall and its colour (the user's choice; no medallion or icon): its alcoves stand in one stone hall (end piers, one lintel, a dark back wall and a floor strip; `hall` in the layout, the `projects` sheet), with a valance under the lintel and a runner along the floor in its muted cloth colour (`CLOTHS`, `assignCloths`: hashed from the project, stepped past its row neighbour's so neighbours never share one; strips tiled in whole swags), a pair of wall candles above; its workspaces' alcoves in a row in it (oldest first, left
-to right; camps for agents without one). Hosts carry their signs and projects their name boards (the user's call): a small
-copy of the host's wooden board on short chains from its hall's lintel, centred over its valance, its name in capitals painted
-in the same cream serif, as wide as the name needs and no wider than between the hall's piers (cut short with "…"), its bottom
-above the alcoves' lintels and medallions (`projectSign` in `layout.ts`, `D.projectSign*`; `paintProjectSign` in `bridge.ts`,
-dull on an offline floor; tagged with the project, so it glows with its hall); each workspace's title (its name without a Linear key, `workspaceTitle`; the user's call) is painted in the same cream serif on a chainless wooden plate across its alcove's lintel and its stone returns, as wide as the title needs, on one line or, when longer, two (the plate then hanging a little into the alcove's upper wall; whole words, the second line cut short with "…"; `workspacePlate`, `plateLines`, `D.plate*`, `paintPlate` in `bridge.ts`; tagged with the workspace, dull offline); agents are named on their hover cards; robots on each alcove's ledge in provider colours (`robotColor`: Claude orange, ChatGPT white, any other provider its own of the sheet's eight), oldest
-first, drones for running subagents. No links join them (the user removed the gold pipes). Rooms and side rooms keep their natural, content-driven width; the painted masonry, terrace floors and ramparts continue behind them to the viewport edges (the user’s call),
-including below the final floor, without enlarging entity bounds or cropping the board; a long project's alcoves continue, oldest first, in further halls of
-its own (`halls`, `DProject.part`, `DWorkspace.part`: each hall named and cloth-hung, each the project for picks, hover and
-selection: Swift keeps an entity's several pick boxes and thresholds, the card pointing at the hall under the pointer), and
-a side's halls wrap onto more tiers, only while the board would be wider than 1.6 × its height (the user's call: no one
-long row sets the board's width and leaves the other floors bare). Decorations (side rooms: a recess, `room-*`, holding its vignette as the art's `v3/rooms-mock.png` composes them, dealt through the board so neighbours differ; plain cloth banners (no icons, the user's call), torches, windows, chains; the foot of the last stairs, closed by a low front parapet either side of the stair opening, its top above the HUD's count bar; standing props cast contact shadows, and pockets darken where the upper wall meets its piers) are seeded and
-never cover what the board says (`layoutDungeon` in `layout.ts`, pure; `rendering/tests/dungeon.test.mjs`). The robots are what the eye should land on first (the user's call): drawn large (55 concept px tall), each with a
-spotlight on the ledge, a halo of its colour baked from its silhouette (`bakeHalos`) and glowing visor eyes, the robot
-sheet only saturation-lifted; the gate, links, torches and signs are kept a notch below them (`k` on lights, the
-alcoves' interiors darker). The other sheets are graded at load (`grade`, `GRADE`) toward the
-concept's purples. State: a state
-glow under each robot in the Atlas's state colours (`STATE_TILE`, idle a quiet lavender; pulsing for states that need you), a marker at its head's upper right, calm idle poses at 0.5 fps and a slow half-pixel breath (no work-pose cycling or hopping),
-a project's two torches lit while any of its agents runs,
-its terrace glowing between its candles in the most urgent state's colour, offline floors dimmed and dark. PR, Probe and auto-merge medallions
-sit on the ends of each alcove's name plate, level with its first line, larger (`D.flag`, 24): one on the right end, two one on each, three the first left and a pair right (CI, review, Probe; the title keeps clear of them), the auto-merge seal on its medallion's rim, with the Atlas's hover cards.
-The old upper-wall Pull Requests / Linear Issues stained-glass totals and their boards were removed: actionable integration
-work lives in the React belt. The layout keeps empty `vault` / `vaultSigns` arrays for bridge compatibility; there are no
-tile entities or picks. Integration polling is separate from the native scene snapshot, so counts do not re-lay the map out.
-The HUD slots light their painted frame and icon on hover, selection and keyboard focus (brightness and an alpha-shaped
-gold glow; no overlaid rectangle). Disabled slots stay unlit; reduced motion removes the filter transition.
-Its persistent game HUD (`web/src/dungeon/`, mounted by `NativeWorld.tsx`) replaces the static footer: amber Waiting and
-teal Running orbs, a seven-slot belt of Replies, Problems, Reviews, Assigned, Issues, Inbox and Dispatch, original painted transparent art
-(`hud.webp`, `queues.webp`, `ART.md`; `art.ts` cuts and trims the two atlases). Labels and counts are accessible HTML. Slots open a non-modal
-quest-log tray above the belt; the same slot, × or Escape closes it, Escape returning focus (other modal layers go first).
-Agent rows open their conversation; PRs and issues open through `openAppLink`; Dispatch opens the app's New agent form in the world, in the belt's framed panel above it (`web/src/dungeon/WorldDispatch.tsx`, `world-dispatch.css`; Esc or × closes it; ⌘K "Dispatch an agent on the board"), and the new robot is picked on the board. The belt carries no title; the trays have no pointer.
-Counts use the map's real states; offline hosts are excluded. Integrations retain “—” and their reason while unavailable,
-and capped item lists say how many they show. Read-only timeline snippets load as rows enter the tray; opening a tray never
-marks replies read. The map viewport ends above the measured HUD, as does the dialogue box; the belt stays beneath it.
-GitHub’s Reviews slot uses outstanding `review-requested:@me` PRs; Assigned uses `assignee:@me`, not authorship. Both read
-`github/q/prs?scope=review|assigned` (`useWorkQueues` in `dungeon/queues.ts`) and show GitHub’s total beyond the first 50,
-with a full GitHub dashboard link. GitHub’s own sidebar has Assigned to you too. Linear Issues lists unfinished assigned
-work (including backlog/triage, excluding completed/canceled), preserving the workflow name; Problems groups failed agents
-and blocked assigned issues under separate headings. Linear Inbox uses Activity’s shared unread, unsnoozed grouped feed
-(`useActivityPoll`, `useActivity`, `writeItems`); opening a tray reads nothing, choosing a notification marks it read as
-Activity does. Source page limits carry `ActivitySourceStatus.limited` and use N+; unknown/error sources use — and say why.
-A partial Problems count is a lower bound while its Linear part cannot answer; other source queues keep working.
-`dashboardCounts.ts` polls only the assigned-issue source while the belt shows. Secret changes refresh every source.
-The belt is capped at 116 px tall (124 px for narrow maps, with two slot rows and stable-size orbs); it has no integration group captions.
-The palette’s `dungeon-tray`, settings, full-GitHub links and `dungeon-tray-close` mirror these actions. Robots stand at a 70 px pitch (55 px tall).
-Upper wall cloth hangs in front of its rampart, with pillar capitals in front of both; lit braziers and forges have no
-extra purple shade (offline floors remain dim). A hovered niche's card
-follows its counts as they refresh. Each floor is assembled
-from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.png`) is: ramparts, the gate's surround,
-terrace floors, alcove sides, lintels and ledges. The page paints the host signs (`paintSign` in `bridge.ts`; the HUD keeps `ui-rounded`), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
-boxes; `DungeonScene.swift` draws, animates (the background holds still so the agents draw the eye, the user's call: the magic circle, alchemy tank, crystal and portcullis show one frame, light pools are steady (`still`), and flames alone flicker slowly between two frames at `FLAME_FLICKER` (1/3; 0 stills them) of their old pace; robots breathe slowly in idle poses, drones, state glows, markers and the glows' breath keep moving; ≈30 fps while something moves smoothly, the 15 fps drift rate when only flames and resting robots do, still with reduced motion), owns the camera (fit, bounded pan,
-wheel, pinch, arrows, F/Home), hover and selection (project hover and architectural selection use brass thresholds:
-`rendering/src/dungeon/thresholds.ts` sends their actual ledges, independently of pick boxes; `DungeonScene.swift` paints
-worn, bevelled metal with no bloom. Project hover gives the threshold and two capitals a quiet sheen. Workspace hover fills the alcove's bay with
-candlelight (the user's choice among mockups): warm pools over its interior, behind its stone frame (`lightBay`), with no rail, caps or lit border. Selection sets inward
-chevrons and a centre diamond on the ledge, plus a small diamond on a project's sign. Project markers span the hall;
-workspace markers stay on their own step. They stay still and clear when the entity or hover goes. Robots and PR
-medallions keep their silhouette cues from `SpriteGlow.swift`, a restrained warm robot hover lift (45% of the shared glow),
-a full medallion hover and a breathing gold robot selection), and picks (a PR medallion, then a robot, its
-alcove, its project by its terrace wall, the hover card naming it; never a host). Sprites: `rendering/src/assets/dungeon/<sheet>.png|json` (the frame contract is `frames.ts`,
-3× scale; a missing frame is painted as a placeholder; robots are trimmed to their opaque pixels). `npm run native:mock --
---dungeon` serves the concept's fleet (`dungeon` in `web/e2e/fleets.ts`, with PR and issue counts (`DASHBOARD_PRS`, `DASHBOARD_ISSUES`) and GitHub and
-Linear on, for the vault) and prints its address with `?map=dungeon`. Tests:
-`rendering/tests/dungeon.test.mjs`, `web/e2e/dungeon.e2e.ts`, `native/tests/DungeonSceneTests.swift`.
-
-### Talking on the Dungeon Board
-
-Dungeon map cards and in-world control hints use the dialogue’s own painted gold/navy panel, cream text and lavender
-secondary text (`worldChat/game-tooltip.css`, `.dungeon-tooltip`). Its shared frame cutter and `useGameTooltipFrame`
-live in `worldChat/frame.ts`; `worldChat/art.ts` re-exports the cuts for the dialogue. `TooltipLayer` themes hints by their
-source control (inside `.world-chat`, `.world-dispatch` or `.dungeon-hud`) even though it portals to the body. Other app
-controls keep their usual tooltip theme. Painted icon-only buttons are recognised by their CSS background; navigation
-uses `data-tip` rather than native title hints. `MapCard` measures the framed card before placing it inside the map.
-
-Its left/right navigation buttons are original stone-and-bronze medallions (`worldChat/navigation.webp`, `ART.md`), without
-shortcut badges. Plain ←/→ step through a stable roster of the map’s active robots, grouped by host/workspace and age
-(`conversationOrder` in `navigation.ts`), rather than the sidebar’s filtered, collapsed or attention-sorted list. They never
-enter the native map’s pan loop (`native/surface.ts`); text fields keep their arrow keys. J/K still step too. Narrow maps
-keep these controls inside a bottom row of the dialogue so the sidebar cannot cover them. Home, End and Enter page the
-reply; Left/Right no longer page it. The palette and shortcut dialog mirror these keys.
-
-The user asked to chat with agents from within the world, as an in-game conversation the user proceeds through, so they stay
-in the world instead of switching to the chat panel (which stays). It starts on the Dungeon Board (`web/src/worldChat/`):
-picking a robot selects it and opens its dialogue box over the board's foot (`WorldChat.tsx`, `world-chat.css`), an RPG's:
-the board's own gold-framed HUD `panel`, a parchment `label` name plate and the robot (the board's `robots` sheet, its
-provider's colour, in its calm idle poses, as the board's) in the stone `medallion`, cut from the `ui` sheet (`art.ts`), with its state's glow, state
-and model. Its latest reply is typed out page by page (`pageReply` in `script.ts`: whole blocks while they fit the box,
-measured; paragraphs cut between sentences, lists between items, code between lines, refenced; a heading never ends a page;
-the page laid out whole and its untyped rest hidden by the CSS highlight `world-chat-untyped`; instant with reduced motion),
-Enter, Space, a click or its ⏎ Skip showing the rest of the page at once (held, it never skips pages), then the next page;
-then its choices (a menu above the box's right end, clear of the raised Conversation tab; ↑/↓, 1–9,
-Enter, a click): an approval's Allow / Deny (or its actions; a plan's Approve / Reject), a question's options one question at
-a time (multiple choice with Done, Something else…, Decline to answer; answers keyed by header as `PermissionCard` sends them),
-the asks' quick replies and suggestion, Reply… (R; the app's own `Composer` in the box's colours, the box growing to it: files
-and images, /skills, @files, queue, steer and interrupt; its draft, attachments and answers apart from the panel's, `draftScope`
-":world"; input `world-composer`; files dropped on the box go to it; Esc back to the box),
-Interrupt while it runs, Whole conversation (H: its log over the board, its message box focused) and Leave (Esc; the robot stays selected).
-Archive… (and the composer's /archive, ⌘K's Archive “…”… on the board, the board menu's Archive…) asks in the box first, its
-safe answer marked: archive the agent (not while it runs: Interrupt is offered), archive its workspace (the app's confirming
-dialog, the box staying open under it) or Never mind (Esc). /new asks, then archives it and opens the board's Dispatch in its
-workspace (else project); /clear does that without asking, keeping its provider, model, thinking and mode (`onFreshDraft`).
-Asked from the whole conversation (/clear, /new, its header's +, ⌘K "Start a new conversation in this workspace on the board"),
-that Dispatch stands where the conversation stood as an empty conversation ("New conversation", `WorldDispatch`'s
-`conversation`, main's `worldDispatchConversation`), and its first message opens the new robot's whole conversation there
-rather than its dialogue box.
-The board's right-click menu (`web/src/dungeon/BoardMenu.tsx`, `boardMenu` in main; on what the world reports as hovered):
-a robot's Talk, Browser, Whole conversation and Archive…; a workspace's Dispatch an agent here and Archive the workspace…; a project's
-Dispatch an agent here. ↑/↓ move, Enter picks, Esc or a click elsewhere closes it.
-After a sent reply, quick reply or queued follow-up, the actions stay closed. Actions (or Enter at the last page,
-or ⌘K “Show conversation actions on the board”) reopens them; a new finished reply or request resets that suppression; live working progress does not.
-Only the agent's own words are its speech; what it is doing (`workingOn`, else its last step, `exchangeOf`), failures,
-offline and waiting are narration, never invented lines (truthful state). The Conversation button sits inside the dialogue header below the name banner, never in its raised strip. User-message
-links use dark brown ink and full underlines against the box’s parchment bubbles, with a distinct keyboard focus ring.
-The whole conversation opens upward over the board as
-its log (H, the Conversation button, or scrolling up past the page's top; Back or H returns to the box; Esc leaves for the bare board, the user's call). It is the side panel's own
-conversation component with the board's styling, so the two never differ in what they can do (the user's call): `Session.tsx`'s
-`Session` is `useAgentSession` plus `SessionView`, and the log renders that `SessionView` over the session the box already reads
-(one stream for box and log), told what differs through `SessionSurface` (class `world-session`, the composer's input
-`world-composer` and draft scope, asking before archiving in the box, Escape). So the log has the header's tools (rename, new
-agent in this workspace, copy ID, Open in Paseo, Archive, usage, Subagents, the branch chip and PR / Linear chips; no Fleet
-button or position, which the box's own Back and arrows are), the reply forks (a click or a selection in a reply shows the
-Ask / Add / Answer pill; forks open beside or over the conversation, their markers under replies, collected pieces), the
-reply's questions and suggested reply above the composer, pending diff comments, the current-work line, requests' cards,
-dropped files and agents' reports (`PeersContext`). A subagent chosen from its header opens in the log's place
-(`SubagentSession`); Escape there goes back to its agent's. Escape in the log lets a picked block or
-selection go, then closes an open fork (`SessionSurface.escape`; a fork's own field is left first), then leaves the
-conversation, its browser with it, for the board, from its message box too (the draft is kept); it never stops at the box. A field of the box that goes while focused (a
-fork's question as it is asked) drops the keyboard on the page's body: the box takes it back (`held` in `WorldChat.tsx`).
-Because the panel's copy of the conversation is usually mounted too (hidden or not), commands one copy should answer are
-registered with `onOwnedAppCommand` (`appCommands.ts`: the copy mounted last answers; `agent-interrupt`, `agent-open-paseo`,
-`agent-archive`, `agent-question-toggle`, `diff-comments-apply|show`), and fork highlights are kept per conversation root
-(`paintMarks` in `forks/marks.ts`), so neither copy clears the other's. Its complete local colour palette in `world-chat.css` covers event cards,
-tools, code/syntax, tables, request cards, fields, placeholders, metadata and focus, so a light app theme never leaks pale
-surfaces behind cream text (your messages stay parchment with brown metadata). Narrow logs use the full panel width,
-without a portrait, and keep navigation in their explicit bottom grid row;
-the board keeps the box's own room under it; it stays open as the box steps robots (`talkLog` in main, ⌘K "Show the whole
-conversation on the board"). Painted left/right controls beside the box (← →, as K and J; named on hover) step to the previous and next agent
-(main's `step`; ⌘K's Previous / Next agent show those keys while the box does). The box follows the selected agent (J/K step to
-the next robot), counts as viewing it (mark read, no notification), and keeps where each conversation was left. T and ⌘K
-"Talk to … on the board" open it for the selected robot; "Leave the conversation on the board"; Settings → Map's switch (localStorage `world:talkOnPick`, on by default; ⌘K too) says whether picking opens it.
-While it speaks a pick doesn't open a hidden panel (`FloatingPanel`'s `openOnSelect`). The board frames the robot above the box
-(`world.talk(id, inset)`, the bridge's `talk` message, `DungeonScene.talk`: the camera remembered, the robot framed in the clear
-area above the box's `inset`, the “Now” footer hidden, the camera put back on leaving). The box runs its own `useAgentSession` beside
-the panel's: the server keeps every sid a socket watches an agent under (`web/server/live/sessions.ts`, `MAX_VIEWS` per agent).
-Keys are taken in the capture phase while the box or the map has the keyboard (not while typing elsewhere); the shortcuts
-dialog's "Talking on the Dungeon Board" group lists them. `npm run native:mock -- --dungeon --talk` gives every robot a
-conversation for its state and its request in full, and takes the box's sends and answers (logged). Tests:
-`web/src/worldChat/script.test.ts`, `web/e2e/world-chat.e2e.ts`, `web/server/live/sessions.test.ts`, `DungeonSceneTests.swift`.
-
-### The Dungeon Board has no side panel
-
-On the Dungeon Board (the macOS app, the board's style, Command showing: main's `talkable`) the session panel is gone (the
-user's call: its left side app replaced by the board's own themed panels in the middle). `FloatingPanel`'s `suppressed`
-hides it there without touching its saved side, width or shown state: no width (the map has the window), ⌘B, the palette's
-toggle and the bar's buttons do nothing, a pick never opens it, and the app's bar drops its three panel buttons
-(`panelAbsent` in `barState`, `ModeBar.apply`; `--info`'s `bar.panelButtons`). The other map styles and the other tabs keep
-the panel as it was left. What the panel showed has a board panel instead: a robot's conversation is its dialogue box and
-whole conversation (above); New agent, from anywhere (⌘N, D, ⌘K, a place's Dispatch), is the board's Dispatch
-(`openDispatch` goes to `openWorldDispatch` there); a picked workspace or project, and Add project (⌘K), open in the
-board's place panel (`web/src/dungeon/WorldPlace.tsx`, `world-place.css`: Dispatch's frame, head and foot, centred above the
-belt, holding the app's own `WorkspaceView`, `ProjectView` or `AddProject` in the dialogue box's complete palette; main's
-`boardPlace`), never over a dialogue box or the Dispatch. Its × and Esc close it (a workspace or project is let go); there
-is no Back to the fleet. An agent picked in it opens its dialogue box whatever Settings → Map says of picking (`talkTo`);
-a workspace picked in a project's opens the workspace's; Changes shows the Files tab's. The box's choice and the board
-menu's item are "Whole conversation" (H: the log over the board, its message box focused), no longer the side panel's chat;
-⌘K's "Continue the conversation in the side panel", "Show or hide the panel" and the panel's lists and filters ("Show
-agents…") aren't offered on the board; the bar's "need you" opens the belt's Waiting tray. The fleet's list has no board
-panel: the board is the fleet, the belt's trays list who waits, runs and replied, and ⌘K finds any agent, workspace,
-project or host. Tests: `web/e2e/board-place.e2e.ts`.
-
-### The robot's browser on the Dungeon Board
-
-Each robot has a browser of its own, tracked to its agent (host and daemon id): its tabs, shown over the board above its
-dialogue box (the user's ask: an integrated browser on the board, attached to the agent, which the agent can open tabs in).
-B (outside a text field, wherever the keyboard is on the board, a selected robot's box opening with it; main's `boardKeys`), the box's Browser button (which counts its tabs), the board menu's Browser and ⌘K "Show …’s browser on the board" show
-or hide it (`world:browserOpen`, kept as the box steps robots and across launches). ⇧⌘W hides it from anywhere (the user's
+Each agent has a browser of its own, tracked to it (host and daemon id): its tabs, shown on Crew in the map's place left
+of its conversation (the user's ask: an integrated browser attached to the agent, which the agent can open tabs in; it
+began on the Dungeon Board). Main's `crewBrowsing` (Crew shows, the macOS app, an agent open, not a subagent): B (outside a
+text field; main's `boardKeys`), the strip's Browser button (which counts its tabs) and ⌘K "Show …’s browser" show or hide
+it (`world:browserOpen`, kept as you step from agent to agent and across launches). ⇧⌘W hides it from anywhere (the user's
 ask: a key that closes it): the page takes it, in a field too (`BoardBrowser.tsx`), and while a web page has the keyboard
-the app does and tells the page (`key` `hide`), which gives the keyboard back to the page. With the whole conversation open
-too (H) they show together (the user's call): the conversation on the board's left in a narrower column
-(`--board-chat-width`, 380–560 px, 36% of the map; `.world-chat.log.beside`, laid out as on a narrow map, the robots' arrows
-at its foot), the browser on its right down to the belt (`.board-browser.beside`), from a map 900 px wide
-(`BESIDE_MIN_WIDTH` in `main.tsx`, the frame measured); on a narrower one the conversation takes the browser's place, and
-B there shows the browser above the box instead. The page draws the panel (`web/src/worldChat/BoardBrowser.tsx`, `board-browser.css`: the dialogue's
-gold-framed navy panel, a tab strip with +, back / forward / reload or stop, an address field that takes `localhost:5173` or
-`example.com` (`BrowserPolicy.destination`: local names and addresses over http, the rest https; never a search), Open in
-Conquer, Fill the board (over the dialogue box too) and ×) and leaves a box (`.bb-view`) for the web page, which the macOS
+the app does and tells the page (`key` `hide`), which gives the keyboard back to the page. The page draws the panel
+(`web/src/browser/BoardBrowser.tsx`, `board-browser.css`, `.board-browser.crew` in `crew.css`: the app's tokens, a tab strip
+with +, back / forward / reload or stop, an address field that takes `localhost:5173` or `example.com`
+(`BrowserPolicy.destination`: local names and addresses over http, the rest https; never a search), Open in Conquer, Fill
+the view (over the conversation too) and ×) and leaves a box (`.bb-view`) for the web page, which the macOS
 app draws: `native/Sources/PaseoCommandNative/BoardBrowser.swift` owns the web views, as `EditorOverlay` owns the Files
 editors' terminals. The page reports the box's frame and whose browser shows (`browser`, `postBrowserPlacement` in
-`web/src/worldChat/browserBridge.ts`; sent as it changes, on mutations and a 250 ms poll), `covered` while a dialog of the
-page's is open (⌘K: the web page steps aside), and `holes`: the page's own things lying over the box (the dialogue's
-choices, a hint, the board's menu, a menu of the conversation's), which `BrowserStage` cuts out of the web page with a layer mask and passes clicks
+`web/src/browser/browserBridge.ts`; sent as it changes, on mutations and a 250 ms poll), `covered` while a dialog of the
+page's is open (⌘K: the web page steps aside), and `holes`: the page's own things lying over the box (a tooltip, a menu),
+which `BrowserStage` cuts out of the web page with a layer mask and passes clicks
 through. What the strip and bar do goes as `browserDo` (open, navigate, back, forward, reload, stop, close, select, focus);
 the app answers on `paseo:browser`: every browser's tabs (`state`: id, address, title, loading, back, forward, a load's
 error), `opened` when an agent opened a tab, `refused` (an address it won't open) and `key`. The box shows its own words only
@@ -1122,7 +859,7 @@ keep their pages in `parking`, a transparent view under everything in the window
 photographed; the shown one is in `stage`, in the window's `content`. While a web page has the keyboard the app keeps the
 window's keys and takes ⌘R, ⌘[, ⌘], ⌘W (the tab) and ⌘L, ⌘T (told to the page, which owns the address field) in
 `BrowserStage.performKeyEquivalent`; ⌘K opens the page's palette (`AppWindow`, as for the terminals). Tabs (addresses and
-titles, at most 12 a robot, the 40 most recently used robots') come back on launch, unloaded, in the app's preferences
+titles, at most 12 an agent, the 40 most recently used agents') come back on launch, unloaded, in the app's preferences
 (`boardBrowserState`; check runs keep none). Its pages have a cookie store of their own, apart from Conquer's and the app's:
 an agent never acts with the user's Conquer logins. Nothing is downloaded.
 Agents open and drive its tabs with Paseo's own browser tools, not a tool of this app's: the daemon gives agents
@@ -1131,7 +868,7 @@ Agents open and drive its tabs with Paseo's own browser tools, not a tool of thi
 `browser_evaluate`, `browser_screenshot`, `browser_upload`, `browser_logs`, `browser_resize`, `browser_back|forward|reload`
 and `browser_close_tab` while its `browserTools.enabled` is on, and sends each call, with the calling agent's id and
 workspace, to a connected client registered as a browser host (the newest registered gets new tabs; the Paseo app is one).
-Settings → Map "Agents’ browser tools open tabs here" (`world:browserTools`, off by default, since on it takes those calls
+Settings → Browser "Agents’ browser tools open tabs here" (`world:browserTools`, off by default, since on it takes those calls
 from the Paseo app's browser; ⌘K "Let / Stop agents’ browser tools…"; the page tells the app with `browserHost`) makes the
 app one: it holds a socket to its own server (`/api/browser-host`, `web/server/browserHost.ts`, same origin rules as the
 other sockets; one app socket at a time), and while that is open the server registers on every followed host's daemon
@@ -1158,101 +895,32 @@ its own machine, and the Mac's local services (this app's unauthenticated API am
 refused with why, a page that sends itself there is stopped, and its pages carry content rules (`loopbackRules`, a
 `WKContentRuleList`) that block frames, images, scripts and requests to them; such a tab is not made until those rules
 compile. `browser_upload` reads files only for this Mac's own agents (the paths are the agent's machine's).
-While you talk to a robot, a tab it opens shows at once (Settings → Map "Show the browser when its agent opens a tab",
-`world:browserFollows`, on by default; beside the whole conversation where both fit, never over it), else the Browser button counts it; another
-robot's is said in a notice, at most every 30 s a robot. While the browser shows, a web link clicked in the board's
-conversation (the dialogue box, the whole conversation, a visual reply's page) opens in it, not in Conquer (the user's
-call; `web/src/chatLinks.ts`: `openChatLink`, which `BoardBrowser` takes over with `setBoardLinkOpener` while mounted, for
-links inside `.world-chat` only): in a tab already at that address, else a blank tab on show, else a new tab. A pull
+While an agent's conversation is open, a tab it opens shows at once (Settings → Browser "Show the browser when its agent
+opens a tab", `world:browserFollows`, on by default), else the Browser button counts it; another agent's is said in a
+notice, at most every 30 s an agent. While the browser shows, a web link clicked in the conversation (a visual reply's page
+too) opens in it, not in Conquer (the user's call; `web/src/chatLinks.ts`: `openChatLink`, which `BoardBrowser` takes over
+with `setBoardLinkOpener` while mounted, for links inside `.crew-detail` only): in a tab already at that address, else a
+blank tab on show, else a new tab. A pull
 request's link (the GitHub tab, while GitHub is on) and a Linear issue's or project's (Linear's app) keep the app's own
 places; hidden, links go to the app as before. New agents are told what a tab is for (`agentPrompt.ts`,
 `<paseo_command_browser>`). ⌘K (page Command, only while they apply): Show / Hide the browser (B; ⇧⌘W hides), and, while it shows,
-Open a new tab, Type an address, Reload, Go back / forward, Close the tab, Make the browser fill the board, Open the page in
+Open a new tab, Type an address, Reload, Go back / forward, Close the tab, Make the browser fill the view, Open the page in
 Conquer (`board-browser-*` in `appCommands.ts`). Limits: with the Dev and the release app both hosting, the daemon knows
 them as one client (`clientId` "paseo-command") and sends calls to whichever registered last; a remote host's agent sees
 only what the user's Mac can reach. `--info`'s `browser` is its state; hooks `browser` (run `<info>.browser`'s relayed
 requests, answers to `<info>.browser.out`) and `browserfocus`; `native/scripts/fake-server.ts` serves `/__page` and takes
 `POST /__browser {command, args}` as an agent's call through its fake daemon. Tests: `web/server/browserHost.test.ts`
-(the fake daemon's `browserExecute`), `web/e2e/board-browser.e2e.ts`, `native/tests/BrowserAutomationTests.swift` (the
+(the fake daemon's `browserExecute`), `web/e2e/crew.e2e.ts`, `native/tests/BrowserAutomationTests.swift` (the
 policy, keys, and the page script on a page in a web view).
 
-### Crew
+### The maps (removed)
 
-Crew (`web/src/crew/`; the user's ask: a simpler, more traditional chat/AI interface that keeps the robots, their progress
-animations and the status medallions; then: no left sidebar, the main view grouped Host › Project › Workspace as the
-graphical maps are, larger nodes, and the Dungeon Board's browser; then: equal-height cells, what is open beside the map
-and closed with Esc, and the robot's strip above the message box) is the fleet as a chat app, drawn by the page itself in
-the map's place, in a plain browser as in the macOS app (`pageDrawn` in `mapStyle.ts`; main's `crewShown`). No native world
-mounts: `NativeWorld` gives way to `CrewMap`, and `useMapBridge` (`web/src/mapBridge.ts`, always mounted, which also owns the
-`mapStyle` message and the `map-style-<id>` commands for View → Map Style, and sets the Galaxy theme for as long as Crew is the style, whatever tab
-shows, as a mounted native world does: the pages' near-black dark palette keys on it) tells the app `pageMap` (`on`: `WorldWindow` keeps
-the SpriteKit view hidden and paused under the page, never un-hides it on later messages, and lifts the splash on the page's
-`loaded` without a scene; a reloading page says again; `--info`'s `pageMap`), `loaded`, and `workspace` (the Terminal tab's,
-the selected workspace or agent's). As on the Dungeon Board the side panel is absent (`panelAbsent` = `talkable || crewShown`:
-`FloatingPanel`'s `suppressed`, no ⌘B, the bars' panel buttons gone in a browser too, no panel lists or filters in ⌘K); the
-bar's "need you" opens the next agent that needs you. There is no sidebar: Crew is the map (`.crew-board`,
-`buildRoster` in `roster.ts`, pure): "Your crew" with its counts, a filter (⌘K "Filter the crew…", `crew-filter`, which shows
-the map first; Esc clears; by agent, workspace, project or host) and New agent; then each host (its head folds it; offline
-faded) › project (by name; a chevron folds it, its name opens the project) › its workspaces as panels in one grid of equal columns for every row (oldest
-first; `--crew-cols`, as many one-robot cards as fit, `columnsFor` in `CrewMap.tsx`, measured as the map resizes; each card
-spans as many columns as it has robots, at most all of them, never following its text's length (a long title is cut short);
-`grid-auto-flow: dense`, so a later card fills a hole a row leaves, and only a row's end may stay open; a row's panels one height, as are all nodes: a name keeps two lines' room; the panel's head opens the workspace and carries its CI, review, Probe and auto-merge medallions, each with a hover tooltip
-(`data-summary`, so the tooltip layer shows it though it isn't a button: its name and `flagTip`'s facts, else its
-description; the seal `autoMergeLine`); agents without a workspace in a dashed panel of their project's, or their host's), each holding its agents (oldest
-first) as large nodes (standing; while the map is under 960 px wide, `@container crew-board`, as with the conversation open
-beside it, they lie on their side: the robot two-thirds size on the left, its name and state beside it, 300 px wide and about a
-third as tall): the robot (72 px; the Dungeon Board's `robots` sheet in its provider's colour, `robotColor`: idle frames
-with a blink and a breath, the four work frames while it runs, greyed offline) over its state's glow (`glow-*`, pulsing for
-states that need you) with its mark (`mark-*`, the running gear turning) and running drones (`subagentModels`' colours), its
-name, then, as the strip above the message box has them, a dot and its state in its colour (pulsing while it runs or needs
-you) with its model, what it is doing while it runs (`workingOn`, shimmering) over a sliding bar (both kept, empty, otherwise,
-so tiles stay one height), on a soft wash of its state's colour (top to bottom standing, left to right on its side); nodes that need you are tinted in their
-state's colour, an unread reply has a gold dot before its name. Projects and hosts without workspaces are left out, as on the maps; folds are
-kept in `crew:collapsed`. The arrow keys, Home and End move through the map's nodes and heads. Picking one opens main's
-`detailView` (the panel's detail: the agent's `Session`, a subagent's, New agent, a workspace, a project, Add project; one copy
-at a time, the panel's empty while Crew shows) in `.crew-drawer` on the map's right (440–760 px, 46% by default; under a 900 px window
-over the map), its left edge resizing it (`ResizeEdge`: drag, ←/→, double-click for the default; at least 360 px, leaving the
-map 320 px; kept in `crew:drawerWidth` and set as `--crew-drawer` on the map's frame, which the robot's browser follows), the map staying, its node or head marked (`aria-current`) and kept in view. Esc closes it from anywhere in
-Crew, its message box too (main's key handler, `crewShown`: after menus, pickers, previews and confirmations; a subagent goes
-back to its agent first), as does Back (the conversation's Fleet); the map gives the keyboard back to what was open. For an
-agent, at the conversation's foot above its message box (`ChatFooterContext` in `chatDecor.ts`, which `SessionView` puts in
-the composer's activity in place of its working summary line): its robot, glow, mark and drones, its state, model and
-subagents, what it is doing with a sliding progress bar while it runs, its workspace's chip and medallions, and (the macOS
-app's) its Browser button with its tab count. Inside, `ChatDecorContext` (`web/src/chatDecor.ts`,
-read by `Session.tsx`'s timeline; without a provider nothing changes) puts the robot beside each reply (working while that
-reply is live) and in the working row. The robot's browser is the Dungeon Board's (`BoardBrowser.tsx`, `crew`: no gold frame,
-the app's tokens, `.board-browser.crew` in `crew.css`): main's `crewBrowsing` (Crew, the macOS app, an agent open, not a
-subagent) shows it, while `world:browserOpen`, over the map's place left of the conversation, or over both filled; B, the stage's Browser button, ⇧⌘W and ⌘K ("Show …’s browser", its tab entries, from
-the shared `browserEntries` in main, without "the board's") as on the board; a tab the agent opens shows at once (Settings →
-Map's "Show the browser when its agent opens a tab"), and web links clicked in the conversation (`.crew-detail`,
-`chatLinks.ts`) open in it while it shows. The shortcuts dialog's "The Crew map" group lists the keys. Its sheets and frames
-are `sheets.ts` (sizes checked against the PNGs in `roster.test.ts`); all its motion is CSS (stacked frames shown in turn) and
-stops with reduced motion. Tests: `web/src/crew/roster.test.ts`, `web/e2e/crew.e2e.ts`.
-`npm run native:mock -- --dungeon --probe --pr-flags` and `?map=crew` shows it in a browser.
-
-### The Village (removed)
-
-The Village map style was removed at the user's request: its world (`rendering/src/village/`), scene (`VillageScene.swift`),
-sheets, fleet, mock flag and tests, its entry in `MAP_STYLES`, Settings → Map, ⌘K and View → Map Style. Don't add it back
-unless asked. A saved `atlas:style` of `village` reads as Islands. What the Dungeon Board borrowed stays: the stained-glass
-`tiles` and At a Glance `hud` sheets (now `rendering/src/assets/dungeon/`), the PR and issue counts (`useDashboardCounts` in
-`web/src/dashboardCounts.ts`, `GET /api/github/q/prCounts`, `GET /api/linear/issue-counts`), `rendering/src/dashboard.ts`, and
-the glow in `SpriteGlow.swift`. `native:mock -- --fleet sparse` still serves a small two-host fleet (on the Islands).
-
-## Confirmed map constraints
-
-Labels stay at fixed world scale. Do not add screen-size compensation.
-All structures and scenery consume whole cells on the shared axial grid.
-Workspaces use three hexes; project landmarks use ten (rows of 3, 4 and 3); each agent uses one.
-One island per project with workspaces.
-Center artwork and fit it completely inside its occupied cells. Everything is seen from directly above: PR status shows
-as flat enamel medallions (`medallions.png`) in a workspace's two yard cells, set a little beyond each cell's centre
-away from the cottage (the user replaced the side-view PR flags, which looked like they were floating).
-Selection follows the outer perimeter of the occupied hexes, never a rectangle: a golden rim with a breathing
-yellow halo over a warm wash, so the selected entity reads on any surface. Hover and selection
-rims are inset within the cells so painted kerbs and banks never clip them; an agent hovers across its whole cell.
-Hosts are picked from the Hosts tab only (land and banner are not interactive): the map rings its landmass and the lists narrow to it, the same
-host filter as the Hosts tab; any other selection takes the highlight while it lasts.
-Project, workspace and agent cells each have a distinct tile style (flagstones, light dirt, light sand
-tiles); islands have no empty cells. Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
-panning stays within that extent. The world never sends daemon actions; the React UI owns them.
+The Islands (the hex Atlas), Overworld and Dungeon Board map styles were removed at the user's request, with everything
+only they used: the layout and painting code in `rendering/` (now only its art: `rendering/src/assets/`, the board's interface
+art in `rendering/src/assets/board/`, `artifacts/`, `ASSETS.md`, kept at the user's request), the macOS app's SpriteKit world (`AtlasView`, `AtlasScene`, `DungeonScene`,
+`MapScene`, `SpriteGlow`, `Geometry`, the watchdog and its stall hooks, View → Map Style), `NativeWorld.tsx`, map styles
+(`atlas:style`, `?map=`, Settings → Map, ⌘K "Use the … map"), the Atlas legend and minimap, map hover cards, the Dungeon
+Board's dialogue box (talking to robots), command belt and trays, board menu, board place panels and board Dispatch, the
+host load banners (`host-stats`, `GET /api/hoststats`) and the board's PR and issue counts (`GET /api/github/q/prCounts`,
+`GET /api/linear/issue-counts`). The Village had been removed before. Don't add any back unless asked. The user's saved
+data stays as it is, ignored (`atlas:style`, `world:talkOnPick`, the lists' URL parameters).

@@ -314,7 +314,11 @@ export function worldSnapshot(input: {
   permissions: Set<string>;
   unread: Set<string>;
 }): WorldSnapshot {
-  const { hosts, projects, workspaces, permissions, unread } = input;
+  const { projects, workspaces, permissions, unread } = input;
+  // This Mac's daemon is always a host, its row listed or not yet (as New agent's Host field has it): its agents show.
+  const hosts: Host[] = input.hosts.some((h) => h.local)
+    ? input.hosts
+    : [{ serverId: "local", label: "local", local: true, status: "online", state: "online" } as Host, ...input.hosts];
   const contains = (root: string, path: string) =>
     !!root && (path === root || path.startsWith(root.replace(/\/$/, "") + "/"));
   const workspaceOwner = (workspace: Workspace) => {

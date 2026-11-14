@@ -65,7 +65,7 @@ test("an agent's report shows its robot and quotes its reply", async () => {
   await report
     .getByText("PR CI is running on the merged head.", { exact: false })
     .waitFor();
-  await report.locator(".agent-report-robot img").waitFor();
+  await report.locator(".agent-report-robot .crew-bot").waitFor();
   if (process.env.AGENT_REPORT_SHOT)
     await report.screenshot({ path: process.env.AGENT_REPORT_SHOT });
   await report.getByRole("button", { name: "Release spike" }).click();

@@ -2,7 +2,7 @@
  * Pool boxes: warm-pool Sprites the paseo-boxes scripts on this Mac claim and
  * release (`claim.sh --any`, `release.sh pool-N`). New agent's "New pool box"
  * claims one, waits for its Paseo host to come online and dispatches the agent
- * into its checkout; the Hosts tab releases a claimed one. Pure: shared by the
+ * into its checkout; a claimed one is released from its host in the crew. Pure: shared by the
  * server (`web/server/pool.ts`) and the page (`poolStore.ts`).
  *
  * paseo-boxes is the source of truth: the boxes come from its

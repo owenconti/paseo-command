@@ -1075,7 +1075,7 @@ export function poolOption(pool: PoolStatus | null) {
   const why = pool.problem
     ? pool.problem
     : !idle
-      ? "Every pool box is claimed: release one from the Hosts tab."
+      ? "Every pool box is claimed: release one from its host in the crew (Release)."
       : "";
   return [
     {

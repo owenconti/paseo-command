@@ -1,3 +1,7 @@
+# The Dungeon Board's interface art
+
+Kept after the board was removed. From `web/src/dungeon/ART.md` (the command belt's `hud.webp`, `queues.webp`):
+
 # Command belt artwork
 
 `hud.webp` is an original transparent 3 × 3 sprite atlas generated with the built-in image generation tool from the user-approved game-HUD concept. It uses purple-grey carved stone, weathered bronze and worn gold, matching the Dungeon world. Text, labels, counts, hover states and all interactions are live HTML.
@@ -19,3 +23,11 @@ The atlas retains transparency and was encoded losslessly. `art.ts` cuts each eq
 ## Integration queues
 
 `queues.webp` adds three original transparent painted icons in equal cells, generated with the built-in image generation tool from the existing HUD kit. The prompt requested a gold repository branch on a purple stone tablet with an ownership tag (assigned PRs), a quest journal/checklist with a quill (assigned issues), and sealed parchment envelopes with a purple ribbon and gold wax seal (Inbox). No text, numbers, slot frames or service logos. The strip is 768 × 256 and encoded losslessly; live badges, names and interactions remain HTML.
+
+From `web/src/worldChat/ART.md` (the dialogue's `navigation.webp`):
+
+# Conversation navigation artwork
+
+`navigation.webp` is a lossless transparent two-cell strip, generated with the built-in image generation tool to match the Dungeon HUD's existing painted art. The strip is sized for crisp controls up to 3× display resolution. Its left and right halves are used as the backgrounds of real, accessible buttons; labels and interaction stay in HTML.
+
+The prompt requested exactly two matching octagonal purple-grey stone medallions, dark aged-bronze rims, worn-gold raised left/right chevrons, upper-left lighting, equal square cells, and transparent padding. No text, numbers or keyboard badges. The chevrons were designed to remain readable at a 56–60 px control size.

@@ -24,7 +24,7 @@ local.addWorkspace({ id: "wks_main", projectId: "prj_atlas", cwd: "/home/review/
 local.addWorkspace({ id: "wks_map", projectId: "prj_atlas", cwd: "/home/review/atlas-map", name: "map-polish" });
 local.addAgent({ id: "a-1", cwd: "/home/review/atlas", workspaceId: "wks_main", provider: "claude", model: "claude-opus-5-5", status: "running" } as never);
 local.addAgent({ id: "a-2", cwd: "/home/review/atlas-map", workspaceId: "wks_map", provider: "codex", status: "idle" } as never);
-// The idle agent's conversation, for the chat (the panel's, and the Dungeon Board's with `?map=dungeon`): a reply
+// The idle agent's conversation, for the chat (the open agent's conversation): a reply
 // to pick pieces of, fork, answer and /clear.
 local.pushTimeline("a-2", { type: "user_message", text: "Polish the map's shoreline", messageId: "u1" });
 local.pushTimeline("a-2", {

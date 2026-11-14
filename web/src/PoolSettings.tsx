@@ -49,7 +49,7 @@ export function PoolSettings() {
           pool?.problem ||
           (pool
             ? boxes.length
-              ? `${boxes.length} ${boxes.length === 1 ? "box" : "boxes"} · ${idle} idle. New agent's Host has “New pool box”; a claimed box's host can be released from the Hosts tab.`
+              ? `${boxes.length} ${boxes.length === 1 ? "box" : "boxes"} · ${idle} idle. New agent's Host has “New pool box”; a claimed box is released from its host's head in the crew.`
               : "pool-state.json lists no boxes yet."
             : "")}
       </p>

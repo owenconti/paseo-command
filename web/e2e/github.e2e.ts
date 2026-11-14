@@ -301,7 +301,7 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
   const { asked, writes } = await setUp(page);
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
 
@@ -411,7 +411,7 @@ test("A PR's conversation: the description first, then Comments newest first, or
   const { writes } = await setUp(page);
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
     await view.locator(".gh-nav-item", { hasText: "Your pull requests" }).click();
@@ -441,7 +441,7 @@ test("A PR's conversation: the description first, then Comments newest first, or
     await toggle.getByRole("radio", { name: "Oldest first" }).click();
     assert.deepEqual(await order(), ["description", "IC_bot", "IC_hostile", "IC_marker", "IC_md", "box"]);
     await page.reload();
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     await view.locator(".gh-entry.description").waitFor();
     assert.deepEqual(await order(), ["description", "IC_bot", "IC_hostile", "IC_marker", "IC_md", "box"]);
@@ -544,7 +544,7 @@ test("A PR's line comments show in its Conversation: under their review, single 
   const { writes } = await setUp(page, { detail: (d) => d.number === 13 && threaded(d), refuse: new Set() });
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
     await view.locator(".gh-row", { hasText: "Fix the shoreline" }).click();
@@ -668,7 +668,7 @@ test("Files changed's Comments list: threads and drafts by file, Show resolved, 
   });
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
     await view.locator(".gh-row", { hasText: "Fix the shoreline" }).click();
@@ -746,7 +746,7 @@ test("Files changed's Comments list: threads and drafts by file, Show resolved, 
 
     // Kept for PRs: a reload shows the comments again; ⇧C goes back to the files, ⌘K too.
     await page.reload();
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     await list.locator(".gd-note").first().waitFor();
     await view.locator(".gh-pr-title").click();
@@ -783,7 +783,7 @@ test("A refused reply goes again from the Conversation, with a notice", async ()
   await setUp(page, { detail: (d) => d.number === 13 && threaded(d), refuse: new Set(["/api/github/m/reply"]) });
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
     await view.locator(".gh-row", { hasText: "Fix the shoreline" }).click();
@@ -814,7 +814,7 @@ test("A PR's description and comments render as GitHub shows them: tables, image
   await setUp(page);
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
     await view.locator(".gh-nav-item", { hasText: "Your pull requests" }).click();
@@ -881,7 +881,7 @@ test("A PR's reviewers and assignees are edited in place, rolled back if GitHub 
   const { writes } = await setUp(page, { refuse });
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
     await view.locator(".gh-row", { hasText: "Add the GitHub tab" }).click();
@@ -988,7 +988,7 @@ test("A PR whose branch a Paseo workspace has checked out opens its most recent 
   const commandAsked = async () => (await sent()).filter((m) => m.type === "menu" && m.action === "command").length;
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
 
@@ -1046,7 +1046,7 @@ test("GitHub's sidebar: favourites, finding any repository, ⌘S, and a reposito
       }
     });
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
 
@@ -1108,7 +1108,7 @@ test("GitHub's sidebar: favourites, finding any repository, ⌘S, and a reposito
 
     // The place and its filters come back after a reload.
     await page.reload();
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     await view.locator(".gh-head h2", { hasText: "sam/tools" }).waitFor();
     await view.getByRole("button", { name: "Review: Approved. Change" }).waitFor();
@@ -1124,7 +1124,7 @@ test("GitHub's sidebar: favourites, finding any repository, ⌘S, and a reposito
     await view.locator(".gh-sidebar").waitFor({ state: "hidden" });
     await view.getByRole("button", { name: "Show the GitHub sidebar" }).waitFor();
     await page.reload();
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     await view.getByRole("button", { name: "Show the GitHub sidebar" }).waitFor();
     assert.equal(await view.locator(".gh-sidebar").isVisible(), false);
@@ -1184,7 +1184,7 @@ test("⌘R refreshes what the GitHub tab shows (a list, a PR and its open tab) w
     asked.filter((a) => a.path === `/api/github/q/${name}` && a.query.fresh === "1" && extra(a.query)).length;
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await page.evaluate(() => ((window as unknown as { kept: number }).kept = 1));
     // The map: the page has no refresh of its own there, so the browser's ⌘R (a reload) goes on.
     assert.equal(await pressRefresh(page), false, "the map leaves ⌘R to the browser");
@@ -1264,7 +1264,7 @@ test("⇧⌘C copies the PR's github.com link (any of its tabs) with a notice, a
   };
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     // The map: not the GitHub tab's key.
     assert.equal(await pressCopy(page), false);
 
@@ -1405,7 +1405,7 @@ test("Open in agent opens New agent on the PR's branch, in a checkout of its rep
   });
   try {
     await page.goto(app.url);
-    await page.locator(".fleet-sidebar").waitFor();
+    await page.locator(".crew-board").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
     await view.locator(".gh-row", { hasText: "Add the GitHub tab" }).click();
