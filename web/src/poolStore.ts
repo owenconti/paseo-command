@@ -117,5 +117,9 @@ export async function claimPoolBox(body: Record<string, unknown>) {
   writeStore(FORM_JOB, { id: job.id, prompt: typeof body.prompt === "string" ? body.prompt : "" });
   return job;
 }
-/** Release a claimed box (`release.sh`). */
-export const releasePoolBox = (pool: string) => start("pool/release", { pool });
+/**
+ * Release a claimed box (`release.sh`). After an archive (`after`: the box's host and the archived workspace)
+ * the server releases it only if nothing else is active on the host.
+ */
+export const releasePoolBox = (pool: string, after?: { host: string; workspace: string }) =>
+  start("pool/release", { pool, ...after });

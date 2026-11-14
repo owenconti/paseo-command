@@ -218,3 +218,58 @@ export function jobText(job: PoolJob) {
         : `Couldn't start the agent on ${box}${job.error ? `: ${job.error}` : ""}`;
   }
 }
+
+/**
+ * A pool box's checkout as its daemon reports it (`getCheckoutStatus`), read
+ * before archiving a workspace on the box: releasing restores the box, so
+ * whatever isn't pushed goes with it. `known` false when it couldn't be read.
+ */
+export type PoolCheckout = {
+  known: boolean;
+  branch?: string;
+  /** Uncommitted changes. */
+  dirty?: boolean;
+  /** Commits not on the remote: ahead of its upstream, else (never pushed) ahead of its base. */
+  unpushed?: number;
+  error?: string;
+};
+
+/** The daemon's checkout status, read for what releasing would lose. */
+export function poolCheckoutOf(status: unknown, branch?: string): PoolCheckout {
+  const s = status && typeof status === "object" ? (status as Record<string, unknown>) : null;
+  const named = typeof s?.currentBranch === "string" && s.currentBranch ? s.currentBranch : branch;
+  const base = named ? { branch: named } : {};
+  if (!s) return { known: false, ...base, error: "its daemon didn't answer" };
+  const error = s.error && typeof s.error === "object" ? (s.error as { message?: unknown }).message : undefined;
+  if (error) return { known: false, ...base, error: String(error).slice(0, 200) };
+  if (s.isGit !== true) return { known: false, ...base, error: "it isn't a git checkout" };
+  const ahead = (s.aheadBehind as { ahead?: unknown } | null)?.ahead;
+  const unpushed =
+    typeof s.aheadOfOrigin === "number"
+      ? s.aheadOfOrigin
+      : // No upstream: the branch was never pushed, so its commits past the base are only here.
+        typeof ahead === "number"
+        ? ahead
+        : 0;
+  return { known: true, ...base, dirty: s.isDirty === true, unpushed: Math.max(0, unpushed) };
+}
+
+/** Releasing loses nothing only when the checkout was read and has nothing uncommitted or unpushed. */
+export const checkoutClean = (c: PoolCheckout | null | undefined) =>
+  !!c?.known && !c.dirty && !c.unpushed;
+
+/** What releasing `box` after archiving would lose, as the confirmation says it. */
+export function releaseWarning(label: string, c: PoolCheckout | null | undefined) {
+  const where = c?.branch ? ` in ${c.branch}` : "";
+  if (!c?.known)
+    return `Releasing ${label} discards anything unpushed${where}: its changes couldn't be checked${c?.error ? ` (${c.error})` : ""}.`;
+  const parts = [
+    c.dirty ? "uncommitted changes" : "",
+    c.unpushed ? `${c.unpushed} unpushed ${c.unpushed === 1 ? "commit" : "commits"}` : "",
+  ].filter(Boolean);
+  return `Releasing ${label} discards unpushed changes${where} (${parts.join(" and ")}).`;
+}
+
+/** What else keeps a box busy after a workspace on it was archived. */
+export type PoolRemaining = { workspaces: number; agents: number };
+export const boxIdle = (r: PoolRemaining) => r.workspaces === 0 && r.agents === 0;

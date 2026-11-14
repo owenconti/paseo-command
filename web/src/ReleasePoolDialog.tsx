@@ -14,12 +14,15 @@ import type { PoolBox } from "./pool";
 export function ReleasePoolDialog({
   box,
   agents,
+  warning,
   onCancel,
   onConfirm,
 }: {
   box: PoolBox;
   /** The box's host's active agents, lost with it. */
   agents: Agent[];
+  /** Asked after its last workspace was archived: what releasing it would lose (src/poolArchive.ts). */
+  warning?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -79,14 +82,15 @@ export function ReleasePoolDialog({
             </span>
           </div>
           <p id="release-pool-description">
-            release.sh takes the box's secrets off, restores its seeded checkpoint and returns it to the pool. Its Paseo
-            host goes offline until the box is claimed again.
+            {warning
+              ? `Its last workspace was archived. ${warning}`
+              : "release.sh takes the box's secrets off, restores its seeded checkpoint and returns it to the pool. Its Paseo host goes offline until the box is claimed again."}
           </p>
           <div className="archive-impact">
             <b>Work on the box is lost</b>
             <p>
               Everything changed on the box since it was claimed (commits not pushed, worktrees, the database, its agents'
-              conversations) goes with the restore. Push anything you want to keep first.
+              conversations) goes with the restore. Push anything you want to keep first{warning ? ", or keep the box claimed and release it from the Hosts tab later" : ""}.
             </p>
           </div>
           {agents.length > 0 && (

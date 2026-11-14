@@ -62,12 +62,18 @@ import { ArchiveWorkspaceDialog } from "./ArchiveWorkspaceDialog";
 import { RemoveProjectDialog } from "./RemoveProjectDialog";
 import { ReleasePoolDialog } from "./ReleasePoolDialog";
 import { onPoolJobEnd, releasePoolBox, usePool } from "./poolStore";
+import {
+  archiveWorkspace as archiveWithPool,
+  onPoolArchiveNotice,
+  onReleaseAsk,
+  releaseAfterArchive,
+  type ReleaseAsk,
+} from "./poolArchive";
 import { idleBoxes, jobRunning, jobText, type PoolBox } from "./pool";
 import {
   dismissArchive,
   isArchiving,
   onArchiveSettled,
-  startArchive,
   useArchiveJobs,
   type ArchiveJob,
 } from "./archives";
@@ -407,8 +413,9 @@ function App() {
     null,
   );
   const [removeProject, setRemoveProject] = useState<Project | null>(null);
-  // A claimed pool box whose release is being confirmed.
+  // A claimed pool box whose release is being confirmed (`ask`: after its last workspace was archived).
   const [releaseBox, setReleaseBox] = useState<PoolBox | null>(null);
+  const [releaseAsk, setReleaseAsk] = useState<ReleaseAsk | null>(null);
   // Projects (by key) whose removal is under way.
   const [removingProjects, setRemovingProjects] = useState<Set<string>>(
     () => new Set(),
@@ -465,10 +472,36 @@ function App() {
     if (poolJob) return setNotice(jobText(poolJob));
     setReleaseBox(box);
   };
+  // Archiving a pool box's last workspace releases it, asking first when its checkout had unpushed work.
+  useEffect(() => {
+    const offAsk = onReleaseAsk((ask) => {
+      setReleaseAsk(ask);
+      setReleaseBox(ask.box);
+    });
+    const offNotice = onPoolArchiveNotice((message, failed) => {
+      if (failed) soundEvent("actionFailed");
+      setNotice(message);
+    });
+    return () => {
+      offAsk();
+      offNotice();
+    };
+  }, []);
+  const keepClaimed = (ask: ReleaseAsk) =>
+    setNotice(`${ask.box.label} stays claimed. Release it from the Hosts tab once its work is pushed.`);
+  const cancelReleasePool = () => {
+    if (releaseAsk) keepClaimed(releaseAsk);
+    setReleaseBox(null);
+    setReleaseAsk(null);
+  };
   const confirmReleasePool = async () => {
     const box = releaseBox;
     if (!box) return;
     setReleaseBox(null);
+    if (releaseAsk) {
+      setReleaseAsk(null);
+      return releaseAfterArchive(releaseAsk);
+    }
     try {
       await releasePoolBox(box.id);
       setNotice(`Releasing ${box.label}…`);
@@ -1354,7 +1387,9 @@ function App() {
         if (e.key === "Escape") {
           setArchiveWorkspace(null);
           setRemoveProject(null);
+          if (releaseAsk) keepClaimed(releaseAsk);
           setReleaseBox(null);
+          setReleaseAsk(null);
         }
         return;
       }
@@ -1521,7 +1556,7 @@ function App() {
   };
   const confirmArchive = () => {
     if (!archiveWorkspace) return;
-    startArchive(archiveWorkspace);
+    archiveWithPool(archiveWorkspace, integrations.pool);
     setArchiveWorkspace(null);
   };
   // Removing a project archives its workspaces on the daemon, which can take
@@ -3582,7 +3617,7 @@ function App() {
         <div className="toast-stack">
           <AnimatePresence initial={false}>
             {archiveJobs.map((job) => (
-              <ArchiveToast key={job.key} job={job} />
+              <ArchiveToast key={job.key} job={job} pool={integrations.pool} />
             ))}
           </AnimatePresence>
           <AnimatePresence>
@@ -3632,7 +3667,8 @@ function App() {
               agents={active.filter((a) =>
                 hosts.some((h) => h.label === releaseBox.label && h.serverId === a.host),
               )}
-              onCancel={() => setReleaseBox(null)}
+              warning={releaseAsk?.warning}
+              onCancel={cancelReleasePool}
               onConfirm={() => void confirmReleasePool()}
             />
           )}
@@ -3664,7 +3700,7 @@ function App() {
   );
 }
 /** A background workspace archive: in progress, done, or failed with Retry. */
-function ArchiveToast({ job }: { job: ArchiveJob }) {
+function ArchiveToast({ job, pool }: { job: ArchiveJob; pool: boolean }) {
   const name = placeText(job.workspace.name, "workspace");
   useEffect(() => {
     if (job.status !== "archived") return;
@@ -3698,7 +3734,7 @@ function ArchiveToast({ job }: { job: ArchiveJob }) {
         <button
           className="secondary"
           aria-description={`Try archiving ${name} again`}
-          onClick={() => startArchive(job.workspace)}
+          onClick={() => archiveWithPool(job.workspace, pool)}
         >
           <RotateCw size={12} />
           Retry

@@ -165,3 +165,119 @@ test("leaving New agent mid-claim keeps the claim; a failed claim puts the messa
   await waitFor(() => form.locator("#composer").inputValue(), (v) => v === "Run the e2e suite on the box", "the message back");
   await context.close();
 });
+
+/** A fleet with workspaces on pool-1 (and one on macmini), archived from the Workspaces tab. */
+async function archiveScene(opts: {
+  checkout?: unknown;
+  remaining?: { workspaces: number; agents: number };
+  box?: boolean;
+}) {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const posts: { path: string; body: any }[] = [];
+  const lists: Record<string, unknown> = { settings, pool: status() };
+  const box = { id: "pool-1", label: "pool-1", status: "claimed" };
+  let workspaces = [
+    { workspaceId: "wks_pool", projectId: "prj_app", project: "app", name: "fix-login", isolation: "local", cwd: "/srv/app", branch: "fix-login", host: "srv_pool1" },
+    { workspaceId: "wks_mac", projectId: "prj_app", project: "app", name: "docs", isolation: "local", cwd: "/work/app", branch: "docs", host: "srv_macmini" },
+  ];
+  await mockApi(page, {
+    agents: () => [],
+    hosts: () => [...hosts, { serverId: "srv_macmini", label: "macmini", status: "online", local: false, state: "online" }],
+    projects: () => [
+      { projectId: "prj_app", name: "app", kind: "git", path: "/srv/app", host: "srv_pool1" },
+      { projectId: "prj_app", name: "app", kind: "git", path: "/work/app", host: "srv_macmini" },
+    ],
+    workspaces: () => workspaces,
+    lists,
+    accept: (path, body) => {
+      posts.push({ path, body });
+      if (path.startsWith("/api/workspaces/") && path.endsWith("/archive")) {
+        workspaces = workspaces.filter((w) => !path.includes(w.workspaceId));
+        return { ok: true };
+      }
+      if (path === "/api/pool/before-archive")
+        return opts.box === false || body.host !== "srv_pool1" ? { box: null } : { box, checkout: opts.checkout };
+      if (path === "/api/pool/after-archive")
+        return opts.box === false || body.host !== "srv_pool1"
+          ? { box: null }
+          : { box, remaining: opts.remaining ?? { workspaces: 0, agents: 0 } };
+      if (path === "/api/pool/release") {
+        const job = { id: "pj9", kind: "release", phase: "releasing", pool: "pool-1", steps: [], startedAt: 1 };
+        lists.pool = status(job);
+        return { job };
+      }
+      return false;
+    },
+  });
+  await page.goto(app.url);
+  await page.getByRole("tab", { name: /Workspaces/ }).click();
+  const archive = async (name: string) => {
+    await page.getByRole("button", { name: `Archive workspace ${name}` }).click();
+    const dialog = page.getByRole("dialog", { name: "Archive this workspace?" });
+    await dialog.getByRole("button", { name: "Archive workspace" }).click();
+    await waitFor(() => Promise.resolve(posts.some((p) => p.path.endsWith("/archive"))), (v) => v, "the archive");
+  };
+  const posted = (path: string) => posts.filter((p) => p.path === path);
+  return { context, page, posts, posted, archive };
+}
+const clean = { known: true, branch: "fix-login", dirty: false, unpushed: 0 };
+
+test("archiving a pool box's last workspace releases the box, its checkout clean", async () => {
+  const { context, page, posted, archive } = await archiveScene({ checkout: clean });
+  await archive("fix-login");
+  // The checkout was read before the archive went out.
+  assert.deepEqual(posted("/api/pool/before-archive")[0].body, { host: "srv_pool1", workspace: "wks_pool" });
+  await waitFor(() => Promise.resolve(posted("/api/pool/release").length), (n) => n === 1, "the release");
+  assert.deepEqual(posted("/api/pool/release")[0].body, { pool: "pool-1", host: "srv_pool1", workspace: "wks_pool" });
+  assert.equal(await page.getByRole("dialog", { name: /Release pool-1/ }).count(), 0, "nothing asked");
+  await waitFor(() => page.locator(".toast-stack").textContent(), (t) => !!t?.includes("Releasing pool-1: its last workspace was archived"), "the notice");
+  await page.getByRole("tab", { name: /Hosts/ }).click();
+  await waitFor(() => page.locator(".host-entry").filter({ hasText: "pool-1" }).textContent(), (t) => !!t?.includes("Releasing…"), "the Hosts tab's state");
+  await context.close();
+});
+
+test("a pool box with another workspace still active stays claimed", async () => {
+  const { context, page, posted, archive } = await archiveScene({ checkout: clean, remaining: { workspaces: 1, agents: 0 } });
+  await archive("fix-login");
+  await waitFor(() => Promise.resolve(posted("/api/pool/after-archive").length), (n) => n === 1, "the check after");
+  await page.waitForTimeout(300);
+  assert.equal(posted("/api/pool/release").length, 0);
+  assert.equal(await page.getByRole("dialog", { name: /Release pool-1/ }).count(), 0);
+  await context.close();
+});
+
+test("unpushed work in the checkout asks before releasing; keeping the box claimed releases nothing", async () => {
+  const dirty = { known: true, branch: "fix-login", dirty: true, unpushed: 2 };
+  const first = await archiveScene({ checkout: dirty });
+  await first.archive("fix-login");
+  const ask = first.page.getByRole("dialog", { name: "Release pool-1?" });
+  await ask.waitFor();
+  assert.match(
+    (await ask.textContent()) ?? "",
+    /Releasing pool-1 discards unpushed changes in fix-login \(uncommitted changes and 2 unpushed commits\)/,
+  );
+  assert.equal(first.posted("/api/pool/release").length, 0, "not before the answer");
+  await ask.getByRole("button", { name: "Keep it" }).click();
+  await waitFor(() => first.page.locator(".toast-stack").textContent(), (t) => !!t?.includes("pool-1 stays claimed"), "the notice");
+  assert.equal(first.posted("/api/pool/release").length, 0);
+  await first.context.close();
+  // Confirmed, it's released.
+  const second = await archiveScene({ checkout: dirty });
+  await second.archive("fix-login");
+  const again = second.page.getByRole("dialog", { name: "Release pool-1?" });
+  await again.getByRole("button", { name: "Release pool-1" }).click();
+  await waitFor(() => Promise.resolve(second.posted("/api/pool/release").length), (n) => n === 1, "the release");
+  assert.deepEqual(second.posted("/api/pool/release")[0].body, { pool: "pool-1", host: "srv_pool1", workspace: "wks_pool" });
+  await second.context.close();
+});
+
+test("archiving a workspace on a host that isn't a pool box releases nothing", async () => {
+  const { context, page, posted, archive } = await archiveScene({ checkout: clean });
+  await archive("docs");
+  await waitFor(() => Promise.resolve(posted("/api/workspaces/wks_mac/archive").length), (n) => n === 1, "the archive");
+  await page.waitForTimeout(300);
+  assert.equal(posted("/api/pool/after-archive").length, 0, "the server said it isn't a pool box");
+  assert.equal(posted("/api/pool/release").length, 0);
+  await context.close();
+});

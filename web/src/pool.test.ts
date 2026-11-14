@@ -12,6 +12,10 @@ import {
   poolSettingsProblem,
   poolBoxPrompt,
   envValue,
+  poolCheckoutOf,
+  checkoutClean,
+  releaseWarning,
+  boxIdle,
   progressLine,
   scriptError,
 } from "./pool";
@@ -95,4 +99,41 @@ test("jobText says what a job is doing", () => {
   assert.equal(jobText({ ...job, phase: "waiting", pool: "pool-1" }), "Waiting for pool-1 to come online…");
   assert.equal(jobText({ ...job, phase: "failed", pool: "pool-1", error: "boom" }), "Couldn't start the agent on pool-1: boom");
   assert.equal(jobText({ ...job, kind: "release", phase: "done", pool: "pool-1" }), "Released pool-1");
+});
+
+test("poolCheckoutOf reads what releasing would lose", () => {
+  const git = { isGit: true, error: null, currentBranch: "fix-login", isDirty: false, aheadBehind: { ahead: 3, behind: 0 } };
+  // Pushed: nothing ahead of its upstream.
+  const pushed = poolCheckoutOf({ ...git, aheadOfOrigin: 0 });
+  assert.deepEqual(pushed, { known: true, branch: "fix-login", dirty: false, unpushed: 0 });
+  assert.equal(checkoutClean(pushed), true);
+  // Commits not pushed to its upstream.
+  assert.equal(poolCheckoutOf({ ...git, aheadOfOrigin: 2 }).unpushed, 2);
+  // No upstream: its commits past the base were never pushed.
+  assert.equal(poolCheckoutOf({ ...git, aheadOfOrigin: null }).unpushed, 3);
+  const dirty = poolCheckoutOf({ ...git, isDirty: true, aheadOfOrigin: 0 });
+  assert.equal(checkoutClean(dirty), false);
+  // Unknown is never clean.
+  const failed = poolCheckoutOf({ error: { code: "UNKNOWN", message: "git failed" } }, "main");
+  assert.deepEqual(failed, { known: false, branch: "main", error: "git failed" });
+  assert.equal(checkoutClean(failed), false);
+  assert.equal(checkoutClean(poolCheckoutOf({ isGit: false, error: null })), false);
+  assert.equal(checkoutClean(poolCheckoutOf(null)), false);
+});
+
+test("releaseWarning says what releasing discards", () => {
+  assert.equal(
+    releaseWarning("pool-1", { known: true, branch: "fix-login", dirty: true, unpushed: 1 }),
+    "Releasing pool-1 discards unpushed changes in fix-login (uncommitted changes and 1 unpushed commit).",
+  );
+  assert.equal(
+    releaseWarning("pool-1", { known: true, branch: "fix-login", dirty: false, unpushed: 4 }),
+    "Releasing pool-1 discards unpushed changes in fix-login (4 unpushed commits).",
+  );
+  assert.equal(
+    releaseWarning("pool-1", { known: false, branch: "main", error: "its daemon didn't answer" }),
+    "Releasing pool-1 discards anything unpushed in main: its changes couldn't be checked (its daemon didn't answer).",
+  );
+  assert.equal(boxIdle({ workspaces: 0, agents: 0 }), true);
+  assert.equal(boxIdle({ workspaces: 0, agents: 1 }), false);
 });

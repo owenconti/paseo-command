@@ -9,7 +9,17 @@ import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { POOL, POOL_DEPS, poolStatus, resetPool, startClaim, startRelease } from "./pool";
+import {
+  POOL,
+  POOL_DEPS,
+  afterArchive,
+  beforeArchive,
+  poolStatus,
+  releaseRoute,
+  resetPool,
+  startClaim,
+  startRelease,
+} from "./pool";
 import { appSettings, saveAppSettings, settingsFile, writeSettings } from "./settings";
 import { jobRunning } from "../src/pool";
 
@@ -194,4 +204,69 @@ test("Settings saves only the folder: the checkout is config.env's", () => {
   assert.throws(() => saveAppSettings({ pool: { dir: "~/boxes", checkout: "/srv/app" } }), /Invalid pool box settings/);
   assert.throws(() => saveAppSettings({ pool: { dir: "boxes" } }), /absolute path/);
   assert.deepEqual(appSettings().pool, { dir: "~/boxes" });
+});
+
+/** pool-1's host is srv_pool1; srv_mac is an ordinary host. */
+function hostsFake() {
+  POOL_DEPS.hostLabel = async (serverId) => ({ srv_pool1: "pool-1", srv_mac: "macmini" })[serverId];
+}
+
+test("before an archive, a pool box's checkout is read; other hosts aren't pool boxes", async () => {
+  hostsFake();
+  const read: string[] = [];
+  POOL_DEPS.checkout = async (serverId, workspaceId) => {
+    read.push(`${serverId} ${workspaceId}`);
+    return { known: true, branch: "fix-login", dirty: true, unpushed: 0 };
+  };
+  const pooled = await beforeArchive({ host: "srv_pool1", workspace: "wks_1" });
+  assert.equal(pooled.box?.id, "pool-1");
+  assert.deepEqual(pooled.checkout, { known: true, branch: "fix-login", dirty: true, unpushed: 0 });
+  assert.deepEqual(await beforeArchive({ host: "srv_mac", workspace: "wks_2" }), { box: null });
+  // An idle box (not claimed) isn't one to release either.
+  state({ "pool-1": box("pool-1", "idle") });
+  assert.deepEqual(await beforeArchive({ host: "srv_pool1", workspace: "wks_1" }), { box: null });
+  assert.deepEqual(read, ["srv_pool1 wks_1"]);
+});
+
+test("after an archive, what's left on the box's host is counted without the archived workspace", async () => {
+  hostsFake();
+  const asked: unknown[] = [];
+  POOL_DEPS.remaining = async (serverId, except) => {
+    asked.push({ serverId, except });
+    return { workspaces: 0, agents: 0 };
+  };
+  const after = await afterArchive({ host: "srv_pool1", workspace: "wks_1", cwd: "/srv/work/app" });
+  assert.deepEqual(after, { box: { id: "pool-1", label: "pool-1", status: "claimed", claimedAt: "2026-11-13T22:56:41Z", baseDomain: "pool-1.example.com" }, remaining: { workspaces: 0, agents: 0 } });
+  assert.deepEqual(asked, [{ serverId: "srv_pool1", except: { workspaceId: "wks_1", cwd: "/srv/work/app" } }]);
+  assert.deepEqual(await afterArchive({ host: "srv_mac", workspace: "wks_2" }), { box: null });
+  assert.equal(asked.length, 1, "an ordinary host isn't asked");
+});
+
+test("after an archive, the last workspace's box is released; one with work left isn't", async () => {
+  hostsFake();
+  let left = { workspaces: 1, agents: 0 };
+  POOL_DEPS.remaining = async () => left;
+  await assert.rejects(
+    releaseRoute({ pool: "pool-1", host: "srv_pool1", workspace: "wks_1" }),
+    /pool-1 still has 1 active workspace and 0 agents; it stays claimed/,
+  );
+  left = { workspaces: 0, agents: 1 };
+  await assert.rejects(releaseRoute({ pool: "pool-1", host: "srv_pool1", workspace: "wks_1" }), /stays claimed/);
+  // Never another host's box, nor an ordinary host.
+  await assert.rejects(releaseRoute({ pool: "pool-1", host: "srv_mac", workspace: "wks_1" }), /isn't pool-1's/);
+  assert.equal(poolStatus().job, null, "release.sh never ran");
+  left = { workspaces: 0, agents: 0 };
+  const job = (await releaseRoute({ pool: "pool-1", host: "srv_pool1", workspace: "wks_1" }))!;
+  assert.equal(job.kind, "release");
+  const done = await finished();
+  assert.equal(done.phase, "done");
+  assert.equal(readFileSync(join(dir, "release-args"), "utf8").trim(), "pool-1");
+});
+
+test("a failed release says release.sh's error", async () => {
+  script("release.sh", `echo "releasing $1 (paseo-$1)"\necho "error: sprite paseo-$1 does not exist" >&2\nexit 1`);
+  startRelease({ pool: "pool-1" });
+  const done = await finished();
+  assert.equal(done.phase, "failed");
+  assert.equal(done.error, "sprite paseo-pool-1 does not exist");
 });

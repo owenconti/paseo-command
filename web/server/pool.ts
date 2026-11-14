@@ -22,8 +22,10 @@ import type { IncomingMessage } from "node:http";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
+  boxIdle,
   claimedPool,
   envValue,
+  poolCheckoutOf,
   idleBoxes,
   jobRunning,
   poolBoxPrompt,
@@ -35,13 +37,18 @@ import {
   scriptError,
   POOL_ID,
   type PoolBox,
+  type PoolCheckout,
   type PoolJob,
+  type PoolRemaining,
   type PoolSettings,
   type PoolStatus,
 } from "../src/pool";
 import { checkPoolDispatch, poolDispatch, type Changed } from "./api/commands";
 import { cliEnv } from "./api/cli";
-import { HostOffline, hostRegistry, resolveHost, type Remote } from "./api/hosts";
+import { HostOffline, hostRegistry, resolveHost, sdk, timed, type Remote } from "./api/hosts";
+import { currentWorkspaces } from "./api/reads";
+import { id } from "./api/validate";
+import { unarchivedAgents } from "./live/hostRows";
 import { bodyOf, type replier } from "./api/http";
 import { settleChange } from "./api/settle";
 import { startLive } from "./api/stream";
@@ -117,6 +124,40 @@ export const POOL_DEPS = {
   dispatch: (body: Body, host: Remote, checkout: string, mark: (c: Changed) => void, prompt: string) =>
     poolDispatch(body, host, checkout, mark, prompt),
   settle: settleChange,
+  /** A registered host's label, from the registry (the host needn't answer). */
+  async hostLabel(serverId: string) {
+    const registry = await hostRegistry();
+    return registry.hosts.find((h) => !h.local && h.serverId === serverId)?.label;
+  },
+  /** A workspace's checkout on the box, read for what releasing would lose. */
+  async checkout(serverId: string, workspaceId: string): Promise<PoolCheckout> {
+    try {
+      const host = (await resolveHost(serverId, "read"))!;
+      const ws = (await currentWorkspaces(host)).find((w) => w.workspaceId === workspaceId) as
+        | { cwd?: string; branch?: string }
+        | undefined;
+      if (!ws?.cwd) return { known: false, error: "the workspace wasn't found on the box" };
+      const client = await sdk(host);
+      return poolCheckoutOf(await timed(client.getCheckoutStatus(ws.cwd), undefined, client), ws.branch);
+    } catch (error) {
+      return { known: false, error: errorText(error).slice(0, 200) };
+    }
+  },
+  /** What's still active on the box's host besides the archived workspace and its agents. */
+  async remaining(serverId: string, except: { workspaceId: string; cwd?: string }): Promise<PoolRemaining> {
+    const host = (await resolveHost(serverId, "write"))!;
+    const client = await sdk(host);
+    const [workspaces, agents] = await Promise.all([
+      currentWorkspaces(host),
+      timed(unarchivedAgents(client), undefined, client),
+    ]);
+    const outside = (a: { workspaceId?: string | null; cwd?: string | null }) =>
+      a.workspaceId !== except.workspaceId && !(except.cwd && a.cwd === except.cwd);
+    return {
+      workspaces: workspaces.filter((w) => w.workspaceId !== except.workspaceId).length,
+      agents: agents.filter((e) => outside(e.agent as { workspaceId?: string | null; cwd?: string | null })).length,
+    };
+  },
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -298,7 +339,61 @@ function boxOf(dir: string, pool: string): PoolBox {
   return { id: pool, label: pool, status: "claimed" };
 }
 
-/** `POST /api/pool/release`: run `release.sh` for a claimed box. */
+/** The claimed box a registered host is (its label is the box's), else null: other hosts are never pool boxes. */
+async function boxOfHost(serverId: string): Promise<PoolBox | null> {
+  if (!integrationEnabled("pool")) return null;
+  const found = scripts(settings());
+  if (found.problem || !found.boxes) return null;
+  const label = await POOL_DEPS.hostLabel(serverId).catch(() => undefined);
+  return (label && found.boxes.find((b) => b.status === "claimed" && b.label === label)) || null;
+}
+
+/**
+ * `POST /api/pool/before-archive {host, workspace}`: before a workspace on a
+ * claimed pool box is archived (a worktree may go with it), what releasing
+ * the box would lose. `{box: null}` for any other host.
+ */
+export async function beforeArchive(body: Body) {
+  const serverId = id(body.host);
+  const workspaceId = id(body.workspace);
+  const box = await boxOfHost(serverId);
+  if (!box) return { box: null };
+  return { box, checkout: await POOL_DEPS.checkout(serverId, workspaceId) };
+}
+
+/**
+ * `POST /api/pool/after-archive {host, workspace, cwd?}`: once it's archived,
+ * what else is still active on the box's host. `{box: null}` for any other host.
+ */
+export async function afterArchive(body: Body) {
+  const serverId = id(body.host);
+  const workspaceId = id(body.workspace);
+  const cwd = typeof body.cwd === "string" && body.cwd.length <= 1000 ? body.cwd : undefined;
+  const box = await boxOfHost(serverId);
+  if (!box) return { box: null };
+  return { box, remaining: await POOL_DEPS.remaining(serverId, { workspaceId, cwd }) };
+}
+
+/**
+ * `POST /api/pool/release {pool, host?, workspace?}`: run `release.sh` for a
+ * claimed box. Asked after an archive (`host`, the box's host, and the archived
+ * `workspace`), the box's host is checked again first: released only if it is
+ * that box's and nothing else is active on it.
+ */
+export async function releaseRoute(body: Body) {
+  if (body.host === undefined) return startRelease(body);
+  const pool = typeof body.pool === "string" ? body.pool : "";
+  if (!POOL_ID.test(pool)) throw new Error("Invalid pool box");
+  const serverId = id(body.host);
+  const box = await boxOfHost(serverId);
+  if (box?.id !== pool) throw new Error(`That host isn't ${pool}'s.`);
+  const left = await POOL_DEPS.remaining(serverId, { workspaceId: id(body.workspace) });
+  if (!boxIdle(left))
+    throw new Error(`${box.label} still has ${left.workspaces} active ${left.workspaces === 1 ? "workspace" : "workspaces"} and ${left.agents} ${left.agents === 1 ? "agent" : "agents"}; it stays claimed.`);
+  return startRelease({ pool });
+}
+
+/** `POST /api/pool/release {pool}`: run `release.sh` for a claimed box. */
 export function startRelease(body: Body) {
   const pool = typeof body.pool === "string" ? body.pool : "";
   if (!POOL_ID.test(pool)) throw new Error("Invalid pool box");
@@ -332,15 +427,18 @@ export async function poolRoute(
       return reply(200, poolStatus());
     }
     const action = url.pathname.slice("/api/pool/".length);
-    if (action !== "claim" && action !== "release") return reply(404, { error: "Unknown endpoint" });
+    if (!["claim", "release", "before-archive", "after-archive"].includes(action))
+      return reply(404, { error: "Unknown endpoint" });
     if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
     if (!req.headers["content-type"]?.startsWith("application/json"))
       return reply(415, { error: "JSON required" });
     // A claim carries New agent's first message, pasted screenshots too.
     const body = await bodyOf(req, action === "claim" ? 30 * 1024 * 1024 : 4000);
     // The registry the wait and the dispatch read follows the local daemon.
-    if (action === "claim") startLive();
-    return reply(200, { job: action === "claim" ? startClaim(body) : startRelease(body) });
+    if (action !== "release" || body.host !== undefined) startLive();
+    if (action === "before-archive") return reply(200, await beforeArchive(body));
+    if (action === "after-archive") return reply(200, await afterArchive(body));
+    return reply(200, { job: action === "claim" ? startClaim(body) : await releaseRoute(body) });
   } catch (error) {
     return reply(400, { error: errorText(error) });
   }

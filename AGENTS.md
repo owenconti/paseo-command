@@ -300,9 +300,20 @@ and GitHub publication; report the published version and release link.
   released box's daemon is down until it's claimed again. (Paseo CLI 0.15.4's `--host` takes an endpoint, not a host label: the app
   dispatches through the SDK by the host's serverId.) The form shows the script's step lines (`progressLine`) and opens the agent when it's done; a notice says how each job
   ended (`onPoolJobEnd` in main). A claimed box's host in the Hosts tab has Release (↺), which confirms (`ReleasePoolDialog.tsx`: the box is
-  restored, so its work and agents go) and runs `release.sh pool-N` (`POST /api/pool/release`). ⌘K: "New agent on a new pool box",
+  restored, so its work and agents go) and runs `release.sh pool-N` (`POST /api/pool/release`). Archiving a claimed box's last
+  workspace releases it (`web/src/poolArchive.ts`, every workspace archive goes through `archiveWorkspace`): before the archive
+  request (the toast shows at once; bounded by `POOL_ARCHIVE.checkMs`, never stopping the archive) `POST /api/pool/before-archive
+  {host, workspace}` reads its checkout (`getCheckoutStatus`, `poolCheckoutOf`: uncommitted changes; commits ahead of the upstream,
+  else, never pushed, ahead of the base); once archived, `POST /api/pool/after-archive` counts the host's other active workspaces
+  and unarchived agents (fresh from its daemon). Anything left: it stays claimed. Nothing left and the checkout clean: released in
+  the background (`POST /api/pool/release {pool, host, workspace}`, which checks the host is the box's and idle again); unpushed
+  work, or a checkout that couldn't be read: `ReleasePoolDialog` asks first ("Releasing pool-N discards unpushed changes in
+  <branch> (…)", `releaseWarning`); Keep it leaves it claimed with a notice. Hosts that aren't a claimed box (`boxOfHost`, by the
+  registry's label) answer `{box: null}` and are archived as before. release.sh exits 0 on success or an idle box, 1 on a bad id or
+  any error (its `error:` line is shown); the app never runs it without an id. ⌘K: "New agent on a new pool box",
   "Release pool box “pool-N”…" (page Command), only while they'd work. Scripts run without a shell, output redacted, only step and outcome
-  lines kept. Tests: `server/pool.test.ts` (fake scripts in a temporary folder; `POOL_DEPS` fakes the host and dispatch),
+  lines kept. Tests: `server/pool.test.ts` (fake scripts in a temporary folder; `POOL_DEPS` fakes the host, dispatch, checkout and
+  what's left on a host),
   `src/pool.test.ts`, `e2e/pool.e2e.ts`.
 - Host load: `web/server/hostStats.ts` (`GET /api/hoststats`, polled by `web/src/useHostStats.ts`) asks each online host's
   daemon for the `host-stats` plugin's `stats.snapshot` (github.com/owenconti/paseo-cc-plugins, installed per daemon) over
