@@ -133,6 +133,28 @@ test("at a glance: your Linear issues by state, the PRs asking you and Diagonal'
     (window as any).__opened = [];
     window.open = ((url: string) => ((window as any).__opened.push(url), null)) as typeof window.open;
   });
+  // Every count's menu opens beneath it, whole: nothing of the panel or the board clips it.
+  for (const [button, name] of [
+    ["In Progress: 2 issues", "Your issues in progress"],
+    ["Review requests: 1 pull request", "Pull requests asking your review"],
+    ["Assigned to you: 0 pull requests", "Pull requests assigned to you"],
+    [/^Diagonal health:/, "Diagonal's health"],
+  ] as const) {
+    const count = page.getByRole("button", { name: button });
+    await count.click();
+    const shown = page.getByRole("menu", { name });
+    await shown.waitFor();
+    const seen = await shown.evaluate((el, chip) => {
+      const r = el.getBoundingClientRect();
+      const c = chip!.getBoundingClientRect();
+      // Each corner (a little inside) is the menu's own, not something drawn over or clipping it.
+      const corners = [[r.left + 4, r.top + 4], [r.right - 4, r.top + 4], [r.left + 4, r.bottom - 4], [r.right - 4, r.bottom - 4]];
+      return { below: r.top >= c.bottom - 1, place: el.dataset.place, whole: corners.every(([x, y]) => el.contains(document.elementFromPoint(x!, y!))) };
+    }, await count.elementHandle());
+    assert.deepEqual(seen, { below: true, place: "down", whole: true }, `${name}: ${JSON.stringify(seen)}`);
+    await page.keyboard.press("Escape");
+    await shown.waitFor({ state: "detached" });
+  }
   await page.getByRole("button", { name: "In Progress: 2 issues" }).click();
   const menu = page.getByRole("menu", { name: "Your issues in progress" });
   await menu.waitFor();

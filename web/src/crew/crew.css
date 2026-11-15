@@ -1168,7 +1168,7 @@ button.crew-pool-name:hover {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  /* No overflow clipping: the counts' menus hang out of the panel. */
 }
 .crew-glance-cell {
   display: flex;
