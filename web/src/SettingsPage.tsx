@@ -6,6 +6,7 @@ import { ResizeEdge } from "./ResizeEdge";
 import { readStore, writeStore } from "./api";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
 import { setIntegration, useIntegrations } from "./integrationSettings";
+import type { Integration } from "./integrations";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
 import { openPresetEditor, usePresets } from "./presetsStore";
@@ -434,7 +435,8 @@ function IntegrationSettings() {
   }, [refreshSecrets]);
   const has = (key: keyof SecretStatus["configured"]) => secrets?.configured[key] === true;
   const pool = usePool(integrations.pool);
-  const badge = (name: "linear" | "github" | "typesafe" | "pool") => {
+  const badge = (name: Integration) => {
+    if (name === "health") return null;
     if (name === "pool") {
       const b = poolBadge(pool);
       return b && <Badge tone={b.tone}>{b.text}</Badge>;
@@ -455,6 +457,7 @@ function IntegrationSettings() {
           ["github", "GitHub", "Pull requests to review and your workspaces' changes in the GitHub tab, and notifications in Activity, with your own token."],
           ["typesafe", "TypeSafe", "Find questions and suggest replies. Sends reply excerpts to TypeSafe."],
           ["pool", "Pool boxes", "Claim a warm-pool Sprite from New agent and start the agent on it once it's online; release one from its host's head in the crew. Runs the paseo-boxes scripts on this Mac."],
+          ["health", "Diagonal health", "Checks app.go-diagonal.com/health/status every minute while the crew shows, with a light for each database service on the crew's head: green under 1 ms, yellow under 3 ms, else red."],
         ] as const
       ).map(([name, label, description]) => (
         <section className="integration-setting" data-integration={name} aria-label={`${label} integration`} key={name}>
@@ -466,7 +469,7 @@ function IntegrationSettings() {
             badge={integrations[name] ? badge(name) : null}
             onChange={(on) => void setIntegration(name, on)}
           />
-          {integrations[name] && (
+          {integrations[name] && name !== "health" && (
             <div className="integration-fields">
               {name === "pool" ? (
                 <PoolSettings />

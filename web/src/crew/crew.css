@@ -1145,3 +1145,164 @@ button.crew-pool-name:hover {
 .crew-tally-item[data-state="idle"] {
   background: var(--fill);
 }
+
+/* At a glance (Glance.tsx): between the title and the filter, your Linear issues, the PRs asking you and Diagonal's
+   health, as chips that open menus. It takes the head's spare room; the title keeps only its own. */
+.crew-board-head:has(.crew-glance) .crew-board-title {
+  flex: 0 1 auto;
+}
+.crew-glance {
+  display: flex;
+  flex: 1 1 320px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  min-width: 0;
+  margin: 0 8px;
+}
+.crew-glance-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.crew-glance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+button.crew-glance-chip:hover,
+.crew-glance-chip[aria-expanded="true"] {
+  background: var(--row-hover);
+  color: var(--text);
+}
+.crew-glance-chip > svg {
+  color: var(--icon-muted);
+}
+.crew-glance-chip b {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold, 600);
+  font-variant-numeric: tabular-nums;
+}
+.crew-glance-chip[data-tone="none"] b,
+.crew-glance-chip.quiet {
+  color: var(--text-3);
+}
+.crew-glance-chip[data-tone="ask"] {
+  border-color: var(--amber-line);
+}
+.crew-glance-chip[data-tone="ask"] > svg {
+  color: var(--amber-text);
+}
+.crew-glance-chip.off {
+  color: var(--text-3);
+  border-style: dashed;
+}
+.crew-glance-chip.off > svg {
+  color: var(--amber-text);
+}
+.crew-glance-chip[data-glance="health"][data-tone="slow"] {
+  border-color: var(--amber-line);
+}
+.crew-glance-chip[data-glance="health"][data-tone="bad"] {
+  border-color: var(--red-line);
+}
+.crew-glance-chip[data-glance="health"][data-tone="bad"] b {
+  color: var(--red-text);
+}
+.crew-glance-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+/* A light for each database service. */
+.crew-glance-lights {
+  display: inline-flex;
+  gap: 3px;
+}
+.crew-glance-lights i,
+.crew-glance-service i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--green) 60%, transparent);
+}
+.crew-glance-service[data-tone="slow"] i,
+.crew-glance-lights i[data-tone="slow"] {
+  background: var(--amber);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--amber) 60%, transparent);
+}
+.crew-glance-service[data-tone="bad"] i,
+.crew-glance-lights i[data-tone="bad"] {
+  background: var(--red);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--red) 60%, transparent);
+}
+.popover-menu.crew-glance-menu {
+  width: min(380px, 80vw);
+  max-height: 420px;
+}
+.crew-glance-menu > button b {
+  overflow: hidden;
+  font-weight: var(--fw-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-glance-menu > button span {
+  min-width: 0;
+}
+.crew-glance-menu > button > .crew-glance-dot {
+  align-self: flex-start;
+  margin-top: 5px;
+}
+.crew-glance-empty,
+.crew-glance-note {
+  margin: 0;
+  padding: 6px 9px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.crew-glance-service {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  font-size: var(--fs-sm);
+}
+.crew-glance-service span {
+  flex: 1;
+  color: var(--text-2);
+}
+.crew-glance-service b {
+  font-weight: var(--fw-regular);
+  font-variant-numeric: tabular-nums;
+}
+.crew-glance-service[data-tone="slow"] b {
+  color: var(--amber-text);
+}
+.crew-glance-service[data-tone="bad"] b {
+  color: var(--red-text);
+}
+@container crew-board (max-width: 640px) {
+  .crew-glance {
+    flex-basis: 100%;
+    margin: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crew-glance-lights i,
+  .crew-glance-service i {
+    box-shadow: none;
+  }
+}

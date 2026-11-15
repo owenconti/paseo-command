@@ -103,8 +103,10 @@ test("API keys live under their integrations and can be saved, replaced and remo
   assert.equal(await linear.getByLabel(/Linear workspace/).inputValue(), "acme");
   assert.equal(await typesafe.getByLabel("TypeSafe API key", { exact: true }).inputValue(), "");
   assert.equal(await dialog.getByRole("checkbox").count(), 0);
-  // Integrations: a switch each (Linear, GitHub, TypeSafe, Pool boxes; Slack was removed).
-  assert.equal(await dialog.getByRole("switch").count(), 4);
+  // Integrations: a switch each (Linear, GitHub, TypeSafe, Pool boxes, Diagonal health; Slack was removed).
+  assert.equal(await dialog.getByRole("switch").count(), 5);
+  // Diagonal health has no key or settings beneath it.
+  assert.equal(await dialog.getByRole("region", { name: "Diagonal health integration" }).getByRole("textbox").count(), 0);
   assert.equal(await dialog.getByRole("region", { name: "Slack integration" }).count(), 0);
   if (process.env.KEY_SHOTS) {
     for (const colorScheme of ["light", "dark"] as const) {

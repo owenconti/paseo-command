@@ -24,7 +24,7 @@ after(async () => {
 });
 
 type Sent = { type: string; [field: string]: any };
-async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeon; usage?: Record<string, number> } = {}): Promise<Page> {
+async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeon; usage?: Record<string, number>; lists?: Record<string, unknown> } = {}): Promise<Page> {
   const fleet = opts.fleet ?? dungeon;
   const context = await newContext(browser);
   const page = await context.newPage();
@@ -61,6 +61,7 @@ async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeo
     },
     timeline: () => ({ items: [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done. Shall I open the pull request?", messageId: "r1" }] }),
     accept: () => true,
+    ...(opts.lists ? { lists: opts.lists } : {}),
   } as any);
   await page.goto(app.url);
   return page;
@@ -87,6 +88,80 @@ test("in a browser: the map groups host, project and workspace, each workspace a
   await page.locator('.floating-command[data-absent="true"]').waitFor({ state: "attached" });
   assert.equal(await page.getByRole("button", { name: /session panel/ }).count(), 0);
   assert.equal(await page.locator(".atlas-world-notice").count(), 0, "no 'drawn by the macOS app' notice");
+  await page.context().close();
+});
+
+const GLANCE = {
+  linear: {
+    groups: [
+      { state: "In Progress", type: "started", color: "#f2c94c", total: 2, issues: [
+        { id: "a", key: "DE-1", title: "Fix the login form", url: "https://linear.app/acme/issue/DE-1", team: "DE", priority: 2, updatedAt: "2026-11-02T00:00:00Z" },
+        { id: "b", key: "DE-2", title: "Speed up search", url: "https://linear.app/acme/issue/DE-2", team: "DE", priority: 0, updatedAt: "2026-11-01T00:00:00Z" },
+      ] },
+      { state: "In Review", type: "started", color: "#0f783c", total: 1, issues: [
+        { id: "c", key: "DE-3", title: "Ship the glance", url: "https://linear.app/acme/issue/DE-3", team: "DE", priority: 0, updatedAt: "2026-11-01T00:00:00Z" },
+      ] },
+      { state: "Todo", type: "unstarted", color: "", total: 0, issues: [] },
+    ],
+  },
+  github: {
+    review: { total: 1, rows: [{ id: "p1", repo: "acme/app", number: 12, title: "Add a cache", url: "https://github.com/acme/app/pull/12", state: "open", checks: "passing", updatedAt: "2026-11-01T00:00:00Z", author: "sam" }] },
+    assigned: { total: 0, rows: [] },
+  },
+  health: { checkedAt: Date.now(), up: true, took: 80, services: [{ name: "pgsql", ms: 0.47 }, { name: "redis-cache", ms: 1.4 }, { name: "mongodb", ms: 3.2 }] },
+};
+
+test("at a glance: your Linear issues by state, the PRs asking you and Diagonal's health sit on the crew's head, each opening a menu", async () => {
+  const page = await open({ lists: { settings: { integrations: { linear: true, github: true, health: true, typesafe: false } }, glance: GLANCE } });
+  const glance = page.getByRole("group", { name: "At a glance" });
+  await glance.waitFor();
+  const chips = glance.locator(".crew-glance-chip");
+  assert.deepEqual(
+    (await chips.allTextContents()).map((t) => t.trim()),
+    ["In Progress2", "In Review1", "Todo0", "Review1", "Assigned0", "Diagonal"],
+  );
+  // Between the title and the filter, on one row in a wide window.
+  const [title, strip, search] = await Promise.all([".crew-board-title", ".crew-glance", ".crew-search"].map((s) => page.locator(s).evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(strip.left >= title.right - 1 && strip.right <= search.left + 1, `between: ${JSON.stringify({ title, strip, search })}`);
+  // A light for each service: green under 1 ms, yellow under 3, red past it; the chip is as bad as the worst.
+  assert.deepEqual(await glance.locator(".crew-glance-lights i").evaluateAll((els) => els.map((e) => e.getAttribute("data-tone"))), ["good", "slow", "bad"]);
+  assert.equal(await page.getByRole("button", { name: /^Diagonal health:/ }).getAttribute("data-tone"), "bad");
+  // A state's chip lists its issues, newest first; one opens where it lives (a browser tab here).
+  await page.evaluate(() => {
+    (window as any).__opened = [];
+    window.open = ((url: string) => ((window as any).__opened.push(url), null)) as typeof window.open;
+  });
+  await page.getByRole("button", { name: "In Progress: 2 issues" }).click();
+  const menu = page.getByRole("menu", { name: "Your issues in progress" });
+  await menu.waitFor();
+  assert.deepEqual(await menu.getByRole("menuitem").allTextContents(), ["Fix the login formDE-1", "Speed up searchDE-2"]);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await menu.waitFor({ state: "detached" });
+  assert.deepEqual(await page.evaluate(() => (window as any).__opened), ["https://linear.app/acme/issue/DE-2"]);
+  // Esc closes a menu, back on its chip.
+  await page.getByRole("button", { name: "Review requests: 1 pull request" }).click();
+  await page.getByRole("menu", { name: "Pull requests asking your review" }).getByRole("menuitem", { name: /Add a cache/ }).waitFor();
+  await page.keyboard.press("Escape");
+  await page.getByRole("menu").waitFor({ state: "detached" });
+  // ⌘K opens Diagonal's health: each service and its time.
+  await page.keyboard.press("Meta+k");
+  await palette(page).getByRole("combobox").fill("Diagonal’s health");
+  await palette(page).getByRole("option", { name: /Show Diagonal’s health/ }).click();
+  const health = page.getByRole("menu", { name: "Diagonal's health" });
+  await health.waitFor();
+  assert.match((await health.textContent())!, /pgsql0\.47 ms.*redis-cache1\.40 ms.*mongodb3\.20 ms/);
+  await page.context().close();
+});
+
+test("at a glance shows nothing while Linear, GitHub and Diagonal health are off, and asks nothing", async () => {
+  let asked = 0;
+  const page = await open({ lists: { settings: { integrations: { linear: false, github: false, health: false, typesafe: false } } } });
+  page.on("request", (r) => r.url().includes("/api/glance") && asked++);
+  await map(page).locator(".crew-node").first().waitFor();
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator(".crew-glance").count(), 0);
+  assert.equal(asked, 0);
   await page.context().close();
 });
 

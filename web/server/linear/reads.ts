@@ -6,11 +6,14 @@
 import type { LinearNotification, LinearWorkspace } from "./types";
 import { integrationEnabled } from "../integrations";
 import { DISABLED, LinearError, linearApiKey, linearRequest, NO_KEY } from "./client";
-import { NOTIFICATIONS_QUERY, WORKSPACE_QUERY } from "./fragments";
+import { MY_ISSUES_QUERY, NOTIFICATIONS_QUERY, WORKSPACE_QUERY } from "./fragments";
+import { groupIssues, type GlanceIssueGroup } from "../../src/glance";
 import { httpsUrl, nodesOf, notificationOf, recOf, strOf, teamOf, userOf } from "./normalize";
 
 export const LINEAR_READS = {
   workspaceTtlMs: 5 * 60_000,
+  /** Crew's glance: your open issues are asked at most this often (the page asks every minute). */
+  myIssuesTtlMs: 50_000,
   inboxSize: 250,
   /** Your assigned issues: one page of this many, kept this long, done counted over this many days, this many of each group listed. */
   issuesPage: 250,
@@ -24,10 +27,24 @@ export const LINEAR_READS = {
 const nonNull = <T>(v: T | null): v is T => v !== null;
 
 let workspaceCache: { key: string; at: number; value: LinearWorkspace } | undefined;
+let myIssuesCache: { key: string; at: number; value: GlanceIssueGroup[] } | undefined;
 
 /** Forgets what the reads kept (tests). */
 export function resetLinearReads(): void {
   workspaceCache = undefined;
+  myIssuesCache = undefined;
+}
+
+/** Your issues in progress, in review and to do, by state (Crew's glance); kept `myIssuesTtlMs` unless `fresh`. */
+export async function readMyIssues(fresh = false): Promise<GlanceIssueGroup[]> {
+  const key = linearApiKey() ?? "";
+  if (!fresh && myIssuesCache && myIssuesCache.key === key && Date.now() - myIssuesCache.at < LINEAR_READS.myIssuesTtlMs) {
+    return myIssuesCache.value;
+  }
+  const data = await linearRequest<Data>("MyIssues", MY_ISSUES_QUERY, {});
+  const value = groupIssues(nodesOf(recOf(data.viewer).assignedIssues));
+  myIssuesCache = { key, at: Date.now(), value };
+  return value;
 }
 
 type Data = Record<string, unknown>;

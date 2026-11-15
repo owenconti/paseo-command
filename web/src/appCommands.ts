@@ -103,7 +103,9 @@ export type AppCommand =
   | "files-close-other-tabs"
   | "files-open-editor"
   | "files-open-viewer"
-  | "crew-filter";
+  | "crew-filter"
+  | "crew-glance"
+  | "crew-glance-refresh";
 
 const EVENT = "paseo:command";
 

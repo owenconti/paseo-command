@@ -20,6 +20,7 @@ import { probeRoute } from "../probe";
 import { readVisualPage } from "../visual";
 import { linearRoute } from "../linear/route";
 import { activityRoute } from "../activity/route";
+import { glanceRoute } from "../glance";
 import { githubRoute } from "../github/route";
 import { changesFor } from "./changes";
 import { filesAll, filesChanged, filesImage, filesRead, filesTree } from "./files";
@@ -183,6 +184,8 @@ export async function handleApi(
   if (url.pathname.startsWith("/api/linear/")) return linearRoute(req, url, res, reply);
   // The Activity tab: GitHub and Linear notifications in one feed, never the daemon.
   if (url.pathname === "/api/activity" || url.pathname.startsWith("/api/activity/")) return activityRoute(req, url, reply);
+  // Crew's glance: your Linear issues, PRs asking you, Diagonal's health; never the daemon.
+  if (url.pathname === "/api/glance") return glanceRoute(req, url, reply);
   // The GitHub tab: named reads and whitelisted writes with the user's GitHub token, never the daemon.
   if (url.pathname.startsWith("/api/github/")) return githubRoute(req, url, reply);
   // Pool boxes: the paseo-boxes scripts on this Mac claim and release them; a claim then dispatches.

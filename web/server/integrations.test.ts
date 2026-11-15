@@ -104,6 +104,7 @@ test("integration choices validate booleans and preserve other settings", () => 
     github: false,
     typesafe: true,
     pool: false,
+    health: false,
   });
   assert.equal(appSettings().linearWorkspace, "acme");
   for (const integrations of [null, [], { linear: "true" }, { unknown: true }, { appleMusic: true }])

@@ -121,6 +121,7 @@ import { ProjectView, WorkspaceView } from "./PlaceView";
 import { FloatingPanel } from "./FloatingPanel";
 import { AppPanel } from "./AppPanel";
 import { CrewDetail } from "./crew/CrewDetail";
+import { useGlanceData } from "./crew/Glance";
 import { CrewMap } from "./crew/CrewMap";
 import { Session } from "./Session";
 import { SubagentSession } from "./Subagents";
@@ -1536,6 +1537,34 @@ function App() {
   // The open agent's browser, beside its conversation on Crew.
   const where = "";
   const browserOf = "the browser";
+  // Crew's glance (crew/Glance.tsx): each chip's menu, while it shows on Crew's head.
+  const glance = useGlanceData();
+  const glanceEntries = (() => {
+    const out: { id: string; group: string; page: "Command"; label: string; keywords: string; run: () => void }[] = [];
+    const menu = (id: string, label: string, keywords: string, arg: string) =>
+      out.push({ id: `crew-glance-${id}`, group: "Navigate", page: "Command", label, keywords, run: () => runAppCommand("crew-glance", arg) });
+    const l = integrations.linear ? glance?.linear : undefined;
+    if (l && "groups" in l)
+      for (const g of l.groups)
+        menu(`linear-${g.state.toLowerCase()}`, `Show your Linear issues: ${g.state} (${g.total})`, "linear issues assigned mine glance todo progress review", `linear:${g.state.toLowerCase()}`);
+    const gh = integrations.github ? glance?.github : undefined;
+    if (gh && "review" in gh) {
+      menu("review", `Show pull requests asking your review (${gh.review.total})`, "github pull requests prs review requests glance", "review");
+      menu("assigned", `Show pull requests assigned to you (${gh.assigned.total})`, "github pull requests prs assigned glance", "assigned");
+    }
+    if (integrations.health && glance?.health) {
+      menu("health", "Show Diagonal’s health", "diagonal health status database services pgsql redis mongodb lights glance", "health");
+      out.push({
+        id: "crew-glance-refresh",
+        group: "Navigate",
+        page: "Command",
+        label: "Check Diagonal’s health now",
+        keywords: "diagonal health status check refresh database glance",
+        run: () => runAppCommand("crew-glance-refresh"),
+      });
+    }
+    return out;
+  })();
   const browserEntries = agent && crewBrowsing
     ? [
         {
@@ -1795,6 +1824,7 @@ function App() {
             keywords: "crew roster find search agents workspaces filter",
             run: () => runAppCommand("crew-filter"),
           },
+          ...glanceEntries,
         ]
       : []),
     // The session panel, beside the other tabs while something is open (Crew's drawer has it on the Command tab).
@@ -2535,13 +2565,14 @@ function App() {
             ["linear", "Linear"],
             ["github", "GitHub notifications"],
             ["typesafe", "TypeSafe"],
+            ["health", "Diagonal health"],
           ] as const
         ).map(([name, label]) => ({
           id: `integration-${name}`,
           group: "App",
           page: "Settings" as const,
           label: `${integrations[name] ? "Disable" : "Enable"} ${label}`,
-          keywords: `settings optional integrations ${name} ${name === "typesafe" ? "questions reply suggestions" : ""}`,
+          keywords: `settings optional integrations ${name} ${name === "typesafe" ? "questions reply suggestions" : name === "health" ? "diagonal status database services lights crew" : ""}`,
           run: () => {
             openSettings();
             void setIntegration(name, !integrations[name]);

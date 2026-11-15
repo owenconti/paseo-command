@@ -49,3 +49,12 @@ export const ASSIGNED_ISSUES_QUERY = `query AssignedIssues($first: Int!, $after:
     }
   }
 }`;
+
+/** Your issues in progress, in review and to do (started and unstarted states), for Crew's glance: at most 250. */
+export const MY_ISSUES_QUERY = `query MyIssues {
+  viewer {
+    assignedIssues(first: 250, orderBy: updatedAt, filter: { state: { type: { in: ["started", "unstarted"] } } }) {
+      nodes { id identifier title url priority updatedAt team { key } state { name type position color } }
+    }
+  }
+}`;

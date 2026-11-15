@@ -51,7 +51,7 @@ export type FakeIssue = {
   url: string;
   updatedAt: string;
   completedAt: string | null;
-  state: { type: "triage" | "backlog" | "unstarted" | "started" | "completed" | "canceled"; name: string };
+  state: { type: "triage" | "backlog" | "unstarted" | "started" | "completed" | "canceled"; name: string; position?: number; color?: string };
   labels: { nodes: { name: string }[] };
   /** Relations naming this issue as `relatedIssue`: a `blocks` one's `issue` blocks it. */
   inverseRelations: { nodes: { type: "blocks" | "duplicate" | "related" | "similar"; issue: { state: { type: string } } }[] };
@@ -320,6 +320,23 @@ export const OPERATIONS: Record<string, FakeOperation> = {
       },
     };
   },
+  /** Your started and unstarted issues (Crew's glance), the most recently updated first, with their team and state. */
+  MyIssues: ({ ws }) => ({
+    viewer: {
+      assignedIssues: {
+        nodes: newestFirst((ws.assignedIssues ?? []).filter((i) => i.state.type === "started" || i.state.type === "unstarted")).map((i) => ({
+          id: i.identifier,
+          identifier: i.identifier,
+          title: i.title,
+          url: i.url,
+          priority: 0,
+          updatedAt: i.updatedAt,
+          team: { key: i.identifier.split("-")[0] },
+          state: { ...i.state, position: i.state.position ?? 0, color: i.state.color ?? "#f2c94c" },
+        })),
+      },
+    },
+  }),
   NotificationMarkReadAll: onNotifications("notificationMarkReadAll", (n, v) => {
     n.readAt ??= String(v.readAt);
   }),
