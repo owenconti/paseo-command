@@ -1003,6 +1003,11 @@
     align-items: flex-start;
     flex: 1;
   }
+  /* The bar runs the text's full width, to the tile's right edge. */
+  .crew-node .crew-progress {
+    align-self: stretch;
+    width: auto;
+  }
 }
 /* The board narrow (the conversation beside it, a small window): the title, its buttons and the filter each a row. */
 @container crew-board (max-width: 640px) {

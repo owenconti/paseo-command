@@ -342,6 +342,12 @@ test("tiles lie on their side, shorter, when the map is narrowed by the conversa
   const side = await shape();
   assert.equal(side.beside, true, "on its side: the name beside the robot");
   assert.ok(side.height < tall.height * 0.6 && side.width > tall.width, `${JSON.stringify(tall)} → ${JSON.stringify(side)}`);
+  // A working robot's bar runs its text's full width, to the tile's right padding.
+  const bar = await page.locator('.crew-board .crew-node[data-state="running"]').first().evaluate((el) => {
+    const r = el.getBoundingClientRect(), text = el.querySelector(".crew-node-text")!.getBoundingClientRect(), bar = el.querySelector(".crew-progress")!.getBoundingClientRect();
+    return { left: bar.left - text.left, right: text.right - bar.right, toEdge: r.right - bar.right, pad: parseFloat(getComputedStyle(el).paddingRight) };
+  });
+  assert.ok(Math.abs(bar.left) <= 1 && Math.abs(bar.right) <= 1 && Math.abs(bar.toEdge - bar.pad) <= 2, `bar spans the text: ${JSON.stringify(bar)}`);
   await page.keyboard.press("Escape");
   await page.locator(".crew-drawer").waitFor({ state: "detached" });
   assert.equal((await shape()).beside, false, "standing again with the room back");
