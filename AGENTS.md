@@ -825,15 +825,16 @@ the component Crew's drawer is.
   project's head tallies its agents by state, most urgent first (`stateTally` in `roster.ts`, `Tally`: a dot in the state's
   colour and the count, the state's name on hover). The
   arrow keys, Home and End move through the map's nodes and heads.
-- At a glance (`crew/Glance.tsx`, pure `src/glance.ts`; the user's ask: what's on their plate, on the crew's head): between
-  "Your crew" and the filter, chips for your Linear issues by state (started states by position, In Progress, In Review, then
+- At a glance (`crew/Glance.tsx`, pure `src/glance.ts`; the user's ask: what's on their plate, on the crew's head): beside
+  "Your crew", a readout panel (the user's pick of three mockups), a cell each with big counts and their labels beneath; the
+  filter, Add project and New agent always a row of their own beneath them (`.crew-board-tools`; the user's call). Cells: your Linear issues by state (started states by position, In Progress, In Review, then
   unstarted, Todo; `readMyIssues` in `server/linear/reads.ts`, `MY_ISSUES_QUERY`, kept 50 s), the pull requests asking your review
   and assigned to you (the GitHub tab's `readPrs`, its cache and search budget), and Diagonal's health (`GET
   app.go-diagonal.com/health/status`, no credentials, kept 50 s, `server/glance.ts` `HEALTH`): a light for each database service
-  in its answer (every number but `iterations`, in ms; under 1 ms green, under 3 ms yellow, else red, `healthTone`), the chip red
-  when it's down. `GET /api/glance` (`?fresh=1`), each part only while its integration is on (`linear`, `github`, `health`:
-  Settings → Integrations → Diagonal health, off by default); a part that fails says why (a dashed chip) without hiding the
-  rest. The page asks every minute while Crew shows, and as the window comes back. Each chip opens a menu (`menuKeys`): an
+  in its answer (every number but `iterations`, in ms; under 1 ms green, under 3 ms yellow, else red, `healthTone`, in Crew's
+  state colours) under its slowest time, "Down" when it doesn't answer. `GET /api/glance` (`?fresh=1`), each part only while its integration is on (`linear`, `github`, `health`:
+  Settings → Integrations → Diagonal health, off by default); a part that fails says why ("Unavailable") without hiding the
+  rest. The page asks every minute while Crew shows, and as the window comes back. Each count opens a menu (`menuKeys`): an
   issue opens in Linear (its app in the macOS app), a PR as PR links do (the GitHub tab), "Show them in the GitHub tab"
   its scope; the health menu lists each service's time, Check again now. ⌘K (page Command): "Show your Linear issues: <state>",
   "Show pull requests asking your review / assigned to you", "Show Diagonal’s health" (`crew-glance`), "Check Diagonal’s

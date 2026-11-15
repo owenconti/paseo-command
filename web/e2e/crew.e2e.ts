@@ -115,14 +115,16 @@ test("at a glance: your Linear issues by state, the PRs asking you and Diagonal'
   const page = await open({ lists: { settings: { integrations: { linear: true, github: true, health: true, typesafe: false } }, glance: GLANCE } });
   const glance = page.getByRole("group", { name: "At a glance" });
   await glance.waitFor();
-  const chips = glance.locator(".crew-glance-chip");
+  // A readout cell each: Linear's states, GitHub's two lists, Diagonal's slowest service and its lights.
+  assert.deepEqual(await glance.locator(".crew-glance-source").allTextContents(), ["Linear", "GitHub", "Diagonal"]);
   assert.deepEqual(
-    (await chips.allTextContents()).map((t) => t.trim()),
-    ["In Progress2", "In Review1", "Todo0", "Review1", "Assigned0", "Diagonal"],
+    (await glance.locator(".crew-glance-count").allTextContents()).map((t) => t.trim()),
+    ["2In Progress", "1In Review", "0Todo", "1To review", "0Assigned", "3.20 msslowest"],
   );
-  // Between the title and the filter, on one row in a wide window.
-  const [title, strip, search] = await Promise.all([".crew-board-title", ".crew-glance", ".crew-search"].map((s) => page.locator(s).evaluate((el) => el.getBoundingClientRect().toJSON())));
-  assert.ok(strip.left >= title.right - 1 && strip.right <= search.left + 1, `between: ${JSON.stringify({ title, strip, search })}`);
+  // Beside the title; the filter and the actions on a row of their own beneath both.
+  const [title, strip, search, add] = await Promise.all([".crew-board-title", ".crew-glance", ".crew-search", ".crew-board-tools .crew-primary"].map((s) => page.locator(s).evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(strip.left >= title.right - 1 && strip.top < title.bottom, `beside the title: ${JSON.stringify({ title, strip })}`);
+  assert.ok(search.top >= Math.max(title.bottom, strip.bottom) - 1 && add.top >= strip.bottom - 1, `tools beneath: ${JSON.stringify({ strip, search, add })}`);
   // A light for each service: green under 1 ms, yellow under 3, red past it; the chip is as bad as the worst.
   assert.deepEqual(await glance.locator(".crew-glance-lights i").evaluateAll((els) => els.map((e) => e.getAttribute("data-tone"))), ["good", "slow", "bad"]);
   assert.equal(await page.getByRole("button", { name: /^Diagonal health:/ }).getAttribute("data-tone"), "bad");

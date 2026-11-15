@@ -257,6 +257,8 @@ export function CrewMap(props: Props) {
             </p>
           </div>
           <Glance integrations={integrations} />
+          {/* The filter and the actions: a row of their own, beneath the title and the glance. */}
+          <div className="crew-board-tools">
           <label className="crew-search">
             <Search size={13} aria-hidden="true" />
             <input
@@ -288,6 +290,7 @@ export function CrewMap(props: Props) {
             <Plus size={14} aria-hidden="true" />
             New agent
           </button>
+          </div>
         </header>
         <PoolClaims agents={props.agents} onOpen={props.onDispatch} />
         {props.pool && !filter && (

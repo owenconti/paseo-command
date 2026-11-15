@@ -1,11 +1,11 @@
-/** At a glance, on Crew's head between its title and its filter (`src/glance.ts`, `GET /api/glance`): your Linear
- * issues by state (In Progress, In Review, Todo), the pull requests asking your review and assigned to you, and
- * Diagonal's health (a light for each database service: under 1 ms green, under 3 ms yellow, else red). Each chip
- * opens a menu of what it counts; an issue opens in Linear (its desktop app in the macOS app), a pull request in the
+/** At a glance, on Crew's head beside its title (`src/glance.ts`, `GET /api/glance`): a readout panel with a cell
+ * each for your Linear issues by state (In Progress, In Review, Todo), the pull requests asking your review and
+ * assigned to you, and Diagonal's health (its slowest service's time, and a light for each database service: under
+ * 1 ms green, under 3 ms yellow, else red). Each count opens a menu of what it counts; an issue opens in Linear (its desktop app in the macOS app), a pull request in the
  * GitHub tab. Asked every minute while Crew shows (and as the window comes back); ⌘K opens each menu (`crew-glance`)
  * and checks again (`crew-glance-refresh`). */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { AlertTriangle, CircleDot, GitPullRequest, RefreshCw, UserCheck } from "lucide-react";
+import { Activity, AlertTriangle, CircleDot, GitPullRequest, RefreshCw, SquareKanban } from "lucide-react";
 import { api } from "../api";
 import { onAppCommand } from "../appCommands";
 import { menuKeys } from "../menuKeys";
@@ -93,8 +93,8 @@ function showPrList(scope: "review" | "assigned") {
 /** Which menu ⌘K asks for: a Linear state's (by name), "review", "assigned" or "health". */
 export type GlanceMenu = string;
 
-// ── A chip and its menu ──────────────────────────────────────────────────────
-function Chip(props: {
+// ── A count and its menu ──────────────────────────────────────────────────────
+function Count(props: {
   id: string;
   open: string | null;
   setOpen: (id: string | null) => void;
@@ -132,7 +132,7 @@ function Chip(props: {
     <span className="menu-anchor crew-glance-anchor" ref={anchor}>
       <button
         ref={button}
-        className="crew-glance-chip"
+        className="crew-glance-count"
         data-glance={props.id}
         data-tone={props.tone}
         aria-label={props.name}
@@ -217,11 +217,10 @@ function healthMenu(h: Health, loading: boolean) {
   );
 }
 
-function Unavailable({ what, error }: { what: string; error: string }) {
+function Lights({ h }: { h: Health }) {
   return (
-    <span className="crew-glance-chip off" role="img" aria-label={`${what}: ${error}`} data-tip={`${what}: ${error}`} data-summary="">
-      <AlertTriangle size={12} aria-hidden="true" />
-      {what}
+    <span className="crew-glance-lights" aria-hidden="true">
+      {h.up && h.services.length ? h.services.map((s) => <i key={s.name} data-tone={healthTone(s.ms)} />) : <i data-tone="bad" />}
     </span>
   );
 }
@@ -234,7 +233,7 @@ export function Glance({ integrations }: { integrations: Integrations }) {
     () =>
       onAppCommand("crew-glance", (arg) => {
         if (typeof arg !== "string") return;
-        // The menu opens once its chip is drawn (the glance may still be coming).
+        // The menu opens once its count is drawn (the glance may still be coming).
         setOpen(null);
         requestAnimationFrame(() => setOpen(arg));
       }),
@@ -242,133 +241,126 @@ export function Glance({ integrations }: { integrations: Integrations }) {
   );
   useEffect(() => onAppCommand("crew-glance-refresh", () => void refreshGlance(true)), []);
   if (!on || !glance) return null;
-  const { linear, github, health } = glance;
-  const parts: ReactNode[] = [];
-  if (linear && integrations.linear) {
-    if ("error" in linear) parts.push(<Unavailable key="linear" what="Linear" error={linear.error} />);
-    else if (!linear.groups.length)
-      parts.push(
-        <span key="linear" className="crew-glance-chip quiet">
-          No open Linear issues
-        </span>,
-      );
-    else
-      parts.push(
-        <span key="linear" className="crew-glance-group" role="group" aria-label="Your Linear issues">
-          {linear.groups.map((g) => (
-            <Chip
-              key={g.state}
-              id={`linear:${g.state.toLowerCase()}`}
-              open={open}
-              setOpen={setOpen}
-              name={`${g.state}: ${plural(g.total, "issue")}`}
-              menuLabel={`Your issues ${g.state.toLowerCase()}`}
-              label={
-                <>
-                  <i className="crew-glance-dot" style={g.color ? { background: g.color } : undefined} aria-hidden="true" />
-                  {g.state}
-                  <b>{g.total}</b>
-                </>
-              }
-              menu={
-                <>
-                  {g.issues.map((i) => (
-                    <button key={i.id} role="menuitem" tabIndex={-1} onClick={() => openUrl(i.url)}>
-                      <i className="crew-glance-dot" style={g.color ? { background: g.color } : undefined} aria-hidden="true" />
-                      <span>
-                        <b>{i.title}</b>
-                        <small>{i.key}</small>
-                      </span>
-                    </button>
-                  ))}
-                  {g.total > g.issues.length && <p className="crew-glance-empty">{`${g.total - g.issues.length} more`}</p>}
-                </>
-              }
-            />
-          ))}
-        </span>,
-      );
-  }
-  if (github && integrations.github) {
-    if ("error" in github) parts.push(<Unavailable key="github" what="GitHub" error={github.error} />);
-    else
-      parts.push(
-        <span key="github" className="crew-glance-group" role="group" aria-label="Your pull requests">
-          <Chip
-            id="review"
-            open={open}
-            setOpen={setOpen}
-            tone={github.review.total ? "ask" : "none"}
-            name={`Review requests: ${plural(github.review.total, "pull request")}`}
-            menuLabel="Pull requests asking your review"
-            label={
-              <>
-                <GitPullRequest size={12} aria-hidden="true" />
-                Review
-                <b>{github.review.total}</b>
-              </>
-            }
-            menu={prMenu(github.review, "review", "Nothing asks your review.")}
-          />
-          <Chip
-            id="assigned"
-            open={open}
-            setOpen={setOpen}
-            tone={github.assigned.total ? undefined : "none"}
-            name={`Assigned to you: ${plural(github.assigned.total, "pull request")}`}
-            menuLabel="Pull requests assigned to you"
-            label={
-              <>
-                <UserCheck size={12} aria-hidden="true" />
-                Assigned
-                <b>{github.assigned.total}</b>
-              </>
-            }
-            menu={prMenu(github.assigned, "assigned", "No pull requests are assigned to you.")}
-          />
-        </span>,
-      );
-  }
-  if (health && integrations.health) {
-    const tone = overallTone(health);
-    const said = health.up
-      ? health.services.map((s) => `${s.name} ${msText(s.ms)}`).join(", ")
-      : `down: ${health.error ?? "no answer"}`;
-    parts.push(
-      <span key="health" className="crew-glance-group" role="group" aria-label="Diagonal's health">
-        <Chip
-          id="health"
-          open={open}
-          setOpen={setOpen}
-          tone={tone}
-          name={`Diagonal health: ${said}`}
-          menuLabel="Diagonal's health"
-          label={
-            <>
-              Diagonal
-              {health.up && health.services.length ? (
-                <span className="crew-glance-lights" aria-hidden="true">
-                  {health.services.map((s) => (
-                    <i key={s.name} data-tone={healthTone(s.ms)} />
-                  ))}
-                </span>
-              ) : (
-                <span className="crew-glance-lights" aria-hidden="true">
-                  <i data-tone="bad" />
-                </span>
-              )}
-              {!health.up && <b>Down</b>}
-            </>
-          }
-          menu={healthMenu(health, loading)}
-        />
-      </span>,
+  const linear = integrations.linear ? glance.linear : undefined;
+  const github = integrations.github ? glance.github : undefined;
+  const health = integrations.health ? glance.health : undefined;
+  if (!linear && !github && !health) return null;
+  const menus = { open, setOpen };
+  const dot = (color: string) => <i className="crew-glance-dot" style={color ? { background: color } : undefined} aria-hidden="true" />;
+  const issueMenu = (g: Extract<NonNullable<GlanceData["linear"]>, { groups: unknown }>["groups"][number]) => (
+    <>
+      {g.issues.map((i) => (
+        <button key={i.id} role="menuitem" tabIndex={-1} onClick={() => openUrl(i.url)}>
+          {dot(g.color)}
+          <span>
+            <b>{i.title}</b>
+            <small>{i.key}</small>
+          </span>
+        </button>
+      ))}
+      {g.total > g.issues.length && <p className="crew-glance-empty">{`${g.total - g.issues.length} more`}</p>}
+    </>
+  );
+  const groups = linear && "groups" in linear ? linear.groups : null;
+  const prs = github && "review" in github ? github : null;
+  const linearCount = (g: NonNullable<typeof groups>[number], label: ReactNode) => (
+    <Count
+      key={g.state}
+      {...menus}
+      id={`linear:${g.state.toLowerCase()}`}
+      tone={g.total ? undefined : "none"}
+      name={`${g.state}: ${plural(g.total, "issue")}`}
+      menuLabel={`Your issues ${g.state.toLowerCase()}`}
+      label={label}
+      menu={issueMenu(g)}
+    />
+  );
+  const prCount = (scope: "review" | "assigned", label: ReactNode) => {
+    const list = prs![scope];
+    return (
+      <Count
+        key={scope}
+        {...menus}
+          id={scope}
+        tone={!list.total ? "none" : scope === "review" ? "ask" : undefined}
+        name={scope === "review" ? `Review requests: ${plural(list.total, "pull request")}` : `Assigned to you: ${plural(list.total, "pull request")}`}
+        menuLabel={scope === "review" ? "Pull requests asking your review" : "Pull requests assigned to you"}
+        label={label}
+        menu={prMenu(list, scope, scope === "review" ? "Nothing asks your review." : "No pull requests are assigned to you.")}
+      />
     );
-  }
-  if (!parts.length) return null;
+  };
+  const healthCount = (label: ReactNode) => (
+    <Count
+      {...menus}
+      id="health"
+      tone={overallTone(health!)}
+      name={`Diagonal health: ${health!.up ? health!.services.map((s) => `${s.name} ${msText(s.ms)}`).join(", ") : `down: ${health!.error ?? "no answer"}`}`}
+      menuLabel="Diagonal's health"
+      label={label}
+      menu={healthMenu(health!, loading)}
+    />
+  );
+  const failed = (what: string, error: string) => (
+    <span className="crew-glance-failed" role="img" aria-label={`${what}: ${error}`} data-tip={`${what}: ${error}`} data-summary="">
+      <AlertTriangle size={12} aria-hidden="true" />
+      Unavailable
+    </span>
+  );
+  const slowest = health && health.up && health.services.length ? Math.max(...health.services.map((x) => x.ms)) : null;
+
   return (
     <div className="crew-glance" role="group" aria-label="At a glance">
-      {parts}
+      {linear && (
+        <section className="crew-glance-cell" aria-label="Linear">
+          <span className="crew-glance-source">
+            <SquareKanban size={13} aria-hidden="true" />
+            Linear
+          </span>
+          <div className="crew-glance-nums">
+            {"error" in linear
+              ? failed("Linear", linear.error)
+              : !groups!.length
+                ? <span className="crew-glance-quiet">Nothing open</span>
+                : groups!.map((g) => linearCount(g, <><b>{g.total}</b><small>{dot(g.color)}{g.state}</small></>))}
+          </div>
+        </section>
+      )}
+      {github && (
+        <section className="crew-glance-cell" aria-label="GitHub">
+          <span className="crew-glance-source">
+            <GitPullRequest size={13} aria-hidden="true" />
+            GitHub
+          </span>
+          <div className="crew-glance-nums">
+            {!prs
+              ? failed("GitHub", (github as { error: string }).error)
+              : [
+                  prCount("review", <><b>{prs.review.total}</b><small>To review</small></>),
+                  prCount("assigned", <><b>{prs.assigned.total}</b><small>Assigned</small></>),
+                ]}
+          </div>
+        </section>
+      )}
+      {health && (
+        <section className="crew-glance-cell" aria-label="Diagonal">
+          <span className="crew-glance-source">
+            <Activity size={13} aria-hidden="true" />
+            Diagonal
+          </span>
+          <div className="crew-glance-nums">
+            {healthCount(
+              <>
+                <b>{slowest === null ? "Down" : msText(slowest)}</b>
+                <small>
+                  <Lights h={health} />
+                  {slowest === null ? "no answer" : "slowest"}
+                </small>
+              </>,
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
