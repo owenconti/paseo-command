@@ -109,6 +109,7 @@ const CREW: Group = {
   rows: [
     { keys: [["←"], ["→"], ["↑"], ["↓"]], label: "On the map: move through its robots, workspaces and projects" },
     { keys: [["Home"], ["End"]], label: "On the map: the first or last" },
+    { keys: [["⌥", "↑"], ["⌥", "↓"]], label: "On a host's head: move the host earlier or later (or drag its head)" },
     { keys: [["Enter"]], label: "Open the robot, workspace or project" },
     { keys: [["Esc"]], label: "Close the conversation beside the map, once out of its message box (the robot you left keeps the keyboard)" },
     { keys: [["←"], ["→"]], label: "On the conversation's left edge: make it wider or narrower (⇧ for bigger steps; drag it, double-click for the default)" },

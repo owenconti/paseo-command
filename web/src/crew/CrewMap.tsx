@@ -4,8 +4,8 @@
  * opens it in the drawer on the map's right (`CrewDetail`, the same component the session panel shows beside the other
  * tabs); Back (or Esc) returns to the map. A workspace's head archives it, and a claimed pool box's host head releases
  * the box. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
-import { Archive, ChevronDown, RotateCcw } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Archive, ChevronDown, GripVertical, RotateCcw } from "lucide-react";
 import { STATE_NAMES, modelName, type State } from "../model/fleet";
 import { PoolClaims } from "../PoolClaims";
 import { PoolBoxes } from "./PoolBoxes";
@@ -20,6 +20,7 @@ import type { Selection, Workspace } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
 import { buildRoster, hostAgents, hostSpans, projectAgents, stateTally, type RosterAgent } from "./roster";
 import { CrewDetail } from "./CrewDetail";
+import { orderHosts, placeHost, showHosts, stepHost, useHostOrder } from "./hostOrder";
 import { Medals, Portrait, useCrewData, type CrewFleet } from "./parts";
 import "./crew.css";
 
@@ -73,6 +74,38 @@ export function CrewMap(props: Props) {
       : [],
   );
   const roster = useMemoRoster(data, keepHosts);
+  // The hosts in the user's order (dragging a head, ⌥↑ / ⌥↓ on it, ⌘K), the rest after as the fleet has them.
+  const { order: hostOrder } = useHostOrder();
+  const hosts = useMemo(() => orderHosts(roster.hosts, hostOrder), [roster.hosts, hostOrder]);
+  const shownHosts = hosts.map((h) => h.key).join("\n");
+  useEffect(() => showHosts(shownHosts ? shownHosts.split("\n") : []), [shownHosts]);
+  const [drag, setDrag] = useState<{ key: string; over?: string; before?: boolean } | null>(null);
+  /** Before or after `over`, by which half of it the pointer is in (reading order: left to right, then down). */
+  const dragOver = (e: DragEvent<HTMLElement>, over: string) => {
+    if (!drag || drag.key === over) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const r = e.currentTarget.getBoundingClientRect();
+    const before = (e.clientX - r.left) / r.width + (e.clientY - r.top) / r.height < 1;
+    if (drag.over !== over || drag.before !== before) setDrag({ ...drag, over, before });
+  };
+  const drop = (e: DragEvent<HTMLElement>) => {
+    if (!drag?.over) return setDrag(null);
+    e.preventDefault();
+    const others = hosts.map((h) => h.key).filter((k) => k !== drag.key);
+    placeHost(drag.key, others.indexOf(drag.over) + (drag.before ? 0 : 1));
+    setDrag(null);
+  };
+  /** ⌥↑ / ⌥← earlier, ⌥↓ / ⌥→ later, on a host's head; it keeps the keyboard as it moves. */
+  const hostKeys = (e: KeyboardEvent<HTMLElement>, key: string) => {
+    if (!e.altKey || e.metaKey || e.ctrlKey) return;
+    const by = e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : 0;
+    if (!by) return;
+    e.preventDefault();
+    e.stopPropagation();
+    stepHost(key, by);
+    requestAnimationFrame(() => board.current?.querySelector<HTMLElement>(`.crew-host[data-host="${CSS.escape(key)}"] .crew-host-head .crew-fold`)?.focus({ preventScroll: true }));
+  };
   const [collapsed, setCollapsed] = useState<string[]>(() => readStore<string[]>(COLLAPSED, []));
   const toggle = (key: string) =>
     setCollapsed((now) => {
@@ -264,13 +297,43 @@ export function CrewMap(props: Props) {
           />
         )}
         <div className="crew-hosts">
-        {roster.hosts.map((h) => {
+        {hosts.map((h) => {
           const hostShut = collapsed.includes(h.key);
           const spans = hostSpans(h, cols, (k) => collapsed.includes(k));
           return (
-            <section key={h.key} className="crew-host" data-host={h.key} data-offline={!h.online || undefined} aria-label={h.name} style={{ gridColumn: `span ${spans.span}` }}>
-              <h3 className="crew-host-head">
-                <button className="crew-fold" aria-expanded={!hostShut} onClick={() => toggle(h.key)}>
+            <section
+              key={h.key}
+              className="crew-host"
+              data-host={h.key}
+              data-offline={!h.online || undefined}
+              data-dragging={drag?.key === h.key || undefined}
+              data-drop={drag?.over === h.key ? (drag.before ? "before" : "after") : undefined}
+              aria-label={h.name}
+              style={{ gridColumn: `span ${spans.span}` }}
+              onDragOver={(e) => dragOver(e, h.key)}
+              onDragLeave={(e) => {
+                if (drag?.over === h.key && !e.currentTarget.contains(e.relatedTarget as Node | null)) setDrag({ key: drag.key });
+              }}
+              onDrop={drop}
+            >
+              <h3
+                className="crew-host-head"
+                draggable={hosts.length > 1}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", h.name);
+                  setDrag({ key: h.key });
+                }}
+                onDragEnd={() => setDrag(null)}
+              >
+                {hosts.length > 1 && <GripVertical size={13} className="crew-host-grip" aria-hidden="true" />}
+                <button
+                  className="crew-fold"
+                  aria-expanded={!hostShut}
+                  aria-keyshortcuts={hosts.length > 1 ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
+                  onClick={() => toggle(h.key)}
+                  onKeyDown={(e) => hostKeys(e, h.key)}
+                >
                   <ChevronDown size={14} aria-hidden="true" />
                   {h.name}
                 </button>

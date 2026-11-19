@@ -4,6 +4,7 @@ import "./mermaid/mermaid.css";
 import { mermaidPalette, useMermaidCommands } from "./mermaidCommands";
 import { useMapBridge } from "./mapBridge";
 import { conversationOrder } from "./conversationOrder";
+import { hostRank, resetHostOrder, stepHost, useHostOrder } from "./crew/hostOrder";
 import {
   browserFollowsSetting,
   setBrowserFollows,
@@ -779,7 +780,8 @@ function App() {
     },
   });
   // J/K, ‹ › and N walk a stable roster: host, project, workspace, then age (reading a reply never reorders it).
-  const navigationOrder = useMemo(() => conversationOrder(active), [active]);
+  const { order: hostOrder, shown: shownHosts } = useHostOrder();
+  const navigationOrder = useMemo(() => conversationOrder(active, hostRank(hostOrder)), [active, hostOrder]);
   const order = navigationOrder;
   const attentionAgents = useMemo(
     () => active.filter((a) => needsAttention(a, needYou)),
@@ -1830,6 +1832,23 @@ function App() {
     ...(crewBrowsing ? browserEntries : []),
     // The top bar's glance: each count's menu.
     ...glanceEntries,
+    // Crew's host order (drag a host's head, or ⌥↑ / ⌥↓ on it): each host a step earlier or later, and back to the fleet's.
+    ...(crewShown && shownHosts.length > 1
+      ? shownHosts.flatMap((key, i) => {
+          const name = (key === "local" ? hosts.find((h) => h.local) : hosts.find((h) => h.serverId === key))?.label ?? key;
+          return [
+            ...(i > 0
+              ? [{ id: `host-earlier-${key}`, group: "Actions", page: "Command" as const, label: `Move host “${name}” earlier`, keywords: "reorder order hosts crew up first drag", run: () => stepHost(key, -1) }]
+              : []),
+            ...(i < shownHosts.length - 1
+              ? [{ id: `host-later-${key}`, group: "Actions", page: "Command" as const, label: `Move host “${name}” later`, keywords: "reorder order hosts crew down last drag", run: () => stepHost(key, 1) }]
+              : []),
+          ];
+        })
+      : []),
+    ...(crewShown && hostOrder.length
+      ? [{ id: "host-order-reset", group: "Actions", page: "Command" as const, label: "Reset the host order", keywords: "reorder hosts crew default", run: resetHostOrder }]
+      : []),
     // The session panel, beside the other tabs while something is open (Crew's drawer has it on the Command tab).
     ...(!panelAbsent
       ? [

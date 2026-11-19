@@ -200,9 +200,47 @@
   padding: 0;
 }
 .crew-host {
+  position: relative;
   margin-top: 22px;
 }
+/* Hosts reorder by dragging their heads (hostOrder.ts): a grip shows in the margin on hover, the one dragged dims, and
+   a bar marks where it would land, before or after the host under the pointer (reading order). */
+.crew-host-head[draggable="true"] {
+  cursor: grab;
+}
+.crew-host-grip {
+  position: absolute;
+  left: -16px;
+  color: var(--text-4);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  pointer-events: none;
+}
+.crew-host-head:hover .crew-host-grip,
+.crew-host-head:focus-within .crew-host-grip {
+  opacity: 0.8;
+}
+.crew-host[data-dragging] {
+  opacity: 0.45;
+}
+.crew-host[data-drop]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.crew-host[data-drop="before"]::before {
+  left: -9px;
+}
+.crew-host[data-drop="after"]::before {
+  right: -9px;
+}
 .crew-host-head {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;

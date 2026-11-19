@@ -831,7 +831,13 @@ the component Crew's drawer is.
   unread reply has a gold dot. Projects and hosts without workspaces are left out; folds are kept in `crew:collapsed`. A folded host's or
   project's head tallies its agents by state, most urgent first (`stateTally` in `roster.ts`, `Tally`: a dot in the state's
   colour and the count, the state's name on hover). The
-  arrow keys, Home and End move through the map's nodes and heads.
+  arrow keys, Home and End move through the map's nodes and heads. Hosts go in the user's order (the user's ask;
+  `web/src/crew/hostOrder.ts`, `crew:hostOrder` in localStorage, `orderHosts`/`moveHost`, pure): drag a host's head
+  (a grip shows beside it on hover; the dragged host dims and a bar marks where it lands, before or after the host
+  under the pointer in reading order), ⌥↑ / ⌥↓ (⌥← / ⌥→) on its head, or ⌘K "Move host “…” earlier/later" and
+  "Reset the host order" (page Command, while Crew shows); hosts the order doesn't name follow in the fleet's order.
+  J/K follow it (`conversationOrder`'s `hostRank`). Tests: `src/crew/hostOrder.test.ts`, `src/conversationOrder.test.ts`,
+  `e2e/crew.e2e.ts`.
 - At a glance (`crew/Glance.tsx` `GlanceBar`, `crew/glance.css`, pure `src/glance.ts`; the user's ask: what's on their plate):
   on the app's top bar, left of the Settings gear (the user's call; it began as a readout panel on the crew's head). Each
   group's name, then its counts (`glanceItems`): your Linear issues by state (a dot in the state's colour and the count;

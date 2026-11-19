@@ -574,6 +574,43 @@ test("small hosts and projects sit side by side, each taking only the columns it
   await page.context().close();
 });
 
+test("hosts reorder by dragging a head, ⌥↑ / ⌥↓ on it or ⌘K, and keep their order", async () => {
+  const page = await open({ fleet: sideBySide });
+  await map(page).locator(".crew-node").first().waitFor();
+  const order = () => page.locator(".crew-host").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  assert.deepEqual(await order(), ["local", "DIAGONAL-LAB-1"]);
+  // Drag the lab's head onto this Mac's, its first half: the lab goes first.
+  const lab = page.locator('.crew-host[aria-label="DIAGONAL-LAB-1"] .crew-host-head');
+  const local = page.locator('.crew-host[aria-label="local"]');
+  await lab.dragTo(local, { targetPosition: { x: 10, y: 10 } });
+  await waitFor(order, (o) => o[0] === "DIAGONAL-LAB-1", "the lab first");
+  assert.equal(await page.locator(".crew-host[data-drop], .crew-host[data-dragging]").count(), 0, "no drag marks left");
+  // Kept across a reload.
+  await page.reload();
+  await map(page).locator(".crew-node").first().waitFor();
+  assert.deepEqual(await order(), ["DIAGONAL-LAB-1", "local"]);
+  // ⌥↓ on its head moves it later, keeping the keyboard.
+  await page.locator('.crew-host[aria-label="DIAGONAL-LAB-1"] .crew-host-head .crew-fold').focus();
+  await page.keyboard.press("Alt+ArrowDown");
+  await waitFor(order, (o) => o[0] === "local", "the lab later");
+  await waitFor(() => page.evaluate(() => document.activeElement?.closest(".crew-host")?.getAttribute("aria-label")), (n) => n === "DIAGONAL-LAB-1", "the head keeps the keyboard");
+  // ⌘K moves it back, then resets the order.
+  await page.keyboard.press("Meta+k");
+  await palette(page).getByRole("combobox").fill("Move host");
+  assert.deepEqual(
+    (await palette(page).getByRole("option", { name: /^Move host/ }).allTextContents()).map((t) => t.replace(/Command.*$/, "").trim()).sort(),
+    ["Move host “DIAGONAL-LAB-1” earlier", "Move host “LOCAL” later"],
+  );
+  await palette(page).getByRole("option", { name: /Move host “DIAGONAL-LAB-1” earlier/ }).click();
+  await waitFor(order, (o) => o[0] === "DIAGONAL-LAB-1", "earlier again");
+  // And back to the fleet's order (J/K follow it too: conversationOrder.test.ts).
+  await page.keyboard.press("Meta+k");
+  await palette(page).getByRole("combobox").fill("Reset the host order");
+  await palette(page).getByRole("option", { name: /Reset the host order/ }).click();
+  await waitFor(order, (o) => o[0] === "local", "the fleet's order again");
+  await page.context().close();
+});
+
 test("folded projects stay folded across a reload", async () => {
   const page = await open();
   await map(page).locator(".crew-node").first().waitFor();
