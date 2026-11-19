@@ -6,14 +6,13 @@
  * the box. Its head carries the glance (`Glance.tsx`: your Linear issues, PRs asking you, Diagonal's health). The robots,
  * drones, marks, glows and medallions are `parts.tsx`'s. */
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
-import { Archive, ChevronDown, FolderPlus, Plus, RotateCcw, Search, X } from "lucide-react";
+import { Archive, ChevronDown, RotateCcw } from "lucide-react";
 import { STATE_NAMES, modelName, type State } from "../model/fleet";
 import { PoolClaims } from "../PoolClaims";
 import { PoolBoxes } from "./PoolBoxes";
 import { selectionKey } from "../atlasData";
 import { targetSelection } from "../worldBridge";
 import { readStore, writeStore } from "../api";
-import { onAppCommand } from "../appCommands";
 import { ResizeEdge } from "../ResizeEdge";
 import { claimedBoxOf, jobOnBox, jobText, type PoolBox, type PoolJob } from "../pool";
 import { placeText } from "../names";
@@ -37,9 +36,8 @@ type Props = CrewFleet & {
   empty: boolean;
   loaded: boolean;
   blocked: boolean;
+  /** New agent (⌘N, ⌘K; the map has no button for it): a pending pool claim's row opens it. */
   onDispatch: () => void;
-  /** Add a project (a folder, a new folder or a clone); New agent then opens on it. */
-  onAddProject?: () => void;
   /** The open agent's browser (the macOS app's): shown beside its conversation, its tabs, B's toggle. */
   browser?: { shown: boolean; tabs: number; toggle: () => void };
   /** Archive a workspace (its confirmation), and those being archived (by `workspaceKey`). */
@@ -70,7 +68,6 @@ const NODE = 72;
 export function CrewMap(props: Props) {
   const { snapshot, data } = useCrewData(props);
   const { integrations } = useIntegrations();
-  const [filter, setFilter] = useState("");
   // A claimed pool box's host stays on the map with nothing on it, so it can be released (and shows releasing).
   const keepHosts = new Set(
     props.pool
@@ -79,7 +76,7 @@ export function CrewMap(props: Props) {
           .map((h) => (h.local ? "local" : h.serverId))
       : [],
   );
-  const roster = useMemoRoster(data, filter, keepHosts);
+  const roster = useMemoRoster(data, keepHosts);
   const [collapsed, setCollapsed] = useState<string[]>(() => readStore<string[]>(COLLAPSED, []));
   const toggle = (key: string) =>
     setCollapsed((now) => {
@@ -131,26 +128,8 @@ export function CrewMap(props: Props) {
   // What was last opened from the map: coming back, the map shows it and gives it the keyboard.
   const opened = useRef<string | null>(null);
 
-  // ⌘K "Filter the crew…": the map's filter field (the map shows first).
-  const filterField = useRef<HTMLInputElement>(null);
-  const focusFilter = useRef(false);
-  useEffect(
-    () =>
-      onAppCommand("crew-filter", () => {
-        if (filterField.current) return filterField.current.focus();
-        focusFilter.current = true;
-        props.select(null);
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
   useLayoutEffect(() => {
     if (!props.empty) return;
-    if (focusFilter.current) {
-      focusFilter.current = false;
-      filterField.current?.focus();
-      return;
-    }
     const key = opened.current;
     if (!key) return;
     const node = board.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`);
@@ -257,43 +236,9 @@ export function CrewMap(props: Props) {
             </p>
           </div>
           <Glance integrations={integrations} />
-          {/* The filter and the actions: a row of their own, beneath the title and the glance. */}
-          <div className="crew-board-tools">
-          <label className="crew-search">
-            <Search size={13} aria-hidden="true" />
-            <input
-              ref={filterField}
-              value={filter}
-              placeholder="Filter agents…"
-              aria-label="Filter agents"
-              onChange={(e) => setFilter(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" && filter) {
-                  e.stopPropagation();
-                  setFilter("");
-                }
-              }}
-            />
-            {filter && (
-              <button className="crew-clear" aria-label="Clear the filter" onClick={() => setFilter("")}>
-                <X size={12} />
-              </button>
-            )}
-          </label>
-          {props.onAddProject && (
-            <button className="crew-secondary" onClick={props.onAddProject} data-tip="Add a folder, a new folder or a GitHub clone as a project">
-              <FolderPlus size={14} aria-hidden="true" />
-              Add project
-            </button>
-          )}
-          <button className="crew-primary" onClick={props.onDispatch}>
-            <Plus size={14} aria-hidden="true" />
-            New agent
-          </button>
-          </div>
         </header>
         <PoolClaims agents={props.agents} onOpen={props.onDispatch} />
-        {props.pool && !filter && (
+        {props.pool && (
           <PoolBoxes
             boxes={props.pool.boxes}
             running={props.pool.running}
@@ -430,7 +375,6 @@ export function CrewMap(props: Props) {
           );
         })}
         </div>
-        {filter && !roster.hosts.length && <p className="crew-none">No agent matches “{filter}”.</p>}
       </div>
       {open && (
         <aside ref={drawer} className="crew-drawer" id="crew-drawer" aria-label="Conversation">
@@ -466,11 +410,10 @@ export function CrewMap(props: Props) {
 }
 
 
-function useMemoRoster(data: ReturnType<typeof useCrewData>["data"], filter: string, keepHosts: Set<string>) {
+function useMemoRoster(data: ReturnType<typeof useCrewData>["data"], keepHosts: Set<string>) {
   const kept = [...keepHosts].sort().join("\n");
-  const [memo] = useState(() => ({ data: null as unknown, filter: "", kept: "", roster: null as unknown as ReturnType<typeof buildRoster> }));
-  if (memo.data !== data || memo.filter !== filter || memo.kept !== kept)
-    Object.assign(memo, { data, filter, kept, roster: buildRoster(data, filter, keepHosts) });
+  const [memo] = useState(() => ({ data: null as unknown, kept: "", roster: null as unknown as ReturnType<typeof buildRoster> }));
+  if (memo.data !== data || memo.kept !== kept) Object.assign(memo, { data, kept, roster: buildRoster(data, "", keepHosts) });
   return memo.roster;
 }
 

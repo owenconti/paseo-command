@@ -174,20 +174,10 @@
   gap: 14px 40px;
   margin-bottom: 6px;
 }
-/* The title, with the glance beside it when there is one; the filter and the actions always a row of their own. */
+/* The title, with the glance beside it when there is one. New agent, Add project and finding things are ⌘K's. */
 .crew-board-title {
   flex: 0 1 auto;
   min-width: min(200px, 100%);
-}
-.crew-board-tools {
-  display: flex;
-  flex: 1 1 100%;
-  align-items: center;
-  gap: 10px;
-}
-.crew-board-tools .crew-search {
-  flex-basis: 320px;
-  margin-right: auto;
 }
 .crew-board-title h2 {
   margin: 0;
@@ -199,34 +189,6 @@
   color: var(--text-3);
   font-size: var(--fs-sm);
 }
-.crew-search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 1 260px;
-  min-width: 140px;
-  padding: 0 8px;
-  height: 30px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--input-bg);
-  color: var(--text-3);
-}
-.crew-search:focus-within {
-  border-color: var(--accent-line);
-}
-.crew-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-sm);
-  outline: none;
-  padding: 0;
-}
-.crew-clear,
 .crew-fold {
   display: inline-flex;
   align-items: center;
@@ -236,47 +198,6 @@
   color: var(--text-3);
   cursor: pointer;
   padding: 0;
-}
-.crew-clear:hover {
-  color: var(--text-strong);
-}
-.crew-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  height: 30px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: var(--accent);
-  color: var(--on-accent);
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-semibold);
-  cursor: pointer;
-}
-.crew-primary:hover {
-  background: var(--accent-hover);
-}
-.crew-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-2);
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.crew-secondary:hover {
-  background: var(--row-hover);
-  color: var(--text);
 }
 .crew-host {
   margin-top: 22px;
@@ -668,11 +589,6 @@
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
-.crew-none {
-  margin: 24px 0;
-  color: var(--text-3);
-  font-size: var(--fs-sm);
-}
 .crew-shimmer {
   background: linear-gradient(90deg, var(--text-3) 0%, var(--text-strong) 50%, var(--text-3) 100%);
   background-size: 200% 100%;
@@ -1013,13 +929,6 @@
 @container crew-board (max-width: 640px) {
   .crew-board-title {
     flex-basis: 100%;
-  }
-  .crew-board-tools {
-    flex-wrap: wrap;
-  }
-  .crew-board-tools .crew-search {
-    flex: 1 1 100%;
-    margin-right: 0;
   }
 }
 @container crew-board (max-width: 420px) {

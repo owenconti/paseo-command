@@ -808,8 +808,9 @@ the component Crew's drawer is.
   (the splash lifts), `workspace` (the Terminal tab's: the selected workspace or agent's) and `viewport`, the map's place
   in CSS px (`.native-world-frame`, posted as it resizes or moves: the panel opening, resizing or changing sides), which
   Conquer, the Terminal tab and the Files editors are laid over.
-- The map (`CrewMap.tsx`, `.crew-board`, `buildRoster` in `roster.ts`, pure): "Your crew" with its counts, a filter (⌘K
-  "Filter the crew…", `crew-filter`; Esc clears; by agent, workspace, project or host) and New agent; then each host (its
+- The map (`CrewMap.tsx`, `.crew-board`, `buildRoster` in `roster.ts`, pure): "Your crew" with its counts (no filter, Add
+  project or New agent on it: the user's call, as ⌘K has New agent ⌘N and Add project, and its search finds agents,
+  workspaces, projects and hosts); then each host (its
   head folds it; offline faded) › project (by name; a chevron folds it, its name opens the project) › its workspaces as
   panels in one grid of equal columns for every row (oldest first; `--crew-cols`, as many one-robot cards as fit,
   `columnsFor`, measured as the map resizes; each card spans as many columns as it has robots, at most all of them, never
@@ -831,8 +832,7 @@ the component Crew's drawer is.
   colour and the count, the state's name on hover). The
   arrow keys, Home and End move through the map's nodes and heads.
 - At a glance (`crew/Glance.tsx`, pure `src/glance.ts`; the user's ask: what's on their plate, on the crew's head): beside
-  "Your crew", a readout panel (the user's pick of three mockups), a cell each with big counts and their labels beneath; the
-  filter, Add project and New agent always a row of their own beneath them (`.crew-board-tools`; the user's call). Cells: your Linear issues by state (started states by position, In Progress, In Review, then
+  "Your crew", a readout panel (the user's pick of three mockups), a cell each with big counts and their labels beneath. Cells: your Linear issues by state (started states by position, In Progress, In Review, then
   unstarted, Todo; `readMyIssues` in `server/linear/reads.ts`, `MY_ISSUES_QUERY`, kept 50 s), the pull requests asking your review
   and assigned to you (the GitHub tab's `readPrs`, its cache and search budget), and Diagonal's health (`GET
   app.go-diagonal.com/health/status`, no credentials, kept 50 s, `server/glance.ts` `HEALTH`): a light for each database service

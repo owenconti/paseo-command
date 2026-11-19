@@ -1828,17 +1828,9 @@ function App() {
       : []),
     // The open agent's browser beside its conversation on Crew (the macOS app's).
     ...(crewBrowsing ? browserEntries : []),
-    // Crew's filter (Crew draws no world to fit).
+    // Crew's glance (its menus), while Crew shows.
     ...(crewShown
       ? [
-          {
-            id: "crew-filter",
-            group: "Navigate",
-            page: "Command" as const,
-            label: "Filter the crew…",
-            keywords: "crew roster find search agents workspaces filter",
-            run: () => runAppCommand("crew-filter"),
-          },
           ...glanceEntries,
         ]
       : []),
@@ -2897,7 +2889,6 @@ function App() {
                 loaded={!loading}
                 blocked={confirming}
                 onDispatch={() => openDispatch()}
-                onAddProject={addProject}
                 onArchive={(w) => openArchive(w, true)}
                 archiving={archiving}
                 {...(poolBoxes.length ? { pool: { boxes: poolBoxes, running: poolRunning, release: openReleasePool } } : {})}
