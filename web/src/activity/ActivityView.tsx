@@ -145,7 +145,7 @@ const openLabel = (item: ActivityItem) =>
     ? "Open in Linear"
     : item.url && prPlaceOf(item.url)
       ? "Review in GitHub"
-      : "Open in Conquer";
+      : "Open in browser";
 
 /** The selected row, kept while the view comes and goes. */
 let lastSelected: string | undefined;
@@ -156,7 +156,7 @@ let lastSelected: string | undefined;
  * The sidebar filters it (All, Unread, each enabled source with its unread
  * count, or why it couldn't answer); the selected item shows beside the feed
  * from 1,100 px with Open, Mark read/unread and Done. Opening takes an item
- * where it lives (Conquer, Linear's desktop app, the GitHub tab) and marks it read.
+ * where it lives (your browser, Linear's desktop app, the GitHub tab) and marks it read.
  * While the keyboard is in the view (not typing): J/K or ↓/↑ move, Enter or O
  * open, U marks read or unread, E or ⌫ marks done, ⇧U marks every shown item
  * read, ⇧E marks every shown item done (after confirming), 1–3 filter All,

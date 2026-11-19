@@ -30,7 +30,7 @@
 
 Paseo Command visualizes hosts, projects, workspaces and agents from the Paseo daemon.
 The React app and official SDK API are in `web/`; the macOS app (`native/`, the React app in a WKWebView) adds the
-top bar, Conquer, the Terminal tab, the Files editors and the agent's browser. The map is Crew (below), which the page
+top bar, your editor beside an agent's conversation and the agent's browser. The map is Crew (below), which the page
 draws itself, in a plain browser too; the other maps (Islands, Overworld, the Dungeon Board) were removed at the user's
 request, their art kept in `rendering/` (no code). Do not add further worlds unless asked.
 Robots keep model colours (Claude orange, ChatGPT/Codex white; other providers keep a stable colour of their own).
@@ -42,12 +42,12 @@ question, failure and offline. Test daemon mutations against fake daemons only.
 The command palette (⌘K, `web/src/CommandPalette.tsx`) lists what the app can do. Its entries are
 `paletteCommands` in `web/src/main.tsx` (the open agent's own in `agentCommands`), ranked by `web/src/palette.ts`.
 Every entry has a `page`, the part of Paseo Command it belongs to (`PAGES`): Command (the map, agents, workspaces,
-projects, hosts, dispatch, your editor), Conquer, Activity, GitHub, Settings (its toggles and editors too), Terminal,
+projects, hosts, dispatch, your editor and the agent's browser), Activity, GitHub, Settings (its toggles and editors too),
 else App (the window, updates, text size, ⌘` stepping, what's new, games). A "Show …" entry for a tab names that tab's page.
 The palette shows it on the row's right before any keys; found things add their `kind` ("Command · Agent"). Among equal
 matches the page on screen (`shown`) ranks first. Write it `page: "GitHub" as const` (spreads widen strings).
 Whenever you add, rename, remove or change a user-facing action (a button, a key, a menu item, a native
-View or Conquer menu command), update its palette entry in the same change: label, `page`, `keys`, `keywords`, and the
+View menu command), update its palette entry in the same change: label, `page`, `keys`, `keywords`, and the
 condition it shows under (only when it would work). Actions owned by a component reach it through
 `runAppCommand`/`onAppCommand` (`web/src/appCommands.ts`); native menu items go through
 `postNative({ type: "menu", action })`, handled in `WorldWindow.swift`'s `"menu"` case. Keep the keyboard
@@ -92,7 +92,7 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
 - `npm run app:bundle-server`: esbuild-bundles `web/server/native.ts` into `web/dist-server/server.mjs` (ignored) for the app bundle.
 - `npm run app:update`: `app:build`, `app:bundle-server` and `native:build`, after merging to `main` (see above), as a build check.
-- `npm run native:test`: the native, bundle and Conquer checks (`native/scripts/test-native.mjs`, `test-bundle.mjs`, `test-conquer.mjs`).
+- `npm run native:test`: the native and bundle checks (`native/scripts/test-native.mjs`, `test-bundle.mjs`).
   Tests of code using SwiftTerm (`TerminalFontTests.swift`) are compiled with `swiftc` against `native/.build/release`'s SwiftTerm (built first if missing).
 - `npm run release:setup`: once, by the user: checks for a "Developer ID Application" certificate in the login keychain (explains
   making one; installs Apple's intermediate), saves a notarytool login as `paseo-command-notary`, and makes Sparkle EdDSA keys
@@ -189,20 +189,11 @@ and GitHub publication; report the published version and release link.
   preserving other credentials in an atomic owner-only file. Saved values never return to the page.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
   `web/server/settings.ts`), which the page once kept in localStorage and moves into the file on load.
-- `native/Sources/PaseoCommandNative/TerminalDrawer.swift`: the Terminal tab, the macOS app's only terminals (the Files editor's aside; there is no side or
-  bottom terminal panel: the user removed it). The mode bar's tab after Command (`Mode.terminal`; ⌘2 by its place, ⌘` steps through it; View → Terminal
-  and View → Show Terminal, ⌃`, from anywhere, which in the tab goes back to the side before it (`toggleTerminal`, its title then Back from Terminal);
-  ⌘K "Show terminal" (`terminal-tab`) or, in the tab, "Leave the terminal tab" (`terminal`), page Terminal; ⌃⇧` is no longer a key) shows the selected
-  workspace's (or agent's) daemon terminals full size in the map's place, laid as Conquer is (`placeTerminalTab`, over `mapInContent`; ⌘B gives it the
-  window's width: the window hands ⌘B to the page while its terminal has the keyboard, `AppKeys.togglesPanel`, `tabTerminalHasKeys`). It owns the
-  sessions, tabs, splits, + / × and font: drawn by SwiftTerm; opening the tab starts a terminal if the workspace has none (`enterTerminalTab`); + opens
-  another; a tab's × ends it. Tabs drag onto a pane's edge to split it (`PaneLayout`), or its middle to replace it; the unsplit button (View → Unsplit
-  Terminals, ⌘K "Unsplit terminals", only in the tab) or dropping a pane's tab on the tab bar undoes splits. Hidden (another tab shows,
-  `leaveTerminalTab`) it keeps its tabs, splits and current tab, asks the daemon nothing and starts nothing; each workspace keeps its panes. The old
-  panel's saved state (`terminalOpen`, `terminalDock`, `terminalWidth|Height`) is ignored. Editor terminals stay out of it. `--info`'s `terminal` is its
-  state and `terminalPlace` where its view is (`map` or `hidden`); hooks `terminal` (⌃`), `terminaltab`, `split`, `unsplit`, `newterminal`, `zoom`, `type`.
-  Tests: `native/tests/TerminalTabTests.swift`, `AppKeysTests.swift`.
-  Its font, and the Files editor's (`TerminalFont.swift`): `TerminalFontSettings` (family, "" the system monospace; size, the ⌘+/⌘− value;
+- Terminals: the Terminal tab (`TerminalDrawer.swift`: its tabs, splits and panes) was removed at the user's request, as the
+  side and bottom terminal panels were before it; don't add it back unless asked. The app's only terminal is your editor's
+  (`TerminalSession.swift`, laid over its pane by `EditorOverlay`; nvim's own `:terminal` gives shells). The old tab's and panel's
+  saved state (`terminalOpen`, `terminalDock`, `terminalWidth|Height`, a saved `terminal` mode) is ignored.
+  Your editor's font (`TerminalFont.swift`): `TerminalFontSettings` (family, "" the system monospace; size, the ⌘+/⌘− value;
   line height above 0 up to 100, SwiftTerm's `lineSpacing`, which takes any positive value but keeps a cell within 1…8,192 pt (100× at 32 pt
   stays under it); the app refuses others, and an unusable kept one reads as 1; letter spacing −1…4 pt, a fixed advance on the font, as SwiftTerm sizes cells by "W"),
   kept in the app's preferences (`terminalFontFamily|Size|LineHeight|LetterSpacing`; workspace builds share the Dev app's, so checks restore
@@ -212,10 +203,10 @@ and GitHub publication; report the published version and release link.
   (`glyphFallbackProvider`, `NerdSymbols`: the symbols font's private-use code points, when the family lacks them) fits them to their cells,
   one for a narrow cell, two for a wide one (SwiftTerm's slot is the cell's width: it can't spill a one-cell icon into a following space as Ghostty does).
   Settings → Terminal sets them through `terminalFont` (`set`), and the app answers it, and ⌘+/⌘−/⌘0, with `paseo:terminal-font`
-  (the values, defaults, ranges and, when asked, the installed monospaced families; `web/src/terminalFont.ts`); every open terminal follows at once.
-  It talks to `web/server/api/terminals.ts`: `GET /api/terminals`, `POST /api/terminals/create|kill`, and the
+  (the values, defaults, ranges and, when asked, the installed monospaced families; `web/src/terminalFont.ts`); the editor follows at once
+  (`WorldWindow.terminalFont`, `setTerminalFont`). A `TerminalSession` talks to `web/server/api/terminals.ts`: `GET /api/terminals`, `POST /api/terminals/create|kill`, and the
   `/api/terminal` socket relaying a terminal's bytes (screen replay first, between `{type:"replay"}` and `{type:"live"}` text frames) and its keys and size.
-  Terminal queries (`TerminalQueries.swift`, the Terminal tab's and the Files editor's `TerminalSession`): the daemon's own headless terminal
+  Terminal queries (`TerminalQueries.swift`, your editor's `TerminalSession`): the daemon's own headless terminal
   already answers DA1, `CSI 5n`/`6n`/`?6n`, `OSC 10/11/12;?` and kitty's `CSI ?u` at the pty, so `TerminalQueryFilter` takes those out
   of the bytes before SwiftTerm sees them (its second answer arrived a round trip late: nvim asks DA1 as it quits and leaves on the
   daemon's, and SwiftTerm's `?65;…c` was typed at the shell's prompt); in a replay it takes out every query (DA2/DA3, DSRs, DECRQM,
@@ -325,44 +316,26 @@ and GitHub publication; report the published version and release link.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else GitHub's API (`web/server/links.ts`, the GitHub token).
   While it's on, Crew's workspace head carries the auto-merge seal (`AUTO_MERGE` in `web/src/model/prStatus.ts`), its tooltip saying how
   it merges and who turned it on.
-- Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
-  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Terminal, GitHub, Conquer, Activity, those enabled;
-  ⌘1…⌘5 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
-  whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes (the workspace's changes in your editor) is, `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
+- Top bar: native, all of it, in the macOS app (`ModeBar` in `ModeBar.swift`, its height an empty unified-compact toolbar's, which centres the traffic
+  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, GitHub, Activity, those enabled;
+  ⌘1…⌘3 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
+  whose items `numberModes` keys, ahead of the page, your editor and the agent's browser, as ⇧⌘G Show Branch Changes (the workspace's changes in your editor) is, `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`;
   the glance, `GlanceBar`, between the usage meters and the gear). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
   (`postAppBarState` → `barState`: attention, usage meters, What's new unseen, the radio connecting, panel side, layout and visibility), and a tool's click
   comes to the page as `paseo:bar` (`onAppBar`) with the button's rectangle in page coordinates, so usage, What's new, games and shortcuts open beneath it.
   In a browser the page keeps its own `.app-bar` (name, tools, gear). The page's other content keeps to `content`, the window below the bar (`--workspace-width`/
-  `--workspace-height`, `layoutWorkspace`). The map and page are `command`'s; `content` (Conquer, the Terminal tab, the Files editors) is the window root's, over `command` and
+  `--workspace-height`, `layoutWorkspace`). The map and page are `command`'s; `content` (your editor and the agent's browser) is the window root's, over `command` and
   below the bar, passing other events through (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is
   hidden and shown again. Check such layout with `.windowshot` (the screen's pixels), not `.snapshot`. Bar controls must be `NSButton`s: the title bar's
   toolbar passes clicks through only to controls. The panel has no header of its own and, hidden (⌘B), takes no width.
-- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Terminal → GitHub → Conquer → Activity, those enabled, and ⌘1…⌘5 pick one; View menu; the tabs light on hover)
-  switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
-  laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels stay, and ⌘B (the page's panel toggle)
-  gives it the window's width. The hidden side keeps running. Conquer takes its keys only while it has the keyboard (`hasKeyFocus`),
-  so the chat panel keeps ⌘L and the rest.
-  Back/forward/reload and the address bar (suggestions from its history, `ConquerExtras.swift`) run along the top of the page
-  (`PageBar.swift`). Its sidebar, as in Zen and Arc: pinned tabs and their folders (one level; drag to reorder, pin above New Tab, unpin below it, into and out of folders;
-  right-click for Pin, Back to Pinned Page, Replace Pinned URL with Current URL, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
-  its favicon or a spinner. A closed pinned tab only unloads. Its commands (`ConquerView.commands`, the Conquer menu) take their keys ahead of
-  the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌥⌘1…⌥⌘8 that tab, ⌥⌘9 the last (⌘1…⌘5 stay the mode bar's), ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
-  ⌘R reload (⇧⌘R without cache), ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads. App restart is only in the React command palette, without a shortcut. It has its own persistent cookie store,
-  optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
-  `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
-  history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
-  Passwords: 1Password fills Conquer's pages only through its Universal Autofill (⌘\\ by default, set in 1Password, with 1Password on under
-  Privacy & Security → Accessibility). 1Password registers that key as a system hotkey (Carbon `RegisterEventHotKey`), so it reaches 1Password
-  before the app or page sees it (Conquer's commands don't use it); the page's fields, iframes' too, are in the accessibility tree and take focus
-  and typing as in Safari (both are WebKit), each web area gives its address (`AXURL`), and the window gives the current page's address as
-  its `AXDocument` while Conquer shows (`AppWindow` in `WorldWindow.swift`), as a browser's window does. 1Password matches sites by address only
-  in the browsers it knows by bundle id and signature; here it matches Paseo Command as an app (it offers to link a login to the app), and it
-  fills only apps with a real code signature: the release app (Developer ID), not the ad hoc signed Dev app. macOS AutoFill (the key icon,
-  credential providers such as 1Password's) isn't available for arbitrary sites in a third-party app's WKWebView: Password AutoFill offers
-  credentials only for an app's own associated domains, and the browser entitlement (`com.apple.developer.web-browser.public-key-credential`,
-  granted by Apple) covers passkeys only. So there's no Conquer menu or ⌘K entry for it.
+- Conquer (the macOS app's own browser tab, its pinned tabs, folders, history, Zen cookie import and menu) was removed at
+  the user's request; don't add it back unless asked. Web links go to your default browser (`openOutside` in `WorldWindow.swift`;
+  a check run, `--info`, only notes them in `openedOutside`), but those the agent's browser takes while it shows beside a
+  conversation, a GitHub pull request's (the GitHub tab) and a Linear issue's (Linear's app). Its saved data stays, ignored:
+  `conquerState`, its cookie store and `conquer-history.json` in the data folder. ⌘W is no app key now (Window → Close has
+  none: closing the one window quits); your editor and the agent's browser keep it.
 - Pages: GitHub, Activity and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
   app's sizes plus `--page-text`, 2 px by default), one width scale (`--lz`, from `--page-scale`, for columns, rows, controls and icons) and, in dark, one
   neutral near-black palette; each is a sidebar headed by its name beside its content, the same rows and heads. A content head is a
@@ -377,9 +350,9 @@ and GitHub publication; report the published version and release link.
   (its read with `fresh=1`, and the diff while Files changed shows) or list (that list only), Activity (the feed). Settings has none, nor the map (its fleet is live: ⌘R
   does nothing there). In the macOS app it's View → Refresh Page (`AppKeys.addRefreshPage`), offered the menu ahead of the views while
   GitHub or Activity shows and no terminal has the keyboard (`AppKeys.pageRefreshes`), asking the page's `page-refresh`; your
-  editor and the Terminal tab keep ⌘R (no ⌘ key reaches a terminal program, as in Terminal.app, so it does nothing there) and Conquer
-  keeps Reload Page while it has the keyboard. In a browser the page takes ⌘R only while a refresh is registered, else the browser
-  reloads. ⌘K: "Refresh the pull request(s)", "Refresh the files", "Refresh the changes", "Refresh activity" (`page-refresh`, ⌘R); "Refresh
+  editor keeps ⌘R (no ⌘ key reaches a terminal program, as in Terminal.app, so it does nothing there) and the agent's browser
+  takes it for its page while it has the keyboard. In a browser the page takes ⌘R only while a refresh is registered, else the browser
+  reloads. ⌘K: "Refresh the pull request(s)", "Refresh activity" (`page-refresh`, ⌘R); "Refresh
   GitHub" still asks again for everything the tab has read. Their shared controls (toolbar buttons, filter chips, the searchable
   `web/src/Picker.tsx`, row menus; `menuKeys.ts`) are styled in `web/src/styles/pickers.css` (class names `linear-*`, from the removed Linear tab).
 - Linear tab: removed at the user's request (the page: lists, board, issue detail and editing, comments, attachments,
@@ -401,10 +374,10 @@ and GitHub publication; report the published version and release link.
   points the data directory and settings file at a temporary folder): they run over the fake Linear (`web/server/linear/fake.ts`:
   the workspace, the Inbox and its writes; `installFakeLinear` enables Linear in the test settings file and writes a fake key to the
   test `secrets.json`, and `restore()` puts both files back).
-- Activity (the mode bar's last tab, after Conquer, while GitHub or Linear is enabled; its tab shows the unread count, the page's
+- Activity (the mode bar's last tab, after GitHub, while GitHub or Linear is enabled; its tab shows the unread count, the page's
   `activity` message): GitHub and Linear notifications in one feed the page draws (`web/src/activity/ActivityView.tsx`), newest
   first, grouped by day, filtered by source or unread, with the selected one's preview beside it from 1,100 px; the sidebar's and the preview's edges resize them (`web/src/ResizeEdge.tsx`; arrow keys too, double-click restores the default; kept in localStorage). Opening one
-  (`open.ts`, by its address) goes where it lives: pull requests in the GitHub tab ("Review in GitHub", through the app's link routing), Linear issues and projects in Linear's desktop app ("Open in Linear"; Conquer without it), other GitHub in Conquer, in a browser a new tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–3 all and the sources; each with
+  (`open.ts`, by its address) goes where it lives: pull requests in the GitHub tab ("Review in GitHub", through the app's link routing), Linear issues and projects in Linear's desktop app ("Open in Linear"; your browser without it), other GitHub in your default browser ("Open in browser"), in a browser a new tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–3 all and the sources; each with
   its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
   /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `GET /notifications` with the GitHub
   token, unread and the past 14 days, cached a minute; read and done through the API; GitHub can't mark unread, and its list still has threads marked done, as read ones, moving their `updated_at` for activity that doesn't notify you, so those done here are kept in the data directory's `github-activity.json` with GitHub's time for them and when they were marked, and left out across launches until a genuinely newer event), `linear.ts` (the
@@ -435,7 +408,7 @@ and GitHub publication; report the published version and release link.
   minute; over the budget, those known answer with a note), and names the owner typed when GitHub has it; ↓/↑ move through what's found, Enter
   opens the first, Esc clears it. A star on a repository's row, an owner's head or an owner found (S, ⌘K) stars it; stars are the app's own, kept in the data
   directory's `settings.json` as `githubStars` (`web/server/github/stars.ts`, `POST /api/github/m/star`; the file's other keys kept, an
-  unreadable file never overwritten). As Conquer's, the sidebar's inner edge resizes it and ⌘S hides or shows it (`github:sidebarHidden`
+  unreadable file never overwritten). The sidebar's inner edge resizes it and ⌘S hides or shows it (`github:sidebarHidden`
   in localStorage; ⌘K "Show or hide the GitHub sidebar"; the page takes the key while GitHub shows), whatever shows beside it.
   A repository's PRs (the `repo` place; `GET /api/github/q/prs?repo=&state=&author=&reviewer=&assignee=&review=&draft=&checks=`,
   50 newest) show with filters (`RepoFilters.tsx`, `filters.ts`: Filter (F) and chips under the head): state
@@ -470,7 +443,7 @@ and GitHub publication; report the published version and release link.
   server's tests run it too (GFM's HTML: tables in a scrolling frame, images only from GitHub's hosts, lazy and fitting the column,
   `<details>`, `<kbd>`, `<sub>`/`<sup>`, task lists, alerts with their icons, highlighting's `pl-*` classes; never scripts, styles,
   handlers, frames, forms, non-web URLs or the app's classes; ids only GitHub's `user-content-`; comments dropped). Its links open as
-  others do (a PR in the tab, a Linear issue in Linear's desktop app, others in Conquer; footnotes scroll). Without HTML (over 400 KB, a draft,
+  others do (a PR in the tab, a Linear issue in Linear's desktop app, others in your default browser; footnotes scroll). Without HTML (over 400 KB, a draft,
   Preview) the Markdown is drawn, hidden comments on lines of their own left out. Styled in `github.css` (`.gh-html`).
   @-mentions (the user's ask): typing `@` in any of a PR's comment boxes (`CommentBox` in `bits.tsx`: comments, replies,
   line comments, the review summary, the close comment) or the merge's description (`MergeBox.tsx`) lists the repository's
@@ -526,7 +499,7 @@ and GitHub publication; report the published version and release link.
   the header chip, the map's medallions and auto-merge seal follow as soon as Paseo's or GitHub's facts do. ⌘K has each (`github-merge`,
   a merge and auto-merge once per allowed method), only when it applies. Then Checks: the count, then each check run and status, failing, then pending,
   then passing and skipped (folded behind "Show N passing" past five), with its workflow or app, how long it took (or "running for …")
-  and its details opening as links do (Conquer). The diff
+  and its details opening as links do (your default browser). The diff
   (`DiffView.tsx`): files by directory beside it (its inner edge resizes the list, `ResizeEdge`: drag, ←/→, double-click for the default;
   `github:diffListWidth` in localStorage, one width for every diff; the diff keeps 420 px, the list hiding when there's no room for both;
   full paths on hover; "Filter files…" at its head, T or ⌘K, fuzzy on paths (`fuzzyPath`, `filterFiles` in `diffSearch.ts`), narrows the
@@ -564,8 +537,8 @@ and GitHub publication; report the published version and release link.
   ⇧⌘C (`GitHubView.tsx`, a window listener, as ⌘S) copies the shown place's github.com address (`placeLink` in `place.ts`: a PR's
   `…/pull/<n>` on any of its tabs, a repository's list its `…/pulls`; the scope lists have none and leave the key) with the
   "Link copied" notice, through `copyText` (the app's clipboard in the macOS app); not while typing in a field or under a dialog.
-  ⌘K "Copy the pull request’s link" / "Copy the repository’s pull requests link" (`github-copy-link`). No app key, menu item or
-  Conquer command has ⇧⌘C (Edit → Copy is ⌘C only), so the web view hands it to the page; `AppKeysTests` checks it stays free.
+  ⌘K "Copy the pull request’s link" / "Copy the repository’s pull requests link" (`github-copy-link`). No app key or menu item
+  has ⇧⌘C (Edit → Copy is ⌘C only), so the web view hands it to the page; `AppKeysTests` checks it stays free.
   Credential (GitHub's, for the tab, Activity and every PR lookup; the app never runs gh): a classic personal access token,
   `githubToken` in the data directory's `secrets.json` through `integrationKey("github")` (only while GitHub is on; never the
   environment), with the scopes `repo`, `notifications` and `read:org` (`web/src/githubToken.ts`). Settings → GitHub has its editor and
@@ -605,7 +578,7 @@ and GitHub publication; report the published version and release link.
   is drawn, under T3's variable names (`visualTheme`: `--background`, `--foreground`, `--card`, `--border`, `--primary`, `--accent`,
   `--destructive`, `--warning`, `--success`, `--chart-1…6`, `--radius`, `--font-sans|mono`…), posted again when the theme changes, so it
   follows light and dark without reloading. The bootstrap reports the page's height (the frame fits it, 60–4,000 px; a page sized in `vh`
-  gets a fixed 480 px and scrolls, `usesViewportHeight`), hands web link clicks to the app (`postAppLink`: Conquer, a PR in the GitHub
+  gets a fixed 480 px and scrolls, `usesViewportHeight`), hands web link clicks to the app (`postAppLink`: your default browser, a PR in the GitHub
   tab) and hands back ⌘K, ⌘B and Esc the page didn't use. Messages are taken only from the frame's own window and read strictly
   (`readSize`, `readLink`, `readKey`). Local images named by absolute path (PNG, JPEG, GIF, WebP) are embedded as data: URLs through the
   chat's bounded image loader (`embedImages`; on another host they can't be read, and the block says which). A page that navigates
@@ -678,7 +651,8 @@ and GitHub publication; report the published version and release link.
   ⌘K (the open agent's, page Command): "Set the permission mode: <mode>" for each mode but the one it's in (`agent-mode`, from
   what the open `Session` publishes in `web/src/agentModeStore.ts`), while it's online and not archived. Tests: `e2e/crew.e2e.ts`.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
-  switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
+  open in your default browser, unless the agent's browser shows beside the conversation (it takes them) or they're a pull
+  request's or a Linear issue's (below).
 - Main commits: in the GitHub page, choose a repository and Main commits (`web/src/github/MainHistory.tsx`,
   `GithubPlace` kind `commits`, optional `sha`). The repository picker stays in main history while switching repositories.
   It polls the selected repository's `main` every 15 s while visible. Arrivals offer Show latest commits without moving
@@ -692,14 +666,14 @@ and GitHub publication; report the published version and release link.
   Tests: `web/server/github/commits.test.ts`, `web/e2e/github.e2e.ts`.
 
 - Links to a GitHub pull request (see GitHub, above) open in the GitHub tab while it's on, wherever they're clicked: the chat,
-  a Conquer page (⌥-click stays there), a PR's body. The app matches them (`pageMode`, `routeLink` in `WorldWindow.swift`) and sends
+  a PR's body, Activity. The app matches them (`pageMode`, `routeLink` in `WorldWindow.swift`) and sends
   the page `paseo:link`; `web/src/appLinks.ts` (`parseAppLink`, the same shape) opens it. Links to a Linear issue or project
-  (`linear.app/<workspace>/issue/<KEY>…`, `…/project/<slug>…`; the chat, a Conquer page, a PR's body, the header's issue chip and L,
-  Activity's Linear items) open in Linear's desktop app when it's installed, else as other links do (Conquer; in a browser, a new
+  (`linear.app/<workspace>/issue/<KEY>…`, `…/project/<slug>…`; the chat, a PR's body, the header's issue chip and L,
+  Activity's Linear items) open in Linear's desktop app when it's installed, else as other links do (your default browser; in a browser, a new
   tab): `LinearLink` (`native/Sources/PaseoCommandNative/LinearLink.swift`, tested by `native/tests/LinearLinkTests.swift`) maps
   the address to Linear's documented deep link, `linear://` and the rest of it (`linear://<workspace>/issue/<KEY>…`), and opens it
   only when Launch Services names an app for it (`NSWorkspace.urlForApplication(toOpen:)`); nothing is installed and no other app
-  launched. Slack links are ordinary links (Conquer).
+  launched. Slack links are ordinary links (your default browser).
 
 ## Crew
 
@@ -713,9 +687,8 @@ the component Crew's drawer is.
 
 - The macOS app draws nothing in the map's place (its SpriteKit world is gone): `useMapBridge` (`web/src/mapBridge.ts`,
   always mounted) sets the Galaxy theme while dark (the pages' near-black palette keys on it) and tells the app `loaded`
-  (the splash lifts), `workspace` (the Terminal tab's: the selected workspace or agent's) and `viewport`, the map's place
-  in CSS px (`.native-world-frame`, posted as it resizes or moves: the panel opening, resizing or changing sides), which
-  Conquer, the Terminal tab and the Files editors are laid over.
+  (the splash lifts) and `viewport`, the map's place in CSS px (`.native-world-frame`, posted as it resizes or moves: the
+  panel opening, resizing or changing sides), on which the app lays your editor and the agent's browser over their boxes again.
 - The map (`CrewMap.tsx`, `.crew-board`, `buildRoster` in `roster.ts`, pure): "Your crew" with its counts (no filter, Add
   project or New agent on it: the user's call, as ⌘K has New agent ⌘N and Add project, and its search finds agents,
   workspaces, projects and hosts); then each host (its
@@ -775,8 +748,9 @@ the component Crew's drawer is.
   node or head marked and kept in view. Esc in a field (its message box, the filter, New agent's form) only leaves
   the field; Esc then closes it from anywhere on Crew (main's key handler: after menus, pickers, previews and
   confirmations; a subagent goes back to its agent first), as does Back (Fleet).
-- Focus (the user's pick of three layouts, "map home, focus mode": the first stage of a new layout; next the Terminal and
-  PR tabs, then Inbox (Activity and the GitHub tab together), dropping Conquer, and a slimmer top bar): opening an agent
+- Focus (the user's pick of three layouts, "map home, focus mode": the first stage of a new layout; since then the
+  Files, Terminal and Conquer tabs went (the user's call); next PR tabs in focus, Inbox (Activity and the GitHub tab together)
+  and a slimmer top bar): opening an agent
   (CrewMap's `focus`: an agent selected, not a workspace, project or New agent, which still open in the drawer beside the
   map) puts the map aside (kept mounted, its scroll too, `visibility: hidden`) and gives the agent the window: a strip
   across the top (`FocusStrip`, `.crew-focus-strip`: ← Crew, which with Esc goes back, then every other robot, those
@@ -787,7 +761,7 @@ the component Crew's drawer is.
   on the map's frame, which the tools read; at least 380 px, the tools 360). In focus the panes' own close, fill and title
   rows and the conversation's "← Fleet" are hidden (the tab bar and the strip have them). Under 900 px the tools lie over
   the conversation. Tests: `e2e/crew.e2e.ts`, `e2e/files-editor.e2e.ts`.
-- Beside the other tabs (GitHub, Terminal, Conquer, Activity) the session panel (`FloatingPanel`, one column) shows
+- Beside the other tabs (GitHub, Activity) the session panel (`FloatingPanel`, one column) shows
   what is open as the same `CrewDetail`, only while something is (main's `panelAbsent` = `crewShown || detailEmpty`: the
   panel takes no width and the bar's panel buttons go). It keeps its side, width and ⌘B; choosing something (J/K, ⌘K, a
   notification, the GitHub tab's Open in agent) opens it. There are no lists (the Agents, Workspaces, Projects and Hosts
@@ -808,7 +782,7 @@ The open agent's workspace opens in the user's own editor (Settings → Files' c
 place, right of its conversation on Crew (`web/src/crew/WorkspaceEditor.tsx`, `crew-files.css`; the user's ask: their nvim
 manages everything about viewing, editing and diffing files). One editor per workspace: `POST /api/terminals/workspace-editor`
 (`createWorkspaceEditor` in `web/server/api/terminals.ts`) runs the command on `.` in the workspace's folder as a daemon
-terminal named `paseo editor · <program>` (`WORKSPACE_EDITOR`, listed with `editor: true`, so the Terminal tab leaves it out);
+terminal named `paseo editor · <program>` (`WORKSPACE_EDITOR`, listed with `editor: true`, so terminal lists can leave it out);
 the page keeps its id per workspace (`editor:workspaces` in localStorage) and finds it again while the daemon lists it, else
 starts another (a module-level `starting` map, so React's double effects start one). It keeps running while you step away;
 if it quits, Start again. The macOS app lays the terminal over the pane's `.crew-editor-slot` (`EditorOverlay.swift`, placements
@@ -835,7 +809,7 @@ ask: a key that closes it): the page takes it, in a field too (`BoardBrowser.tsx
 the app does and tells the page (`key` `hide`), which gives the keyboard back to the page. The page draws the panel
 (`web/src/browser/BoardBrowser.tsx`, `board-browser.css`, `.board-browser.crew` in `crew.css`: the app's tokens, a tab strip
 with +, back / forward / reload or stop, an address field that takes `localhost:5173` or `example.com`
-(`BrowserPolicy.destination`: local names and addresses over http, the rest https; never a search), Open in Conquer, Fill
+(`BrowserPolicy.destination`: local names and addresses over http, the rest https; never a search), Open in your browser (the default one), Fill
 the view (over the conversation too) and ×) and leaves a box (`.bb-view`) for the web page, which the macOS
 app draws: `native/Sources/PaseoCommandNative/BoardBrowser.swift` owns the web views, as `EditorOverlay` owns the Files
 editors' terminals. The page reports the box's frame and whose browser shows (`browser`, `postBrowserPlacement` in
@@ -851,8 +825,8 @@ photographed; the shown one is in `stage`, in the window's `content`. While a we
 window's keys and takes ⌘R, ⌘[, ⌘], ⌘W (the tab) and ⌘L, ⌘T (told to the page, which owns the address field) in
 `BrowserStage.performKeyEquivalent`; ⌘K opens the page's palette (`AppWindow`, as for the terminals). Tabs (addresses and
 titles, at most 12 an agent, the 40 most recently used agents') come back on launch, unloaded, in the app's preferences
-(`boardBrowserState`; check runs keep none). Its pages have a cookie store of their own, apart from Conquer's and the app's:
-an agent never acts with the user's Conquer logins. Nothing is downloaded.
+(`boardBrowserState`; check runs keep none). Its pages have a cookie store of their own, apart from the app's and your
+default browser's: an agent never acts with your logins. Nothing is downloaded.
 Agents open and drive its tabs with Paseo's own browser tools, not a tool of this app's: the daemon gives agents
 `browser_new_tab`, `browser_list_tabs`, `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_fill`,
 `browser_type`, `browser_keypress`, `browser_select`, `browser_hover`, `browser_drag`, `browser_scroll`, `browser_wait`,
@@ -889,14 +863,14 @@ compile. `browser_upload` reads files only for this Mac's own agents (the paths 
 While an agent's conversation is open, a tab it opens shows at once (Settings → Browser "Show the browser when its agent
 opens a tab", `world:browserFollows`, on by default), else the Browser button counts it; another agent's is said in a
 notice, at most every 30 s an agent. While the browser shows, a web link clicked in the conversation (a visual reply's page
-too) opens in it, not in Conquer (the user's call; `web/src/chatLinks.ts`: `openChatLink`, which `BoardBrowser` takes over
+too) opens in it, not in your default browser (the user's call; `web/src/chatLinks.ts`: `openChatLink`, which `BoardBrowser` takes over
 with `setBoardLinkOpener` while mounted, for links inside `.crew-detail` only): in a tab already at that address, else a
 blank tab on show, else a new tab. A pull
 request's link (the GitHub tab, while GitHub is on) and a Linear issue's or project's (Linear's app) keep the app's own
 places; hidden, links go to the app as before. New agents are told what a tab is for (`agentPrompt.ts`,
 `<paseo_command_browser>`). ⌘K (page Command, only while they apply): Show / Hide the browser (B; ⇧⌘W hides), and, while it shows,
 Open a new tab, Type an address, Reload, Go back / forward, Close the tab, Make the browser fill the view, Open the page in
-Conquer (`board-browser-*` in `appCommands.ts`). Limits: with the Dev and the release app both hosting, the daemon knows
+your default browser (`board-browser-*` in `appCommands.ts`). Limits: with the Dev and the release app both hosting, the daemon knows
 them as one client (`clientId` "paseo-command") and sends calls to whichever registered last; a remote host's agent sees
 only what the user's Mac can reach. `--info`'s `browser` is its state; hooks `browser` (run `<info>.browser`'s relayed
 requests, answers to `<info>.browser.out`) and `browserfocus`; `native/scripts/fake-server.ts` serves `/__page` and takes

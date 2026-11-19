@@ -177,10 +177,8 @@ installNativeLinks();
 // The palette's page for each of the mode bar's places (its entries for the page on screen win ties).
 const MODE_PAGES: Record<AppMode, Page> = {
   command: "Command",
-  conquer: "Conquer",
   activity: "Activity",
   github: "GitHub",
-  terminal: "Terminal",
   settings: "Settings",
 };
 // The map's place (Crew, on the Command tab) beside the docked session panel (the other tabs').
@@ -1022,8 +1020,8 @@ function App() {
       pr: ws.pr ? { number: ws.pr.number, url: ws.pr.url, title: ws.pr.title } : ws.pr,
     };
   }, [selection, agents, workspaceOf, workspace, realWorkspaceIds]);
-  // What the macOS app hears of the map's place: the fleet is in, the Terminal tab's workspace, where the place is.
-  useMapBridge(!loading, githubWorkspace, worldFrame);
+  // What the macOS app hears of the map’s place: the fleet is in, and where the place is.
+  useMapBridge(!loading, worldFrame);
   // The Paseo workspaces with a PR's branch checked out (the PR view's Open Paseo agent).
   const paseoFor = useCallback(
     (pr: PrHead) =>
@@ -1063,8 +1061,8 @@ function App() {
   const showWorkspaceChanges = useCallback(() => {
     if (githubWorkspace) askWorkspaceEditor({ workspace: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), changes: true });
   }, [githubWorkspace]);
-  // ⇧⌘G (the macOS app's View → Show Branch Changes, from anywhere but Conquer with the keyboard;
-  // in a browser, the page's own key): the selected workspace's, or agent's, changes in the Files tab.
+  // ⇧⌘G (the macOS app's View → Show Branch Changes, from anywhere; in a browser, the page's own key):
+  // the selected workspace's, or agent's, changes in its editor.
   const branchChanges = useRef(() => {});
   branchChanges.current = () => {
     if (!githubWorkspace) setNotice("Select a workspace or agent to see its branch's changes.");
@@ -1073,7 +1071,7 @@ function App() {
   };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      // In the macOS app the View menu takes the key first (Conquer's find previous while it has the keyboard).
+      // In the macOS app the View menu takes the key first.
       if (macApp() || !isBranchChangesShortcut(e) || e.defaultPrevented) return;
       e.preventDefault();
       branchChanges.current();
@@ -1519,14 +1517,12 @@ function App() {
   // The mode bar's tabs shown, in order, for ⌘`'s entry.
   const modeNames: Record<AppMode, string> = {
     command: "crew",
-    conquer: "browser",
     activity: "Activity",
     github: "GitHub",
-      terminal: "terminal",
     settings: "Settings",
   };
   const modeTabs = shownModes(integrations).map((mode) => [mode, modeNames[mode]] as const);
-  // A tab's ⌘1…⌘6, in the macOS app.
+  // A tab's ⌘1…⌘3, in the macOS app.
   const tabKeys = (mode: AppMode) => (macApp() ? [modeKey(integrations, mode)] : undefined);
   const diagramCommand = useMermaidCommands();
   // The open agent's browser, beside its conversation on Crew.
@@ -1591,7 +1587,7 @@ function App() {
                     ...(browserTab.back ? [{ id: "board-browser-back", group: "Actions", page: "Command" as const, label: `Go back in ${browserOf}`, keywords: "crew browser previous page history", run: () => runAppCommand("board-browser-back") }] : []),
                     ...(browserTab.forward ? [{ id: "board-browser-forward", group: "Actions", page: "Command" as const, label: `Go forward in ${browserOf}`, keywords: "crew browser next page history", run: () => runAppCommand("board-browser-forward") }] : []),
                     { id: "board-browser-close-tab", group: "Actions", page: "Command" as const, label: `Close ${tabLabel(browserTab)} in ${browserOf}`, keywords: "crew browser tab remove", run: () => runAppCommand("board-browser-close-tab") },
-                    ...(browserTab.url ? [{ id: "board-browser-conquer", group: "Navigate", page: "Conquer" as const, label: "Open the browser’s page in Conquer", keywords: "crew browser tab move own logins", run: () => runAppCommand("board-browser-conquer") }] : []),
+                    ...(browserTab.url ? [{ id: "board-browser-conquer", group: "Navigate", page: "Command" as const, label: "Open the browser’s page in your default browser", keywords: "crew browser tab move own logins safari chrome external", run: () => runAppCommand("board-browser-conquer") }] : []),
                   ]
                 : []),
             ]
@@ -1845,118 +1841,39 @@ function App() {
             page: "App" as const,
             label: "Show or hide the panel",
             keys: [["⌘", "B"]],
-            keywords: "sidebar collapse react conquer",
+            keywords: "sidebar collapse react",
             run: () => runAppCommand("toggle-panel"),
           },
         ]
       : []),
     ...(macApp()
       ? [
-          // ⌃` shows the Terminal tab from anywhere and, in it, goes back to the side before it.
-          appMode !== "terminal"
-            ? {
-                id: "terminal-tab",
-                group: "App",
-                page: "Terminal" as const,
-                label: "Show terminal",
-                keys: [["⌃", "`"], ...(tabKeys("terminal") ?? [])],
-                keywords: "terminal tab shell console open toggle mode full size map place",
-                run: () => postAppMenu("terminal-tab"),
-              }
-            : {
-                id: "terminal",
-                group: "App",
-                page: "Terminal" as const,
-                label: "Leave the terminal tab",
-                keys: [["⌃", "`"]],
-                keywords: "terminal back shell console toggle hide",
-                run: () => postAppMenu("terminal"),
-              },
           ...(
             [
-              ...(appMode === "terminal"
-                ? ([["terminal-unsplit", "Unsplit terminals", "panes merge split", undefined]] as const)
+              // Your editor's text size (its terminal's font, Settings → Terminal), while it's open beside a conversation.
+              ...(filesShown
+                ? ([
+                    ["terminal-bigger", "Bigger text in your editor", "terminal zoom font size larger nvim", ["⌘", "+"]],
+                    ["terminal-smaller", "Smaller text in your editor", "terminal zoom font size nvim", ["⌘", "−"]],
+                    ["terminal-actual", "Actual text size in your editor", "terminal zoom font reset nvim", ["⌘", "0"]],
+                  ] as const)
                 : []),
-              [
-                "terminal-bigger",
-                "Bigger terminal text",
-                "zoom font size larger",
-                ["⌘", "+"],
-              ],
-              [
-                "terminal-smaller",
-                "Smaller terminal text",
-                "zoom font size",
-                ["⌘", "−"],
-              ],
-              [
-                "terminal-actual",
-                "Actual terminal text size",
-                "zoom font reset",
-                ["⌘", "0"],
-              ],
               [
                 "mode-next",
                 `Next in the map's place: ${modeTabs.map(([, name]) => name).join(", ")}`,
-                `switch rotate cycle mode tab conquer command ${modeTabs.map(([mode]) => mode).join(" ")}`,
+                `switch rotate cycle mode tab command ${modeTabs.map(([mode]) => mode).join(" ")}`,
                 ["⌘", "`"],
               ],
-              [
-                "conquer",
-                "Show the browser (Conquer)",
-                "conquer browser mode web",
-                modeKey(integrations, "conquer"),
-              ],
-              ["conquer-tab", "New Conquer tab", "browser web open", undefined],
-              [
-                "conquer-sidebar",
-                "Show or hide Conquer’s tab sidebar",
-                "browser tabs collapse",
-                ["⌘", "S"],
-              ],
-              [
-                "zen-cookies",
-                "Import Zen cookies into Conquer",
-                "browser sign in login sessions confirmation",
-                undefined,
-              ],
             ] as const
-          )
-            .map(([action, label, keywords, keys]) => ({
+          ).map(([action, label, keywords, keys]) => ({
             id: action,
             group: "App",
-            page: action.startsWith("terminal")
-              ? ("Terminal" as const)
-              : action === "mode-next"
-                ? ("App" as const)
-                : ("Conquer" as const),
+            page: action === "mode-next" ? ("App" as const) : ("Command" as const),
             label,
-            keys: keys && [[...keys]],
+            keys: [[...keys]],
             keywords,
             run: () => postAppMenu(action),
           })),
-          ...(appMode === "conquer"
-            ? [
-                {
-                  id: "conquer-reload",
-                  group: "App",
-                  page: "Conquer" as const,
-                  label: "Reload Conquer page",
-                  keys: [["⌘", "R"]],
-                  keywords: "browser web refresh reload page",
-                  run: () => postAppMenu("conquer-reload"),
-                },
-                {
-                  id: "conquer-reload-without-cache",
-                  group: "App",
-                  page: "Conquer" as const,
-                  label: "Reload Conquer page without cache",
-                  keys: [["⇧", "⌘", "R"]],
-                  keywords: "browser web refresh reload page hard bypass cache origin",
-                  run: () => postAppMenu("conquer-reload-without-cache"),
-                },
-              ]
-            : []),
           ...(appMode !== "command"
             ? [
                 {
@@ -2110,7 +2027,7 @@ function App() {
             ...(place.kind === "commits" ? [
               command("github-back", place.sha ? "Back to main history" : "Back to the repository’s pull requests", "back main commits history repository list", ["Esc"]),
               command("github-go", "Show the repository’s pull requests", "main history back pulls", undefined, { kind: "repo", repo: place.repo }, "Navigate"),
-              command("github-open-browser", place.sha ? "Open the commit on GitHub" : "Open main history on GitHub", "browser conquer external main commit"),
+              command("github-open-browser", place.sha ? "Open the commit on GitHub" : "Open main history on GitHub", "browser external main commit"),
               command("github-copy-link", place.sha ? "Copy the commit link" : "Copy the main history link", "copy link url sha history", ["⇧", "⌘", "C"]),
             ] : []),
             ...(v.history?.more && !v.history.loading && place.kind === "commits" && !place.sha ? [command("github-history-older", "Load older main commits", "history paginate next page earlier changes")] : []),
@@ -2140,7 +2057,7 @@ function App() {
                   const f = v.filters;
                   return [
                     command("github-filter", "Filter the repository’s pull requests…", "filter state author reviewer assignee review draft ci checks", ["F"]),
-                    command("github-open-browser", "Open the repository’s pull requests on GitHub", "browser conquer web open external repository"),
+                    command("github-open-browser", "Open the repository’s pull requests on GitHub", "browser web open external repository"),
                     command("github-copy-link", "Copy the repository’s pull requests link", "copy link url address clipboard share github.com pulls repository", ["⇧", "⌘", "C"]),
                     ...PR_VALUE_FIELDS.flatMap((field) =>
                       (Object.entries(PR_FILTERS[field].values) as [string, { text: string }][])
@@ -2217,7 +2134,7 @@ function App() {
                     ),
                   ...(v.pr
                     ? [
-                        command("github-open-browser", "Open the pull request on GitHub", "browser conquer web open external"),
+                        command("github-open-browser", "Open the pull request on GitHub", "browser web open external"),
                         command("github-comment", "Comment on the pull request", "comment conversation reply write", ["C"]),
                         ...(place.tab === "conversation"
                           ? [
@@ -2604,9 +2521,9 @@ function App() {
       run: () => choose({ type: "project", id: projectKey(p) }),
     })),
   ];
-  // The tabs' Show entries in the mode bar's order (Command, GitHub, Conquer, Activity),
+  // The tabs' Show entries in the mode bar's order (Command, GitHub, Activity),
   // in the places they take among the rest.
-  const tabEntries = ["command-show", "github-show", "conquer", "activity-show"];
+  const tabEntries = ["command-show", "github-show", "activity-show"];
   const tabSlots = paletteCommands.flatMap((c, i) => (tabEntries.includes(c.id) ? [i] : []));
   tabSlots
     .map((i) => paletteCommands[i])

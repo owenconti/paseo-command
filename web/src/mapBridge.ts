@@ -1,7 +1,7 @@
 /** What the macOS app hears about the map's place from the page (always mounted, in main.tsx). The page draws Crew
- * there itself (there is no other map): it says that the fleet is in (`loaded`: the splash lifts), which workspace the
- * Terminal tab follows (`workspace`), and where the map's place is in the window (`viewport`: Conquer, the Terminal
- * tab and the Files editors are laid over it, beside the session panel). The pages' look is the Galaxy theme while
+ * there itself (there is no other map): it says that the fleet is in (`loaded`: the splash lifts) and where the map's
+ * place is in the window (`viewport`: as it moves, the app lays your editor and the agent's browser over their boxes
+ * again). The pages' look is the Galaxy theme while
  * dark, as it always was with Crew. */
 import { useEffect, type RefObject } from "react";
 import { setUnityWorldTheme } from "./theme";
@@ -11,9 +11,7 @@ import { worldFrame } from "./viewControls";
 const postNative = (message: Record<string, unknown>) =>
   (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: { postMessage(m: unknown): void } } } }).webkit?.messageHandlers?.paseoWorld?.postMessage(message);
 
-export type TerminalWorkspace = { id: string; host?: string; name: string };
-
-export function useMapBridge(loaded: boolean, workspace: TerminalWorkspace | undefined, frame: RefObject<HTMLElement | null>) {
+export function useMapBridge(loaded: boolean, frame: RefObject<HTMLElement | null>) {
   useEffect(() => {
     setUnityWorldTheme("galaxy");
     return () => setUnityWorldTheme(null);
@@ -21,10 +19,6 @@ export function useMapBridge(loaded: boolean, workspace: TerminalWorkspace | und
   useEffect(() => {
     if (loaded) postNative({ type: "loaded" });
   }, [loaded]);
-  const id = workspace?.id, host = workspace?.host ?? "", name = workspace?.name ?? "";
-  useEffect(() => {
-    postNative({ type: "workspace", workspace: id ? { id, host, name } : null });
-  }, [id, host, name]);
   // The map's place, in CSS px from the page's top left, posted as it resizes or moves (the session panel opening,
   // resizing or changing sides moves it without resizing it: the root's style and `data-panel-side` say so).
   useEffect(() => {

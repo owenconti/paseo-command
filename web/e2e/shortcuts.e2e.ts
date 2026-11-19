@@ -82,15 +82,15 @@ test("in the macOS app, the mode bar's keys list its tabs in order, Settings bei
   await appEvent(page, "paseo:command", "show-shortcuts");
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await dialog.waitFor();
-  // No integrations here: the crew, the terminals and the browser.
-  await dialog.getByText("Next in the map's place: the crew, the terminals, the browser (Conquer)", { exact: true }).waitFor();
+  // No integrations here: the crew alone.
+  await dialog.getByText("Next in the map's place: the crew", { exact: true }).waitFor();
   const tabs = dialog.locator("li, tr, div").filter({
-    has: page.getByText("The mode bar's tab in that place: the crew, the terminals, the browser (Conquer)", { exact: true }),
+    has: page.getByText("The mode bar's tab in that place: the crew", { exact: true }),
   }).last();
-  assert.match(await tabs.innerText(), /1…3/);
-  await dialog.getByText(/^From anywhere: the Terminal tab/).waitFor();
-  // No terminal panel any more: ⌃` is the Terminal tab's.
-  assert.equal(await dialog.getByText(/terminal panel/).count(), 0);
+  assert.match(await tabs.innerText(), /⌘\s*1(?!…)/);
+  // No Terminal or Conquer tab any more: no ⌃`, no Conquer group.
+  assert.equal(await dialog.getByText(/the Terminal tab|terminal panel/).count(), 0);
+  assert.equal(await dialog.getByText(/Conquer/).count(), 0);
   await dialog.getByText("Settings (the bar's gear), or back from it; Esc goes back too", { exact: true }).waitFor();
   await context.close();
 });

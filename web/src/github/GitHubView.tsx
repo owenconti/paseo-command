@@ -112,7 +112,7 @@ function prActions(pr: PrDetail): { key: string; label: string; action: MergeAct
  * list (a repository's filters), T filters a diff's files,
  * S stars the repository; ⌘F finds in a diff (`DiffView`); ⇧⌘C copies the PR's
  * (or the repository's pull requests') github.com address.
- * As Conquer's, the sidebar's inner edge resizes it and ⌘S hides
+ * The sidebar's inner edge resizes it and ⌘S hides
  * or shows it (both kept), whatever shows beside it.
  */
 export function GitHubView({
@@ -278,7 +278,7 @@ export function GitHubView({
     return () => window.removeEventListener("keydown", key, true);
   }, [toggleSidebar]);
   // ⇧⌘C: the shown PR's address (or the repository's pull requests'), wherever in the view, but not while typing
-  // (a field keeps the key) or under a dialog. The macOS app's menus and Conquer have no ⇧⌘C, so it reaches the page.
+  // (a field keeps the key) or under a dialog. The macOS app's menus have no ⇧⌘C, so it reaches the page.
   const copyLink = useCallback(
     (url: string) =>
       void copyText(url).then(
@@ -307,7 +307,7 @@ export function GitHubView({
   };
 
   const external = useCallback((url: string) => {
-    // Conquer, as a new tab (direct: not back to this tab); a browser opens it in another.
+    // Your default browser (direct: not back to this tab); a browser opens it in another.
     if (macApp()) postAppLink(url, true);
     else window.open(url, "_blank", "noopener");
   }, []);

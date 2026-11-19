@@ -266,8 +266,8 @@ export function SettingsPage({
             <SettingsGroup
               note={
                 macApp()
-                  ? "For the Terminal tab and your editor, applied as you change them. Nerd Font icons draw whatever the font."
-                  : "The Terminal tab and your editor are the macOS app’s: their font, size, line height and letter spacing are set there, in Settings → Terminal."
+                  ? "For your editor’s terminal, applied as you change them. Nerd Font icons draw whatever the font."
+                  : "Your editor’s terminal is the macOS app’s: its font, size, line height and letter spacing are set there, in Settings → Terminal."
               }
             >
               {macApp() ? <TerminalSettings /> : null}
@@ -536,7 +536,7 @@ function BoardBrowserSettings() {
     <>
       <SwitchRow
         title="Agents’ browser tools open tabs here"
-        description={`Each agent has a browser of its own beside its conversation on Crew (B, or Browser above its message box). With this on, Paseo’s browser tools (browser_new_tab, browser_snapshot, browser_click…) open and drive tabs in the calling agent’s browser, instead of the Paseo app’s. The daemon’s browser tools must be on. Its pages keep logins of their own, apart from Conquer’s; an agent on another host can’t open this Mac’s own addresses.${state ? ` ${state}` : ""}`}
+        description={`Each agent has a browser of its own beside its conversation on Crew (B, or Browser above its message box). With this on, Paseo’s browser tools (browser_new_tab, browser_snapshot, browser_click…) open and drive tabs in the calling agent’s browser, instead of the Paseo app’s. The daemon’s browser tools must be on. Its pages keep logins of their own, apart from your browser’s; an agent on another host can’t open this Mac’s own addresses.${state ? ` ${state}` : ""}`}
         checked={tools}
         onChange={setBrowserTools}
       />

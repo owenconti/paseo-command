@@ -82,7 +82,7 @@ cp "$here/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
 cp "$here/../LICENSE" "$here/../THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/"
 # The splash's lettering: the page's own header and body fonts.
 cp "$here/../web/src/themes/fonts/paseo-barlow-600.woff2" "$here/../web/src/themes/fonts/paseo-source-sans-400.woff2" "$app/Contents/Resources/"
-# Conquer uses the React panel's body fonts in native controls too.
+# The native controls use the React panel’s body fonts too.
 cp "$here/../web/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2" "$app/Contents/Resources/"
 # The terminals' icon fallback (Nerd Fonts' symbols), registered for the app's process only (TerminalFont.swift).
 mkdir -p "$app/Contents/Resources/fonts"

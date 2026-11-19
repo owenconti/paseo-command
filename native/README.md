@@ -1,8 +1,8 @@
 # Paseo Command for macOS
 
 A macOS app that shows the Paseo Command React app in a `WKWebView`. The page draws the fleet
-itself (Crew) as well as its panels and pages; the app adds the native mode bar, Conquer, the
-Terminal tab, the Files editors' terminals and the robot's browser. It builds with the Command
+itself (Crew) as well as its panels and pages; the app adds the native mode bar, your editor's terminal and the
+robot's browser beside an agent's conversation. It builds with the Command
 Line Tools alone (`swift build`; no Xcode project). There is no SpriteKit map any more.
 
 ```sh
@@ -65,31 +65,20 @@ Options: `--size <w>x<h>`, `--front` (show in front without activating), `--back
 ## How it fits together
 
 - **The page draws everything in the window's body.** Crew (the fleet as a chat app), the session
-  panel and the pages (GitHub, Activity, Files, Settings) are the React app's, as in a browser; the
+  panel and the pages (GitHub, Activity, Settings) are the React app's, as in a browser; the
   page keeps every pointer and key event, and the web view stays first responder.
-- **Native views stand in the map's place.** Conquer, the Terminal tab, the Files editors' terminals
-  and the robot's browser lie in `content`, a pass-through view over the page, below the mode bar.
-  The page says where its map area is (`viewport`, in its CSS pixels; until it does, the whole of
-  `content`), where the Files editor and the robot's browser go (`editor`, `browser`), and which
-  workspace the Terminal tab follows (`workspace`).
+- **Native views lie over boxes the page draws.** Your editor's terminal and the robot's browser lie in
+  `content`, a pass-through view over the page, below the mode bar. The page says where they go
+  (`editor`, `browser`) and when its map area moves (`viewport`). Web links go to your default browser
+  (there is no Conquer tab or Terminal tab any more).
 - **The splash** covers the window until the page posts `loaded` (its fleet is in), or a minute at most.
 
-## Terminal tab
+## Your editor's terminal
 
-The terminals live only in the Terminal tab (there is no side or bottom panel): the mode bar's tab after Files, ⌘3 by its
-place, ⌘` through the tabs, View → Show Terminal (⌃`) from anywhere, ⌘K "Show terminal". It shows the daemon's terminals for
-the selected workspace (or the selected agent's) full size in the map's place, as Conquer lies, the session panel beside it (⌘B
-hides it, the terminal keeping the keyboard), and starts a terminal as it opens if the workspace has none. In the tab ⌃` (View →
-Back from Terminal) goes back to the side before it. One tab per terminal: + opens another, a tab's × ends it (after asking,
-unless told not to ask again). A tab dragged onto a pane's edge splits that pane and shows there; dropped in a pane's middle it
-takes that pane's place; a click on a tab not showing puts it in the current pane. The unsplit button (shown while split; View →
-Unsplit Terminals) returns to one pane, the current terminal's, the others staying as tabs; a pane's tab dropped back on the tab
-bar leaves the panes too. Each workspace keeps its panes while the app runs, and the tab keeps them while another shows. ⌘+ / ⌘−
-/ ⌘0 (View) change the terminals' text size while the tab shows (or a Files editor has the keyboard), kept across launches. The
-old panel's saved preferences (`terminalOpen`, `terminalDock`, its sizes) are ignored. Leaving the tab or switching workspace leaves terminals
-running on the daemon. SwiftTerm draws them; the app server relays each over `/api/terminal`
-(`web/server/api/terminals.ts`), replaying its recent screen first. To check it without a real
-daemon:
+Your editor (Settings → Files' command) runs in a daemon terminal beside an agent's conversation; SwiftTerm draws it
+(`TerminalSession.swift`, `EditorOverlay.swift`) and the app server relays it over `/api/terminal`
+(`web/server/api/terminals.ts`), replaying its recent screen first. ⌘+ / ⌘− / ⌘0 (View) change its text size while it
+has the keyboard, kept across launches. To check it without a real daemon:
 
 ```sh
 npm --prefix web run build
@@ -102,34 +91,15 @@ echoes ESC as `^[`, so an answer typed into the shell shows. `PASEO_TERMINAL_TRA
 each frame both ways, timed (replay frames marked, dropped answers too); `--info`'s terminal `queries` counts what the app
 took out, answered and dropped (`TerminalQueries.swift`).
 
-## Conquer
+## Native controls
 
-The strip across the top switches the map's place between Crew (Command), Files, the Terminal tab, GitHub, Conquer, Activity and Settings (Activity and GitHub only while enabled; View → Show Files, ⇧⌘E, shows Files from anywhere; a GitHub pull request's link opens in the GitHub tab, and a Linear issue's in Linear's desktop app when it's installed (`LinearLink.swift`), else in Conquer; ⌘` steps through them in turn; Activity's tab shows its unread count); Conquer is a tabbed browser with its own persistent
-cookie store. ⌘B toggles the React app panel even while a browser page has focus; ⌘S toggles Conquer's tab sidebar, restoring its width.
-With the keyboard in Conquer, ⌘R reloads the current page and ⇧⌘R reloads it without cache; both are also in the Conquer menu and command palette.
-Its native toolbar, tab list, find bar, suggestions and downloads use shared flat control primitives matching the React panel.
-Their colors and control metrics are generated from `web/src/styles/tokens.css` (Light) and `web/src/themes.css` (Galaxy),
-and the app bundles the same Inter and Source Sans body fonts. After changing those CSS tokens, run
-`node native/scripts/theme.mjs` and commit `NativeTheme.swift`; `native:build` checks it for drift.
-
-Closing the last ordinary tab selects a remaining pinned page, even if it is unloaded.
-With no replacement, the browser stays empty; the address bar and New Tab still work.
-Closing a pinned page only unloads it. `npm run native:test` checks these transitions in an
-isolated process with nonpersistent storage and a loopback page fixture.
-
-1Password fills Conquer's pages with its Universal Autofill (⌘\\, a system hotkey the app never sees) through the
-accessibility tree: the page's fields (iframes' too) and its address (the web area's `AXURL`, and the window's `AXDocument`
-while Conquer shows, `AppWindow`). It fills only apps with a real code signature, so use the release app, not the ad hoc
-Dev build. macOS AutoFill isn't offered for other sites in a third-party WKWebView (see CLAUDE.md's Conquer notes).
-`….key.<run>` with `\` in `<info>.key` sends ⌘\\ through the app's key path.
-
-Conquer → Import Zen Cookies optionally copies Zen Browser's unexpired sessions after confirmation
-(from its profile's `cookies.sqlite`, default space only); opening Conquer does not import cookies automatically. Check runs (`--info`) keep its
-cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<run>` switches sides, `….open.<run>`
-opens `<info>.url`'s address in a tab, `….conquer.<run>` runs `<info>.do`'s steps a second apart (a command's name,
-`folder <name>`, `into <n>`, `drag <tab> <folder|-> <index>`, `type <text>`, `find <text>`, `roundtrip`; see
-`ConquerView.check`), `….key.<run>` presses `<info>.key`'s key (a character, `tab`, `→` or `←`, after any of ⌃ ⌥ ⇧; with ⌘ unless it starts with ⌃) as a key press would (key equivalents to the views, then the menu, else a key press to the focused view), and the snapshot hook
-draws Conquer over the page while it shows. `….appopen.<run>` opens `<info>.url` as a link clicked in the chat would.
+The native controls use shared flat primitives (`ChromeControls.swift`) matching the React panel. Their colors and control
+metrics are generated from `web/src/styles/tokens.css` (Light) and `web/src/themes.css` (Galaxy), and the app bundles the
+same Inter and Source Sans body fonts. After changing those CSS tokens, run `node native/scripts/theme.mjs` and commit
+`NativeTheme.swift`; `native:build` checks it for drift. `….key.<run>` presses `<info>.key`'s key (a character, `tab`, `→`
+or `←`, after any of ⌃ ⌥ ⇧; with ⌘ unless it starts with ⌃) as a key press would (key equivalents to the views, then the
+menu, else a key press to the focused view); `….mode.<run>` steps to the next tab; `….appopen.<run>` opens `<info>.url` as a
+link clicked in the chat would (a check run notes it in `--info`'s `openedOutside` rather than opening your browser).
 
 ## Checks without screen recording
 
@@ -137,10 +107,10 @@ draws Conquer over the page while it shows. `….appopen.<run>` opens `<info>.ur
 launched with `--info` listens, under names ending in its info file's name, so the user's own copy
 ignores them; such a copy keeps its page storage in memory, apart from the user's copy):
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
-`.snapshot` writes `/tmp/x.png` (the page's snapshot with the native views over it; it draws the Terminal tab's text blank, and shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or WebKit throttles while covered); `.info` rewrites
-`/tmp/x.json` (with the Terminal tab's state); `.resize` alternates
-the window size; `.reload` runs the palette’s Restart app command; `.terminal` is ⌃` (the Terminal tab, or back from it); `.terminaltab` shows the Terminal tab (`--info`'s `terminalPlace`: `map` while it shows, else `hidden`); `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
-`/tmp/x.type` into its terminal; `.files` shows the Files tab and `.command` Crew; `.quit`.
+`.snapshot` writes `/tmp/x.png` (the page's snapshot with the native views over it; it shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or WebKit throttles while covered); `.info` rewrites
+`/tmp/x.json` (with your editor's and the browser's state); `.resize` alternates
+the window size; `.reload` runs the palette’s Restart app command; `.zoom` enlarges your editor's text; `.editortype` types
+`/tmp/x.type` into your editor; `.command`, `.github`, `.activity` show those tabs; `.quit`.
 The robot's browser (`BoardBrowser.swift`; `--info`'s `browser`: each robot's tabs and where their pages are, the stage's
 frame and holes, hosting): `.browser` runs `/tmp/x.browser`'s requests (a JSON list, each as the server relays an agent's
 browser tool call: `{"host": "local", "request": {"requestId", "agentId", "workspaceId", "command": {"command", "args"}}}`) one

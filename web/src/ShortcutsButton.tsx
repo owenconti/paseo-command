@@ -60,31 +60,20 @@ const GROUPS: Group[] = [
 ];
 const TAB_NAMES: Record<AppMode, string> = {
   command: "the crew",
-  conquer: "the browser (Conquer)",
   activity: "Activity",
   github: "GitHub",
-  terminal: "the terminals",
   settings: "Settings",
 };
 const NATIVE: Group = {
   title: "macOS app",
   rows: [
     {
-      keys: [["⌃", "`"]],
-      label:
-        "From anywhere: the Terminal tab, the selected workspace's (or agent's) terminals in the map's place (in it: back to the side before it)",
-    },
-    {
-      keys: [["⌘", "+"], ["⌘", "−"], ["⌘", "0"]],
-      label: "In the terminal: bigger, smaller or actual text size (its font, line height and spacing: Settings → Terminal)",
-    },
-    {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the crew, the terminals, GitHub, the browser (Conquer), Activity",
+      label: "Next in the map's place: the crew, GitHub, Activity",
     },
     {
-      keys: [["⌘", "1…5"]],
-      label: "The mode bar's tab in that place: the crew, the terminals, GitHub, the browser (Conquer), Activity",
+      keys: [["⌘", "1…3"]],
+      label: "The mode bar's tab in that place: the crew, GitHub, Activity",
     },
     { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },
   ],
@@ -123,7 +112,7 @@ const ACTIVITY: Group = {
   rows: [
     { keys: [["J"], ["↓"]], label: "Next notification" },
     { keys: [["K"], ["↑"]], label: "Previous notification" },
-    { keys: [["Enter"], ["O"]], label: "Open it (pull requests in the GitHub tab, Linear in its desktop app, else in Conquer)" },
+    { keys: [["Enter"], ["O"]], label: "Open it (pull requests in the GitHub tab, Linear in its desktop app, else in your browser)" },
     { keys: [["U"]], label: "Mark it read or unread" },
     { keys: [["⇧", "U"]], label: "Mark every shown notification read" },
     { keys: [["E"], ["⌫"]], label: "Done: leave it out of Activity" },
@@ -166,57 +155,13 @@ const EDITOR: Group = {
     { keys: [["⇧", "⌘", "G"]], label: "From anywhere: the workspace's changes, Settings → Files' changes command run in the editor" },
     { keys: [["Click"]], label: "A file's link in the conversation: open it in the editor, at its line" },
     {
-      keys: [["⌘", "K"], ["⌘", "1…5"], ["⌘", "`"]],
-      label: "In the editor: the palette, the mode bar's tabs; ⌃` and ⇧⌘G too. Every other key, Esc and ⌃ keys included, is the editor's",
-    },
-  ],
-};
-/** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages
- * while it has the keyboard. */
-const CONQUER: Group = {
-  title: "Conquer (browser)",
-  rows: [
-    { keys: [["⌘", "B"]], label: "Show or hide the app panel" },
-    { keys: [["⌘", "S"]], label: "Show or hide the tab sidebar" },
-    { keys: [["⌘", "T"]], label: "New tab" },
-    { keys: [["⇧", "⌘", "T"]], label: "Reopen the closed tab" },
-    { keys: [["⌘", "W"]], label: "Close the tab (a pinned one only unloads)" },
-    {
-      keys: [
-        ["⌘", "E"],
-        ["⌃", "Tab"],
-      ],
-      label: "Next tab",
-    },
-    { keys: [["⌥", "⌘", "1…9"]], label: "Go to a tab (9: the last)" },
-    { keys: [["⌘", "D"]], label: "Pin or unpin the tab" },
-    { keys: [["⌘", "L"]], label: "Address bar" },
-    { keys: [["⌘", "R"]], label: "Reload page" },
-    { keys: [["⇧", "⌘", "R"]], label: "Reload page without cache" },
-    {
-      keys: [
-        ["⌘", "["],
-        ["⌘", "]"],
-      ],
-      label: "Back, forward",
+      keys: [["⌘", "K"], ["⌘", "1…3"], ["⌘", "`"]],
+      label: "In the editor: the palette, the mode bar's tabs, ⇧⌘G too. Every other key, Esc and ⌃ keys included, is the editor's",
     },
     {
-      keys: [
-        ["⌘", "F"],
-        ["⌘", "G"],
-      ],
-      label: "Find in page, next match",
+      keys: [["⌘", "+"], ["⌘", "−"], ["⌘", "0"]],
+      label: "In the editor: bigger, smaller or actual text size (its font, line height and spacing: Settings → Terminal)",
     },
-    {
-      keys: [
-        ["⌘", "+"],
-        ["⌘", "−"],
-        ["⌘", "0"],
-      ],
-      label: "Zoom (each site keeps its own)",
-    },
-    { keys: [["⌘", "P"]], label: "Print" },
-    { keys: [["⇧", "⌘", "J"]], label: "Downloads" },
   ],
 };
 
@@ -299,7 +244,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
   const { integrations } = useIntegrations();
-  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘6 pick one).
+  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘3 pick one).
   const tabNames = shownModes(integrations).map((mode) => TAB_NAMES[mode]);
   const groups = (
     macApp()
@@ -311,7 +256,6 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           ...(integrations.github ? [GITHUB] : []),
           EDITOR,
-          CONQUER,
         ]
       : [...GROUPS, { ...CREW, rows: CREW.rows.filter((r) => !/browser/i.test(r.label)) }]
   ).map((group) => ({
@@ -328,7 +272,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           : row.label.startsWith("The mode bar's tab")
             ? {
                 ...row,
-                keys: [["⌘", `1…${tabNames.length}`]],
+                keys: [["⌘", tabNames.length > 1 ? `1…${tabNames.length}` : "1"]],
                 label: `The mode bar's tab in that place: ${tabNames.join(", ")}`,
               }
             : row,

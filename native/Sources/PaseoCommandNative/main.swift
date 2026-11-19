@@ -141,13 +141,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                                                isARepeat: false, keyCode: 50) else { return }
             Log.line("⌘` through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
         }
-        // ⌃`: the Terminal tab, or back from it.
-        listen("com.paseo.command.native.terminal") { [weak self] in self?.main?.toggleTerminal() }
-        listen("com.paseo.command.native.split") { [weak self] in self?.main?.drawer.splitForCheck() }
-        listen("com.paseo.command.native.unsplit") { [weak self] in self?.main?.drawer.unsplit() }
-        listen("com.paseo.command.native.newterminal") { [weak self] in self?.main?.drawer.newTerminal() }
         listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.zoomTerminals(1) }
-        // The Files page's editor: type `<info>.type`'s text into it, answer its close question, give it the keyboard (checks).
+        // Your editor: type `<info>.type`'s text into it, answer its close question, give it the keyboard (checks).
         listen("com.paseo.command.native.editortype") { [weak self] in
             guard let self, let info = self.options.info,
                   let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".type", encoding: .utf8) else { return }
@@ -187,40 +182,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.appopen") { [weak self] in
             guard let self, let info = self.options.info,
                   let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".url", encoding: .utf8),
-                  let url = ConquerView.destination(text) else { return }
-            self.main?.openInApp(url)
+                  let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
+            self.main?.openLink(url)
         }
         listen("com.paseo.command.native.mode") { [weak self] in
             guard let main = self?.main else { return }
-            main.show(main.mode == .command ? .conquer : .command)
+            main.show(main.nextMode)
         }
         listen("com.paseo.command.native.command") { [weak self] in self?.main?.show(.command) }
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
         listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
-        listen("com.paseo.command.native.terminaltab") { [weak self] in self?.main?.show(.terminal) }
-        // Run `<info>.do`'s Conquer steps, one a line, a second apart (checks; see `ConquerView.check`).
-        listen("com.paseo.command.native.conquer") { [weak self] in
-            guard let self, let info = self.options.info,
-                  let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".do", encoding: .utf8) else { return }
-            self.main?.show(.conquer)
-            for (i, line) in text.split(separator: "\n").map(String.init).enumerated() {
-                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i)) { [weak self] in self?.main?.conquer.check(line) }
-            }
-        }
-        // Open `<info>.url`'s address in a Conquer tab (checks).
-        listen("com.paseo.command.native.open") { [weak self] in
-            guard let self, let info = self.options.info,
-                  let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".url", encoding: .utf8),
-                  let url = ConquerView.destination(text) else { return }
-            self.main?.show(.conquer)
-            self.main?.conquer.whenStarted { self.main?.conquer.open(url) }
-        }
-        // Type `<info>.type`'s text into the Terminal tab's current terminal, as keys would.
-        listen("com.paseo.command.native.type") { [weak self] in
-            guard let self, let info = self.options.info,
-                  let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".type", encoding: .utf8) else { return }
-            self.main?.drawer.type(text)
-        }
         // Run `<info>.js` in the page, writing its result to `<info>.out` (checks and tests).
         listen("com.paseo.command.native.eval") { [weak self] in
             guard let self, let info = self.options.info, let main = self.main else { return }
@@ -300,11 +271,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         guard let path = options.info, let main else { return }
         let info: [String: Any] = [
             "window": main.window.windowNumber, "pids": main.processes(),
-            "mode": main.mode.rawValue, "bar": main.modeBar.state(), "conquer": main.conquer.state(),
-            "conquerFrame": NSStringFromRect(main.conquer.frame), "conquerFocus": main.conquer.hasKeyFocus,
+            "mode": main.mode.rawValue, "bar": main.modeBar.state(), "openedOutside": main.openedOutside.map(\.absoluteString),
             "commandShown": !main.command.isHiddenOrHasHiddenAncestor,
             "visible": main.window.occlusionState.contains(.visible),
-            "terminal": main.drawer.state(), "terminalPlace": main.terminalPlace(),
             "editor": main.editors.state(),
             "browser": main.boardBrowser.state(),
             "splash": main.splash.showing,
@@ -348,29 +317,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let viewItem = NSMenuItem()
         bar.addItem(viewItem)
         let view = NSMenu(title: "View")
-        // ⌃`: the Terminal tab from anywhere, and back to the side before it from there.
-        let terminal = view.addItem(withTitle: "Show Terminal", action: #selector(toggleTerminal), keyEquivalent: "`")
-        terminal.target = self
-        terminal.keyEquivalentModifierMask = [.control]
-        let unsplit = view.addItem(withTitle: "Unsplit Terminals", action: #selector(unsplitTerminals), keyEquivalent: "")
-        unsplit.target = self
-        view.addItem(.separator())
         modeItems = Mode.tabs.map { mode in
             let item = view.addItem(withTitle: mode.title, action: #selector(showMode(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = mode.rawValue
             return item
         }
-        // ⇧⌘G: the selected workspace's branch changes in the GitHub tab (the page's GitHub
-        // place), from anywhere but Conquer while it has the keyboard (its Find Previous).
+        // ⇧⌘G: the selected workspace's changes, in your editor beside its conversation, from anywhere.
         AppKeys.addBranchChanges(to: view, target: self, action: #selector(showBranchChanges))
         // ⌘R while GitHub or Activity shows: the page's shown view refreshes (never a reload of the web view).
         AppKeys.addRefreshPage(to: view, target: self, action: #selector(refreshPage))
-        // ⌘` steps Command → Terminal → GitHub → Conquer → Activity → Command, through those shown
+        // ⌘` steps Command → GitHub → Activity → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
-        view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
+        view.addItem(withTitle: "Next: Command", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
-        // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
+        // Your editor's text size, while it has the keyboard. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
         for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
                                            ("Smaller Terminal Text", "-", -1, false), ("Actual Terminal Text Size", "0", 0, false)] {
             let item = view.addItem(withTitle: title, action: #selector(zoomTerminal(_:)), keyEquivalent: key)
@@ -380,18 +341,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.allowsKeyEquivalentWhenHidden = true
         }
         viewItem.submenu = view
-        // The browser's own commands, while it shows (the page keeps these keys otherwise).
-        let conquerItem = NSMenuItem()
-        bar.addItem(conquerItem)
-        let conquer = NSMenu(title: "Conquer")
-        // Conquer takes these keys itself, ahead of the page (`ConquerView.performKeyEquivalent`).
-        AppKeys.addConquerCommands(to: conquer, target: self, action: #selector(conquerCommand(_:)))
-        conquerItem.submenu = conquer
         let windowItem = NSMenuItem()
         bar.addItem(windowItem)
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
-        closeWindow = windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        // No ⌘W: closing the one window quits the app, and ⌘W in your editor or the agent's browser means a tab.
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "")
         windowItem.submenu = windowMenu
         NSApp.mainMenu = bar
         NSApp.windowsMenu = windowMenu
@@ -399,7 +354,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// The View menu's tabs, in the bar's order.
     private var modeItems: [NSMenuItem] = []
-    /// ⌘1…⌘6: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
+    /// ⌘1…⌘3: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
     private func numberModes() {
         let shown = main?.shownModes ?? Mode.tabs.filter { !$0.drawnByPage }
         for item in modeItems {
@@ -409,8 +364,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
     }
 
-    @objc private func toggleTerminal() { main?.toggleTerminal() }
-    @objc private func unsplitTerminals() { main?.drawer.unsplit() }
     @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.zoomTerminals(CGFloat(sender.tag)) }
     @objc private func toggleMode() {
         guard let main else { return }
@@ -422,34 +375,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }
     }
-    @objc private func conquerCommand(_ sender: NSMenuItem) {
-        if let name = sender.representedObject as? String { main?.conquer.perform(name) }
-    }
-    /// Window → Close, whose ⌘W is Close Tab's while Conquer shows.
-    private var closeWindow: NSMenuItem?
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         guard let main else { return false }
-        // Conquer's commands: while it shows and has the keyboard (the chat panel keeps them otherwise).
-        let browser = main.mode == .conquer && main.conquer.hasKeyFocus
-        closeWindow?.keyEquivalent = browser ? "" : "w"
         switch item.action {
         case #selector(showMode(_:)):
             item.state = item.representedObject as? String == main.mode.rawValue ? .on : .off
             return (item.representedObject as? String).flatMap(Mode.init(rawValue:)).map(main.shownModes.contains) ?? false
         case #selector(toggleMode):
             item.title = "Next: " + main.shownModes.map(\.title).joined(separator: ", ")
-        case #selector(conquerCommand(_:)):
-            if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }
-            return browser
-        case #selector(showBranchChanges): return !browser
         case #selector(refreshPage): return main.pageRefreshes && (NSApp.keyWindow.map { $0 === main.window } ?? true)
-        case #selector(toggleTerminal): item.title = main.mode == .terminal ? "Back from Terminal" : "Show Terminal"
-        case #selector(unsplitTerminals): return main.mode == .terminal && main.drawer.isSplit
-        // Only while the Terminal tab shows, so the keys stay the page's otherwise (the pages, GitHub, Activity,
-        // Files and Settings, size their own text with them); a file's editor keeps them while it has the keyboard.
+        // Only while your editor has the keyboard, so the keys stay the page's otherwise (the pages, GitHub,
+        // Activity and Settings, size their own text with them).
         case #selector(zoomTerminal(_:)):
-            return main.editors.hasKeyFocus || main.mode == .terminal
+            return main.editors.hasKeyFocus
         default: break
         }
         return true

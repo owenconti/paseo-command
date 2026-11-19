@@ -1,17 +1,16 @@
-// ⇧⌘G: View → Show Branch Changes (in the workspace's editor) from anywhere, but Conquer's Find Previous while it has the keyboard.
-// No Files tab (the user's call: the workspace's own editor does its work): no ⇧⌘E Show Files, no ⌘W Close File Tab.
-// ⌘R: View → Refresh Page, offered ahead of the page while GitHub or Activity shows; terminals and Conquer keep it.
+// ⇧⌘G: View → Show Branch Changes (in the workspace's editor) from anywhere.
+// No Files, Terminal or Conquer tab (the user's call: the workspace's own editor and the agent's browser do their
+// work): no ⇧⌘E Show Files, no ⌃` Show Terminal, no Conquer menu, and ⌘W is no key of the app's.
+// ⌘R: View → Refresh Page, offered ahead of the page while GitHub or Activity shows; your editor keeps it.
 // ⇧⌘C: no app key or menu item of its own (the GitHub tab's page copies the PR's link).
 _ = NSApplication.shared
 enum Log { static func line(_ message: String) {} }
-// The app's menus while Conquer hasn't the keyboard (its own commands are disabled then).
 final class Menus: NSObject, NSMenuItemValidation {
     var ran: [String] = []
     @objc func branchChanges() { ran.append("branchChanges") }
     @objc func refreshPage() { ran.append("refreshPage") }
     @objc func close() { ran.append("close") }
     var refreshes = false
-    @objc func conquerCommand(_ sender: NSMenuItem) { ran.append(sender.representedObject as! String) }
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         item.action == #selector(refreshPage) ? refreshes : [#selector(branchChanges), #selector(close)].contains(item.action)
     }
@@ -22,8 +21,8 @@ for (title, fill) in [("View", { (m: NSMenu) in
                           AppKeys.addBranchChanges(to: m, target: menus, action: #selector(Menus.branchChanges))
                           AppKeys.addRefreshPage(to: m, target: menus, action: #selector(Menus.refreshPage))
                       }),
-                      ("Conquer", { (m: NSMenu) in AppKeys.addConquerCommands(to: m, target: menus, action: #selector(Menus.conquerCommand(_:))) }),
-                      ("Window", { (m: NSMenu) in m.addItem(withTitle: "Close", action: #selector(Menus.close), keyEquivalent: "w").target = menus })] {
+                      // As the app's: Close has no ⌘W (it would quit the app, the one window closing).
+                      ("Window", { (m: NSMenu) in m.addItem(withTitle: "Close", action: #selector(Menus.close), keyEquivalent: "").target = menus })] {
     let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
     let menu = NSMenu(title: title)
     fill(menu)
@@ -35,100 +34,45 @@ let branch = view.item(withTitle: "Show Branch Changes")!
 assert(branch.keyEquivalent == "g" && branch.keyEquivalentModifierMask == [.command, .shift])
 // It asks the page for the workspace's changes, which it shows in the workspace's editor.
 assert(AppKeys.branchChangesCommand == "branch-changes")
-// Conquer keeps its binding.
-let previous = ConquerView.commands.compactMap { $0 }.first { $0.name == "findPrevious" }!
-assert(previous.key == "g" && previous.mods == [.command, .shift])
 
 // As the keyboard sends them: with ⌘ held, the characters ignoring modifiers ignore ⇧ too ("g" for ⇧⌘G).
-func key(_ chars: String, _ mods: NSEvent.ModifierFlags) -> NSEvent {
+func key(_ chars: String, _ mods: NSEvent.ModifierFlags, code: UInt16 = 5) -> NSEvent {
     NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods, timestamp: 0, windowNumber: 0, context: nil,
-                     characters: chars, charactersIgnoringModifiers: chars.lowercased(), isARepeat: false, keyCode: 5)!
+                     characters: chars, charactersIgnoringModifiers: chars.lowercased(), isARepeat: false, keyCode: code)!
 }
-// The window offers ⇧⌘G (and ⌘1…⌘5) to the menu ahead of its views; not ⌘G, ⌥⇧⌘G or ⌘6.
+// The window offers ⇧⌘G (and ⌘1…⌘3) to the menu ahead of its views; not ⌘G, ⌥⇧⌘G or ⌘4.
 let shiftG = key("G", [.command, .shift])
-assert(AppKeys.offeredToMenu(shiftG, conquerHasKeys: false))
-assert(AppKeys.offeredToMenu(key("3", .command), conquerHasKeys: false))
-assert(!AppKeys.offeredToMenu(key("g", .command), conquerHasKeys: false))
-assert(!AppKeys.offeredToMenu(key("G", [.command, .shift, .option]), conquerHasKeys: false))
-assert(AppKeys.offeredToMenu(key("5", .command), conquerHasKeys: true), "five tabs: ⌘5 is Activity's, even from Conquer")
-assert(!AppKeys.offeredToMenu(key("6", .command), conquerHasKeys: false), "five tabs: ⌘6 is no tab")
-assert(!ConquerView.commands.compactMap { $0 }.contains { $0.key == "6" && $0.mods == .command }, "Conquer has no ⌘6")
-// Anywhere else (the map, the page, the terminal): Show Branch Changes.
+assert(AppKeys.offeredToMenu(shiftG))
+assert(AppKeys.offeredToMenu(key("3", .command)))
+assert(!AppKeys.offeredToMenu(key("g", .command)))
+assert(!AppKeys.offeredToMenu(key("G", [.command, .shift, .option])))
+assert(!AppKeys.offeredToMenu(key("4", .command)), "three tabs: ⌘4 is no tab")
 assert(bar.performKeyEquivalent(with: shiftG))
 assert(menus.ran == ["branchChanges"], "\(menus.ran)")
-// Conquer with the keyboard: the window leaves ⇧⌘G to Conquer's view (⌘1…⌘5 still go to the menu),
-// which takes it as Find Previous.
-assert(!AppKeys.offeredToMenu(shiftG, conquerHasKeys: true))
-assert(AppKeys.offeredToMenu(key("3", .command), conquerHasKeys: true))
-assert(ConquerView.command(for: shiftG.charactersIgnoringModifiers!, shiftG.modifierFlags) == "findPrevious")
-assert(ConquerView.command(for: "G", [.command, .shift]) == "findPrevious")
-assert(ConquerView.command(for: "g", .command) == "findNext")
 
-// ⇧⌘E is no app key now (Show Files went with the Files tab).
-assert(!AppKeys.offeredToMenu(key("E", [.command, .shift]), conquerHasKeys: false))
-assert(view.item(withTitle: "Show Files") == nil && view.item(withTitle: "Close File Tab") == nil)
-// The tabs: Command, Terminal, GitHub, Conquer, Activity. Terminal is the app's own, always shown (⌘2); Settings is no
-// tab but the tools' gear, still a side the page draws (old saved modes show it). A saved Files mode is no mode.
-assert(Mode.tabs == [.command, .terminal, .github, .conquer, .activity])
-assert(Mode(rawValue: "files") == nil)
-assert(Mode.terminal.title == "Terminal" && !Mode.terminal.drawnByPage)
-assert(Mode.terminal.keys(at: 1) == "⌘2, ⌃` or ⌘`")
-// Remembered across launches as the others are (`mode` in the preferences): not the page's, so shown at once.
-assert(Mode(rawValue: Mode.terminal.rawValue) == .terminal && Mode.terminal.rawValue == "terminal")
-// ⌘` steps through it: the next after Command, before GitHub (or Conquer, GitHub off).
-let shownTabs = Mode.tabs.filter { !$0.drawnByPage || Mode.alwaysShown.contains($0) }
-assert(shownTabs == [.command, .terminal, .conquer], "\(shownTabs)")
-assert(shownTabs[(shownTabs.firstIndex(of: .command)! + 1) % shownTabs.count] == .terminal)
-assert(shownTabs[(shownTabs.firstIndex(of: .terminal)! + 1) % shownTabs.count] == .conquer)
-
-// ⌃`: View → Show Terminal, the Terminal tab from anywhere (and back from it): a menu key, which the window
-// leaves to the menu even while a terminal has the keyboard. ⌃⇧` is no longer a key of the app's.
-func grave(_ chars: String, _ mods: NSEvent.ModifierFlags, code: UInt16 = 50) -> NSEvent {
-    NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods, timestamp: 0, windowNumber: 0, context: nil,
-                     characters: chars, charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code)!
-}
-assert(!AppKeys.offeredToMenu(grave("`", .control), conquerHasKeys: false), "⌃` is the menu's own key equivalent")
-do {
-    final class Toggle: NSObject { var ran = 0; @objc func toggle() { ran += 1 } }
-    let toggle = Toggle()
-    let view = NSMenu(title: "View")
-    let item = view.addItem(withTitle: "Show Terminal", action: #selector(Toggle.toggle), keyEquivalent: "`")
-    item.keyEquivalentModifierMask = [.control]
-    item.target = toggle
-    assert(view.performKeyEquivalent(with: grave("`", .control)) && toggle.ran == 1)
-    assert(!view.performKeyEquivalent(with: grave("~", [.control, .shift])) && toggle.ran == 1, "⌃⇧` does nothing")
-    assert(!view.performKeyEquivalent(with: grave("`", .command)) && toggle.ran == 1, "⌘` steps the tabs")
-}
-do {
-    let window = AppWindow(contentRect: CGRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
-    // Even while a terminal has the keyboard (`terminalHasKeys`), ⌃` goes on to the menu.
-    window.terminalHasKeys = { true }
-    assert(!window.performKeyEquivalent(with: grave("`", .control)), "⌃` goes on to the menu")
-    assert(!window.performKeyEquivalent(with: grave("~", [.control, .shift])), "⌃⇧` isn't the window's")
-    // ⌘B: the page's session panel while the Terminal tab's terminal has the keyboard, as in Conquer.
-    var toggled = 0
-    window.onTogglePanel = { toggled += 1 }
-    let cmdB = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0, context: nil,
-                                characters: "b", charactersIgnoringModifiers: "b", isARepeat: false, keyCode: 11)!
-    assert(AppKeys.togglesPanel(cmdB) && !AppKeys.togglesPanel(grave("b", [.command, .shift], code: 11)))
-    window.tabTerminalHasKeys = { false }
-    _ = window.performKeyEquivalent(with: cmdB)
-    assert(toggled == 0, "elsewhere ⌘B is the page's own")
-    window.tabTerminalHasKeys = { true }
-    assert(window.performKeyEquivalent(with: cmdB) && toggled == 1)
-}
+// ⇧⌘E and ⌃` are no app keys now (Show Files and Show Terminal went with their tabs).
+assert(!AppKeys.offeredToMenu(key("E", [.command, .shift])))
+assert(!AppKeys.offeredToMenu(key("`", .control, code: 50)))
+assert(view.item(withTitle: "Show Files") == nil && view.item(withTitle: "Show Terminal") == nil)
+// The tabs: Command, GitHub, Activity; Settings is no tab but the tools' gear, still a side the page draws.
+// A saved Files, Terminal or Conquer mode is no mode (the map shows).
+assert(Mode.tabs == [.command, .github, .activity])
+for gone in ["files", "terminal", "conquer", "linear"] { assert(Mode(rawValue: gone) == nil, gone) }
+assert(Mode.github.keys(at: 1) == "⌘2, ⌘`")
 assert(Mode(rawValue: "settings") == .settings && Mode.settings.drawnByPage)
 assert(Mode.alwaysShown == [.settings])
 assert(Mode.settings.keys(at: nil) == "⌘,")
-assert(AppKeys.offeredToMenu(key("5", .command), conquerHasKeys: true))
+// ⌘` steps through those shown: with no integrations, Command alone.
+let shownTabs = Mode.tabs.filter { !$0.drawnByPage || Mode.alwaysShown.contains($0) }
+assert(shownTabs == [.command], "\(shownTabs)")
 
 // The bar: its tabs in that order (GitHub and Activity only while on), and the Settings gear, lit while Settings shows.
 do {
     let modeBar = ModeBar(frame: CGRect(x: 0, y: 0, width: 1200, height: 38))
     modeBar.enabled = [.settings]
-    assert(modeBar.state()["tabs"] as? [String] == ["command", "terminal", "conquer"], "\(modeBar.state())")
+    assert(modeBar.state()["tabs"] as? [String] == ["command"], "\(modeBar.state())")
     modeBar.enabled = [.settings, .github, .activity]
-    assert(modeBar.state()["tabs"] as? [String] == ["command", "terminal", "github", "conquer", "activity"])
+    assert(modeBar.state()["tabs"] as? [String] == ["command", "github", "activity"])
     assert(modeBar.state()["settingsOn"] as? Bool == false)
     var used: [String] = []
     modeBar.onAction = { name, _ in used.append(name) }
@@ -139,35 +83,52 @@ do {
     modeBar.mode = .github
     assert(modeBar.state()["settingsOn"] as? Bool == false)
 }
+// The optional GitHub and Activity tabs are absent until enabled; Activity's tab carries its unread count.
+do {
+    let modeBar = ModeBar(frame: CGRect(x: 0, y: 0, width: 900, height: 32))
+    func find(_ title: String, in view: NSView) -> NSButton? {
+        if let button = view as? NSButton, button.title.trimmingCharacters(in: .whitespaces).hasPrefix(title) { return button }
+        return view.subviews.compactMap { find(title, in: $0) }.first
+    }
+    let github = find("GitHub", in: modeBar)!, activity = find("Activity", in: modeBar)!
+    for gone in ["Terminal", "Conquer", "Files", "Linear", "Slack", "Settings"] { assert(find(gone, in: modeBar) == nil, gone) }
+    assert(github.isHidden && activity.isHidden)
+    modeBar.enabled = [.github, .activity]
+    assert(!github.isHidden && !activity.isHidden)
+    assert(github.toolTip?.hasSuffix("(⌘2, ⌘`)") == true && activity.toolTip?.hasSuffix("(⌘3, ⌘`)") == true)
+    modeBar.activityUnread = 4
+    assert(activity.title.hasSuffix("4"))
+    modeBar.activityUnread = 0
+    assert(activity.title.trimmingCharacters(in: .whitespaces) == "Activity")
+    modeBar.enabled = [.activity]
+    assert(activity.toolTip?.hasSuffix("(⌘2, ⌘`)") == true)
+}
 
-// ⌘W is never offered ahead of the views now: Conquer's Close Tab while it has the keyboard, else the menu's first ⌘W.
+// ⌘W is never offered ahead of the views, and no menu item has it: your editor and the agent's browser keep it.
 let cmdW = key("w", .command)
-assert(!AppKeys.offeredToMenu(cmdW, conquerHasKeys: false))
-assert(!AppKeys.offeredToMenu(cmdW, conquerHasKeys: true))
-assert(ConquerView.command(for: "w", .command) == "closeTab")
-// ⌘R: View → Refresh Page while GitHub or Activity shows and no terminal has the keyboard, offered ahead of the
-// views (the page; it asks the page's shown view to refresh, never a reload of the web view). Settings has no refresh,
-// the map's fleet is live, the Terminal tab's terminal and an editor keep it, Conquer keeps Reload Page.
+assert(!AppKeys.offeredToMenu(cmdW))
+assert(!bar.items.flatMap { $0.submenu?.items ?? [] }.contains { $0.keyEquivalent == "w" })
+// ⌘R: View → Refresh Page while GitHub or Activity shows and your editor hasn't the keyboard, offered ahead of the
+// views (it asks the page's shown view to refresh, never a reload of the web view). Settings has no refresh,
+// the map's fleet is live, your editor keeps it.
 let cmdR = key("r", .command)
 assert(AppKeys.refreshPageCommand == "page-refresh")
 for mode in [Mode.github, .activity] { assert(AppKeys.pageRefreshes(mode, terminalHasKeys: false), "\(mode)") }
-for mode in [Mode.command, .conquer, .terminal, .settings] { assert(!AppKeys.pageRefreshes(mode, terminalHasKeys: false), "\(mode)") }
-assert(!AppKeys.pageRefreshes(.github, terminalHasKeys: true), "an editor keeps ⌘R")
-assert(AppKeys.offeredToMenu(cmdR, conquerHasKeys: false, pageRefreshes: true))
-assert(!AppKeys.offeredToMenu(cmdR, conquerHasKeys: false, pageRefreshes: false))
-assert(!AppKeys.offeredToMenu(key("r", [.command, .shift]), conquerHasKeys: false, pageRefreshes: true), "⇧⌘R isn't taken")
-assert(!AppKeys.offeredToMenu(key("r", [.command, .option]), conquerHasKeys: false, pageRefreshes: true))
+for mode in [Mode.command, .settings] { assert(!AppKeys.pageRefreshes(mode, terminalHasKeys: false), "\(mode)") }
+assert(!AppKeys.pageRefreshes(.github, terminalHasKeys: true), "your editor keeps ⌘R")
+assert(AppKeys.offeredToMenu(cmdR, pageRefreshes: true))
+assert(!AppKeys.offeredToMenu(cmdR, pageRefreshes: false))
+assert(!AppKeys.offeredToMenu(key("r", [.command, .shift]), pageRefreshes: true), "⇧⌘R isn't taken")
+assert(!AppKeys.offeredToMenu(key("r", [.command, .option]), pageRefreshes: true))
 let refresh = view.item(withTitle: "Refresh Page")!
 assert(refresh.keyEquivalent == "r" && refresh.keyEquivalentModifierMask == .command)
 menus.refreshes = true
 menus.ran = []
 assert(bar.performKeyEquivalent(with: cmdR))
 assert(menus.ran == ["refreshPage"], "\(menus.ran)")
-// Elsewhere it's disabled: Conquer with the keyboard takes ⌘R first as Reload Page (⇧⌘R without cache); else the menu's
-// first ⌘R, disabled, takes it and nothing reloads, the web view included.
+// Elsewhere it's disabled: the menu's ⌘R takes it and nothing reloads, the web view included.
 menus.refreshes = false
 menus.ran = []
-assert(ConquerView.command(for: "r", .command) == "reload" && ConquerView.command(for: "r", [.command, .shift]) == "reloadWithoutCache")
 _ = bar.performKeyEquivalent(with: cmdR)
 assert(menus.ran == [], "\(menus.ran)")
 do {
@@ -185,14 +146,11 @@ do {
 }
 // ⇧⌘T, ⌃Tab and ⌥⌘←/→ aren't offered ahead.
 for k in [key("t", [.command, .shift]), key("\t", .control), key("\t", [.control, .shift])] {
-    assert(!AppKeys.offeredToMenu(k, conquerHasKeys: false))
+    assert(!AppKeys.offeredToMenu(k))
 }
-assert(!ConquerView.commands.compactMap { $0 }.contains { $0.mods == [.command, .option] && ["\u{F702}", "\u{F703}"].contains($0.key) })
-// ⇧⌘C: the GitHub tab's (the page copies the PR's link, `GitHubView.tsx`). No app key, menu item or Conquer command uses
-// it, so the web view, ahead of the menu, hands it to the page, as ⌘S and ⌘F. (Matching it against the menu here proves
-// nothing: a made-up event matches items by character alone, ⌘C an item of ⇧⌘C's too.)
+// ⇧⌘C: the GitHub tab's (the page copies the PR's link, `GitHubView.tsx`). No app key or menu item uses it, so the
+// web view, ahead of the menu, hands it to the page, as ⌘S and ⌘F.
 let shiftC = key("C", [.command, .shift])
-for conquer in [false, true] { assert(!AppKeys.offeredToMenu(shiftC, conquerHasKeys: conquer, pageRefreshes: true)) }
-assert(!ConquerView.commands.compactMap { $0 }.contains { $0.key == "c" }, "Conquer has no ⌘C of its own")
-assert(!bar.items.flatMap { $0.submenu?.items ?? [] }.contains { $0.keyEquivalent.lowercased() == "c" }, "no View, Conquer or Window item of ⌘C or ⇧⌘C (Edit → Copy is ⌘C only)")
+assert(!AppKeys.offeredToMenu(shiftC, pageRefreshes: true))
+assert(!bar.items.flatMap { $0.submenu?.items ?? [] }.contains { $0.keyEquivalent.lowercased() == "c" }, "no View or Window item of ⌘C or ⇧⌘C (Edit → Copy is ⌘C only)")
 print("App key checks passed.")

@@ -1,27 +1,18 @@
 /**
- * The Files page's editor terminals in the macOS app (`EditorOverlay.swift`):
- * the page says which tab's terminal shows over its viewer and where
- * (`editor`), gives it the keyboard (`editorFocus`), asks to close tabs whose
- * editors run (`editorClose`, which the app confirms, ends and answers) and
- * forgets terminals whose tabs went (`editorForget`). The app tells the page
- * (`paseo:editor`) when an editor quits on its own (`exited`), its relay went
- * (`lost`), it was clicked (`focus`), and how a close went (`closed`, `cancelled`).
+ * Your editor's terminal in the macOS app (`EditorOverlay.swift`), beside an agent's conversation on Crew
+ * (`crew/WorkspaceEditor.tsx`): the page says which terminal shows over its pane and where (`editor`, on the
+ * Command tab) and gives it the keyboard (`editorFocus`). The app tells the page (`paseo:editor`) when the editor
+ * quits on its own (`exited`), its relay went (`lost`) or it was clicked (`focus`).
  */
 const channel = () =>
   (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: { postMessage(m: unknown): void } } } }).webkit?.messageHandlers
     ?.paseoWorld;
 
 export type EditorPlacement = { terminal?: string; host?: string; x: number; y: number; width: number; height: number; covered: boolean };
-/** Which tab of the app the editor shows in: the Files tab's, or Command's (the files beside a conversation on Crew).
- *  One files view is mounted at a time, so it says (FilesView's `embedded`). */
-let mode: "files" | "command" = "files";
-export const setEditorMode = (next: "files" | "command") => {
-  mode = next;
-};
 let last = "";
-/** Where the shown tab's editor goes (no terminal: none shows). Sent only when it changes, unless `force`. */
+/** Where the editor goes (no terminal: none shows). Sent only when it changes, unless `force`. */
 export function postEditorPlacement(p: EditorPlacement, force = false) {
-  const message = { ...p, mode };
+  const message = { ...p, mode: "command" };
   const key = JSON.stringify(message);
   if (key === last && !force) return;
   last = key;
@@ -29,12 +20,8 @@ export function postEditorPlacement(p: EditorPlacement, force = false) {
 }
 export const hideEditor = () => postEditorPlacement({ x: 0, y: 0, width: 0, height: 0, covered: false });
 export const focusEditor = () => channel()?.postMessage({ type: "editorFocus" });
-export const forgetEditors = (terminals: string[]) => terminals.length && channel()?.postMessage({ type: "editorForget", terminals });
 
-export type EditorEvent =
-  | { type: "exited" | "lost" | "focus"; terminal: string }
-  | { type: "closed"; token: string; terminals: string[] }
-  | { type: "cancelled"; token: string };
+export type EditorEvent = { type: "exited" | "lost" | "focus"; terminal: string };
 export function onEditorEvent(handler: (e: EditorEvent) => void) {
   const receive = (event: Event) => {
     const d = (event as CustomEvent).detail;
@@ -42,21 +29,4 @@ export function onEditorEvent(handler: (e: EditorEvent) => void) {
   };
   window.addEventListener("paseo:editor", receive);
   return () => window.removeEventListener("paseo:editor", receive);
-}
-
-export type CloseItem = { terminal: string; host?: string; name: string; running: boolean };
-let tokens = 0;
-/** Close these tabs' editors, asking first while any runs: true once they're ended, false if cancelled. */
-export function closeEditors(items: CloseItem[]): Promise<boolean> {
-  const c = channel();
-  if (!c || !items.length) return Promise.resolve(true);
-  const token = `close-${++tokens}`;
-  return new Promise((resolve) => {
-    const off = onEditorEvent((e) => {
-      if ((e.type !== "closed" && e.type !== "cancelled") || e.token !== token) return;
-      off();
-      resolve(e.type === "closed");
-    });
-    c.postMessage({ type: "editorClose", token, items: items.map((i) => ({ ...i, host: i.host ?? "" })) });
-  });
 }

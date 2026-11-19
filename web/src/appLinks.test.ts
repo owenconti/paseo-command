@@ -16,13 +16,13 @@ describe("app links", () => {
 
   it("leaves other links alone", () => {
     for (const href of [
-      // Linear issues open in Linear's desktop app (or Conquer): the app's, not the page's.
+      // Linear issues open in Linear's desktop app (or your browser): the app’s, not the page’s.
       "https://linear.app/acme/issue/de-42/fix-the-thing",
       "https://linear.app/acme/project/thing-abc123",
       "https://linear.app/acme/settings",
       "https://evil.example/acme/issue/DE-1",
       "https://linear.app.evil.example/acme/issue/DE-1",
-      // Slack links open as ordinary links, in Conquer.
+      // Slack links open as ordinary links, in your browser.
       "https://acme.slack.com/archives/C0123ABC",
       "https://acme.slack.com/archives/D0123/p1700000001000200?thread_ts=1700000000.123456",
       "https://github.com/acme/web/issues/3",

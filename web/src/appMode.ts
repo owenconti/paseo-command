@@ -5,24 +5,24 @@ import { useIntegrations } from "./integrationSettings";
 import { activityEnabled, type Integrations } from "./integrations";
 
 /** What stands in the map's place in the macOS app (its mode bar's tabs):
- * the map, the Conquer browser, the selected workspace's terminals (Terminal, the app's own), or what the page draws itself:
- * GitHub (pull requests), Activity (GitHub and
+ * the map, or what the page draws itself: GitHub (pull requests), Activity (GitHub and
  * Linear notifications together) and Settings (the bar's gear, not a tab). (The Linear tab was
- * removed: an old `linear` mode shows the map; so was Files, your editor beside the conversation having its place.) */
-export type AppMode = "command" | "conquer" | "activity" | "github" | "terminal" | "settings";
+ * removed: an old `linear` mode shows the map; so were Files, Terminal and Conquer, your editor and the agent's browser
+ * beside its conversation having their places.) */
+export type AppMode = "command" | "activity" | "github" | "settings";
 
-/** The tabs in the mode bar's order (`Mode.tabs` in `native/…/Conquer.swift`). */
-const TABS = ["command", "terminal", "github", "conquer", "activity"] as const;
+/** The tabs in the mode bar's order (`Mode.tabs` in `native/…/ModeBar.swift`). */
+const TABS = ["command", "github", "activity"] as const;
 /** Every side the app reports, Settings (the gear's) among them. */
 const MODES: AppMode[] = [...TABS, "settings"];
 
 /** The page's tabs whose integration is on. */
 export const appTabs = (i: Integrations) => ({ github: i.github, activity: activityEnabled(i) });
 
-/** The mode bar's tabs shown, in its order: ⌘` steps through them, ⌘1…⌘5 pick one. */
+/** The mode bar's tabs shown, in its order: ⌘` steps through them, ⌘1…⌘3 pick one. */
 export function shownModes(i: Integrations): AppMode[] {
   const tabs = appTabs(i);
-  return TABS.filter((mode) => mode === "command" || mode === "conquer" || mode === "terminal" || tabs[mode]);
+  return TABS.filter((mode) => mode === "command" || tabs[mode]);
 }
 
 /** A tab's ⌘ key, by its place among those shown (macOS app only). */

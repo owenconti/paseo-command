@@ -7,10 +7,10 @@
  * its line and Show changes (⇧⌘G, ⌘K) runs Settings → Files' changes command in it (`POST /api/terminals/editor-send`,
  * `workspaceEditorAsks.ts`). If the editor quits, Start again.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GitCompare, Play, SquareTerminal } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "../api";
-import { focusEditor, hideEditor, onEditorEvent, postEditorPlacement, setEditorMode } from "../files/editorBridge";
+import { focusEditor, hideEditor, onEditorEvent, postEditorPlacement } from "../files/editorBridge";
 import { MODAL_EVENT, modalOpen } from "../focus";
 import { ASK_EVENT, takeEditorAsk, type EditorAsk } from "./workspaceEditorAsks";
 import "./crew-files.css";
@@ -80,12 +80,6 @@ export function WorkspaceEditor({ workspace, onNotice }: { workspace: EditorWork
   const live = useRef({ workspace, state });
   live.current = { workspace, state };
 
-  // Placed for the Command tab before any placement goes (layout effects run first).
-  useLayoutEffect(() => {
-    setEditorMode("command");
-    return () => setEditorMode("files");
-  }, []);
-
   // Its terminal: the kept one while the daemon still lists it, else a new one.
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +99,7 @@ export function WorkspaceEditor({ workspace, onNotice }: { workspace: EditorWork
     () =>
       onEditorEvent((e) => {
         const now = live.current.state;
-        if (now.phase !== "running" || !("terminal" in e) || e.terminal !== now.terminal) return;
+        if (now.phase !== "running" || e.terminal !== now.terminal) return;
         if (e.type === "exited") setState({ phase: "quit" });
         else if (e.type === "lost") setAttempt((n) => n + 1);
       }),

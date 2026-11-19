@@ -3,7 +3,7 @@
  * the macOS app. The map groups host › project › workspace, each workspace a panel of its agents' robots (the
  * board's robots, marks and PR medallions); picking one opens the app's own detail across the view (one copy: the
  * side panel is absent). With the app's bridge stubbed, it tells the app the page draws the map, that the fleet is
- * in and which workspace the Terminal tab follows, and shows the open agent's browser beside its conversation.
+ * in and where the map's place is, and shows the open agent's browser beside its conversation.
  * Every /api request is answered in the browser.
  */
 import { after, before, test } from "node:test";
@@ -367,8 +367,8 @@ test("the pages keep the Galaxy theme while Crew is the map style, whatever tab 
   await map(page).locator(".crew-node").first().waitFor();
   const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
   assert.equal(await theme(), "galaxy");
-  // The terminals (or GitHub, Activity): Crew gives way, the theme stays.
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "terminal" } })));
+  // Settings (or GitHub, Activity): Crew gives way, the theme stays.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "settings" } })));
   await page.locator(".crew-map").waitFor({ state: "detached" });
   await page.waitForTimeout(100);
   assert.equal(await theme(), "galaxy");
@@ -684,18 +684,19 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   await page.context().close();
 });
 
-test("in the macOS app: the page lifts the splash, reports the map's place and follows the Terminal tab's workspace", async () => {
+test("in the macOS app: the page lifts the splash and reports the map's place", async () => {
   const page = await open({ mac: true });
   await map(page).locator(".crew-node").first().waitFor();
   await waitFor(() => sent(page, "loaded"), (m) => m.length > 0, "loaded");
-  // The map's place, for Conquer, the Terminal tab and the Files editors to lie over.
+  // The map's place: as it moves, the app lays your editor and the agent's browser over their boxes again.
   await waitFor(() => sent(page, "viewport"), (m) => (m.at(-1)?.width ?? 0) > 0 && (m.at(-1)?.height ?? 0) > 0, "the viewport");
   assert.equal((await sent(page, "art")).length, 0, "no native world");
   assert.equal((await sent(page, "pageMap")).length, 0, "nothing to switch off: the page always draws the map");
   await waitFor(() => sent(page, "barState"), (m) => m.at(-1)?.panelAbsent === true, "the bar's panel buttons go");
-  // An agent's workspace is the Terminal tab's.
+  // No Terminal tab follows the selection any more: the page tells the app no workspace.
   await page.locator(".crew-node").first().click();
-  await waitFor(() => sent(page, "workspace"), (m) => !!m.at(-1)?.workspace?.id, "the workspace told");
+  await page.locator(".crew-detail").first().waitFor();
+  assert.equal((await sent(page, "workspace")).length, 0);
   // No map styles are offered.
   await page.keyboard.press("Meta+k");
   await palette(page).getByRole("combobox").fill("map");

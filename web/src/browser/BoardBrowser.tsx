@@ -146,7 +146,7 @@ export function BoardBrowser(props: {
     [onNotice],
   );
   // While it shows, web links clicked in the board's conversation open here, in the browser you are looking at
-  // (the user's call), not in Conquer: in a tab already at that address, else a blank tab on show, else a new tab.
+  // (the user's call), not in your default browser: in a tab already at that address, else a blank tab on show, else a new tab.
   // A pull request (the GitHub tab) and a Linear issue or project (Linear's app) keep the app's own places.
   const linkState = useRef({ tabs, current, github: props.github, host, id, workspace });
   linkState.current = { tabs, current, github: props.github, host, id, workspace };
@@ -189,7 +189,7 @@ export function BoardBrowser(props: {
       onAppCommand("board-browser-back", tab((id) => browserDo("back", { tab: id }))),
       onAppCommand("board-browser-forward", tab((id) => browserDo("forward", { tab: id }))),
       onAppCommand("board-browser-close-tab", tab((id) => browserDo("close", { tab: id }))),
-      onAppCommand("board-browser-conquer", tab((_, url) => url && postAppLink(url))),
+      onAppCommand("board-browser-conquer", tab((_, url) => url && postAppLink(url, true))),
     ];
     return () => offs.forEach((off) => off());
   }, []);
@@ -301,10 +301,10 @@ export function BoardBrowser(props: {
         <button
           type="button"
           className="bb-tool"
-          aria-label="Open this page in Conquer"
-          data-tip="Open in Conquer"
+          aria-label="Open this page in your default browser"
+          data-tip="Open in your browser"
           disabled={!current?.url}
-          onClick={() => current?.url && postAppLink(current.url)}
+          onClick={() => current?.url && postAppLink(current.url, true)}
         >
           <ExternalLink size={14} aria-hidden />
         </button>

@@ -145,7 +145,7 @@ test("in a browser, Settings → Terminal says it's the macOS app's", async () =
   await page.locator(".app-bar-tools").getByRole("button", { name: "Settings", exact: true }).click();
   const settings = page.getByRole("region", { name: "Settings", exact: true });
   await settings.locator('.settings-nav-item[data-section="terminal"]').click();
-  await settings.getByText(/are the macOS app’s/).waitFor();
+  await settings.getByText(/is the macOS app’s/).waitFor();
   assert.equal(await settings.getByRole("slider").count(), 0);
   assert.equal(await settings.getByRole("button", { name: /Terminal font/ }).count(), 0);
   await context.close();

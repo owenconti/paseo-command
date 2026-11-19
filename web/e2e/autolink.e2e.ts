@@ -88,7 +88,7 @@ test("Linear keys and PR numbers in the conversation link themselves, and open t
     ]);
     await page.screenshot({ path: "/tmp/autolink-chat.png" });
 
-    // A click goes to the app as a link (it opens Linear's app, else Conquer; PRs in the GitHub tab).
+    // A click goes to the app as a link (it opens Linear's app, else your browser; PRs in the GitHub tab).
     const sent = () => page.evaluate(() => (window as unknown as { sentToApp: { type: string; url?: string }[] }).sentToApp);
     await reply.getByRole("link", { name: "PR #7054" }).click();
     await waitFor(sent, (m) => m.some((x) => x.type === "openLink" && x.url === "https://github.com/acme/atlas/pull/7054"), "the PR's address sent");

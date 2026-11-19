@@ -86,7 +86,7 @@ MainActor.assumeIsolated {
     overlay.server = { URL(string: "http://127.0.0.1:9/")! }
     content.addSubview(overlay)
     for id in ["term-1", "term-2"] {
-        overlay.place(EditorPlacement(["terminal": id, "x": 0, "y": 0, "width": 800, "height": 500]), showing: "files", web: web)
+        overlay.place(EditorPlacement(["terminal": id, "x": 0, "y": 0, "width": 800, "height": 500]), showing: "command", web: web)
     }
     func cells() -> [[String: Any]] { overlay.state()["cells"] as! [[String: Any]] }
     assert(cells().count == 2)
@@ -113,7 +113,7 @@ MainActor.assumeIsolated {
     assert(tallest >= natural * TerminalFontSettings.maxLineHeight - 1 && tallest <= 8192, "\(tallest)")
     session.apply(menlo)
     // A terminal opened afterwards starts with it.
-    overlay.place(EditorPlacement(["terminal": "term-3", "x": 0, "y": 0, "width": 800, "height": 500]), showing: "files", web: web)
+    overlay.place(EditorPlacement(["terminal": "term-3", "x": 0, "y": 0, "width": 800, "height": 500]), showing: "command", web: web)
     assert(cells().count == 3 && cells().allSatisfy { $0["pointSize"] as? Double == 16 })
     overlay.closeAll()
     session.close()

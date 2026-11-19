@@ -32,12 +32,11 @@ connections from Paseo's daemon.
 - Browse **Hosts** and **Projects**, or select a workspace or agent on the map.
 - Open an agent to read its conversation and send messages.
 - Use **New agent** to start work in a project or worktree.
-- Press **⌘K** to find actions in the command palette, including terminal controls,
-  navigation and settings.
+- Press **⌘K** to find actions in the command palette, including navigation and settings.
 
-Alongside the map and conversations, the app includes a native Terminal tab,
-pull request status, an Activity feed of GitHub and Linear notifications, a GitHub view
-and the experimental **Conquer** browser.
+Alongside the map and conversations, the app includes your own editor (nvim, say) and a
+browser beside each agent's conversation, pull request status, an Activity feed of GitHub and
+Linear notifications and a GitHub view. Other links open in your default browser.
 The map requires the macOS app; conversations and panels also work in a regular browser.
 
 ## Optional integrations
@@ -103,8 +102,7 @@ the app's data folder's `settings.json`, beside `secrets.json`.
 
 Logs, game progress, conversation forks and local credentials are stored in
 `~/Library/Application Support/Paseo Command/`. The server log is
-`logs/server.log` within that folder. Conquer also keeps its browser cookies and
-history locally.
+`logs/server.log` within that folder. The agents' browsers keep their cookies there too.
 
 ## Security
 

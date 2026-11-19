@@ -2,7 +2,7 @@
  * a project or Add project, main.tsx's `detailView`), with the open agent's robot beside each reply and in the working
  * row (`ChatDecorContext`) and its strip above the message box (`ChatFooterContext`, `Stage`): its robot, state and
  * progress, workspace and medallions, and its browser's button. The same component in Crew's drawer, on the Command
- * tab, and in the session panel beside the other tabs (GitHub, Files, Terminal, Conquer, Activity). */
+ * tab, and in the session panel beside the other tabs (GitHub, Activity). */
 import { useMemo, type ReactNode } from "react";
 import { selectionKey } from "../atlasData";
 import { targetSelection } from "../worldBridge";

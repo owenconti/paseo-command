@@ -1,11 +1,9 @@
 /** The part of Paseo Command an entry belongs to, shown on its right. */
 export const PAGES = [
   "Command",
-  "Conquer",
   "Activity",
   "GitHub",
   "Settings",
-  "Terminal",
   "App",
 ] as const;
 export type Page = (typeof PAGES)[number];
@@ -16,8 +14,8 @@ export type Command = {
   label: string;
   /** The section it is listed under ("Actions", "Agents", …). */
   group: string;
-  /** Its page: Command for the map and what's on it, Conquer, Activity,
-   * GitHub, Settings, Terminal, else App (the window,
+  /** Its page: Command for the map and what's on it (an agent's editor and browser too), Activity,
+   * GitHub, Settings, else App (the window,
    * updates, text size, what's new, games). */
   page: Page;
   /** What a found thing is ("Agent", "Workspace", …), after its page. */

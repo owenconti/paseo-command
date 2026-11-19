@@ -22,7 +22,7 @@
     "native:run": "sh native/scripts/run.sh",
     "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts",
     "public:check": "node scripts/public-check.mjs",
-    "native:test": "node native/scripts/test-native.mjs && node native/scripts/test-bundle.mjs && node native/scripts/test-conquer.mjs",
+    "native:test": "node native/scripts/test-native.mjs && node native/scripts/test-bundle.mjs",
     "secrets:scan": "if command -v gitleaks >/dev/null; then gitleaks git --log-opts=--all --redact=100 --no-banner; else echo 'gitleaks is not installed (brew install gitleaks); skipping the credential scan.'; fi",
     "check": "npm run public:check -- --history && npm run secrets:scan && npm run app:test && npm run app:build && npm run native:test",
     "public:hooks": "node scripts/public-push-guard.mjs --install",

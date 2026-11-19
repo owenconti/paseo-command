@@ -144,9 +144,8 @@ export function openFileLink(e: React.MouseEvent, workspace: Workspace | undefin
   return true;
 }
 
-/** In the macOS app, web links clicked in the chat open as a Conquer tab, in the
- * map's place, rather than in the default browser; on the Dungeon Board, in the robot's
- * browser while it shows (`chatLinks.ts`). */
+/** In the macOS app, web links clicked in the chat go to the app: the robot's browser while it shows beside
+ * the conversation (`chatLinks.ts`), else your default browser (a pull request the GitHub tab, a Linear issue Linear). */
 export function openInAppBrowser(e: React.MouseEvent) {
   if (!macApp() || e.button !== 0 || e.altKey) return;
   const link = (e.target as Element).closest?.("a[href]");

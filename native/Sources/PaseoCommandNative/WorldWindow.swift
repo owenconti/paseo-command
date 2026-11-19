@@ -3,46 +3,42 @@ import ImageIO
 import WebKit
 
 /// One window: the React app in a web view, which draws the fleet itself (Crew) and its panels and
-/// pages, and over it the native views that stand in the map's place (Conquer, the Terminal tab, the
-/// Files editors, the robot's browser). The page keeps every pointer and key event as in a browser,
+/// pages, and over it the native views laid over boxes the page draws (your editor and the agent's
+/// browser, beside an agent's conversation). The page keeps every pointer and key event as in a browser,
 /// and keeps focus and its shortcuts.
 final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     let window: NSWindow
     let web: WKWebView
-    /// The Terminal tab's terminals (its tabs, panes and sessions), in the map's place while it shows.
-    let drawer: TerminalDrawer
-    /// The Files page's editor terminals, over its viewer (Settings → Files → Open files in an editor).
+    /// Your editor's terminal, over the pane beside an agent's conversation (Settings → Files' command).
     let editors: EditorOverlay
+    /// The terminals' font (Settings → Terminal; ⌘+, ⌘−, ⌘0 its size), kept across launches.
+    private(set) var terminalFont = TerminalFontSettings()
     /// The browser attached to each agent, over the box the page draws for it beside its conversation (`BoardBrowser.swift`).
     let boardBrowser: BoardBrowser
-    /// Over the map and page, the window's (not the page's sibling): where Conquer, the Terminal tab and
-    /// the Files page's editors go. It lets everything else through to the page.
+    /// Over the page, the window's (not the page's sibling): where your editor and the agent's browser
+    /// go. It lets everything else through to the page.
     let content: NSView
     /// Covers the window until the page has its fleet (its `loaded` message).
     let splash: SplashView
-    /// The strip across the top that switches between Command, Conquer, Activity, GitHub, Files and Settings.
+    /// The strip across the top that switches between Command, GitHub, Activity and Settings.
     let modeBar: ModeBar
     /// Command: the page, under `content`, the splash and the mode bar.
     let command: NSView
     /// The mode bar's height: the page's own top bar, whose tools show at its right end.
     let barHeight: CGFloat
-    /// Conquer: the browser, in the map's place while it shows.
-    let conquer: ConquerView
     private(set) var mode: Mode = .command
     /// Keep drawing when the window is covered (`--ignore-occlusion`, for checks): the page and the robot's browser.
     static var ignoreOcclusion = false
     let options: Options
     /// The page's sides that can show: those whose integration is on (the page says, with
-    /// `integrations`), and Files and Settings.
+    /// `integrations`), and Settings.
     private(set) var enabledModes: Set<Mode> = Mode.alwaysShown { didSet { if enabledModes != oldValue { onModesChanged?() } } }
     /// The tabs shown changed (the View menu renumbers its keys).
     var onModesChanged: (() -> Void)?
-    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘6 pick one (Settings is the gear).
+    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘3 pick one (Settings is the gear).
     var shownModes: [Mode] { Mode.tabs.filter { !$0.drawnByPage || enabledModes.contains($0) } }
     /// The side Settings returns to when it closes.
     private var beforeSettings: Mode = .command
-    /// The side ⌃` returns to from the Terminal tab.
-    private var beforeTerminal: Mode = .command
     var nextMode: Mode {
         let modes = shownModes
         // From Settings, on from the side it opened over.
@@ -54,9 +50,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// When the server was last (re)started for an unreachable page, so a
     /// server that won't come up shows its error rather than looping.
     private var recovered: Date?
-    /// The page's map area (beside its session panel), in its CSS pixels (top-left origin), as its
-    /// `viewport` message says; until it does, the whole of `content`.
-    private var viewport: CGRect?
     private var splashFallback: DispatchWorkItem?
 
     init(options: Options) {
@@ -97,24 +90,16 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         command.autoresizingMask = [.width, .height]
         splash = SplashView(frame: command.frame)
         splash.autoresizingMask = [.width, .height]
-        conquer = ConquerView(frame: command.frame, persistent: options.info == nil)
-        conquer.isHidden = true
         window.contentView = root
         content = PassThroughView(frame: command.frame)
         content.autoresizingMask = [.width, .height]
-        drawer = TerminalDrawer(frame: content.bounds)
-        editors = EditorOverlay(font: drawer.font)
-        // Over the page's viewer, under Conquer and the Terminal tab.
+        editors = EditorOverlay(font: TerminalFontSettings())
         content.addSubview(editors)
         // An agent's browser, over the box the page draws for it on the board; its other tabs' pages
         // wait under everything, drawn but unseen.
         boardBrowser = BoardBrowser(persistent: options.info == nil)
         content.addSubview(boardBrowser.stage, positioned: .below, relativeTo: editors)
         root.addSubview(boardBrowser.parking)
-        // Shown only with the Terminal tab (see `enterTerminalTab`).
-        drawer.isHidden = true
-        drawer.autoresizingMask = []
-        content.addSubview(drawer)
 
         let configuration = WKWebViewConfiguration()
         // Check runs (`--info`) keep their page storage to themselves: sharing the
@@ -134,21 +119,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
         if WorldWindow.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
         // The page, then over it `content`: it lets everything through to the page but
-        // Conquer, the Terminal tab and the editors. It is the window's, not the page's sibling:
+        // your editor and the agent's browser. It is the window's, not the page's sibling:
         // views after a web view in its own parent stay off screen until the web view is hidden and shown again.
         command.addSubview(web)
         for v in [command, content, splash, modeBar] { root.addSubview(v) }
         super.init()
-        conquer.onTogglePanel = { [weak self] in self?.pageCommand("toggle-panel") }
-        conquer.onLink = { [weak self] url in self?.routeLink(url) ?? false }
-        (window as? AppWindow)?.document = { [weak self] in self?.mode == .conquer ? self?.conquer.current?.url : nil }
-        (window as? AppWindow)?.conquerHasKeys = { [weak self] in self?.mode == .conquer && self?.conquer.hasKeyFocus == true }
         (window as? AppWindow)?.pageRefreshes = { [weak self] in self?.pageRefreshes == true }
         (window as? AppWindow)?.terminalHasKeys = { [weak self] in
-            self?.editors.hasKeyFocus == true || self?.drawer.hasKeyFocus == true || self?.boardBrowser.hasKeyFocus == true
+            self?.editors.hasKeyFocus == true || self?.boardBrowser.hasKeyFocus == true
         }
-        (window as? AppWindow)?.tabTerminalHasKeys = { [weak self] in self?.drawer.hasKeyFocus == true }
-        (window as? AppWindow)?.onTogglePanel = { [weak self] in self?.pageCommand("toggle-panel") }
         (window as? AppWindow)?.onPalette = { [weak self] in
             guard let self else { return }
             if self.editors.hasKeyFocus { self.editors.openPalette(web: self.web) }
@@ -158,7 +137,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         web.navigationDelegate = self
         web.uiDelegate = self
         window.delegate = self
-        drawer.server = { [weak self] in self?.serverURL ?? options.url }
         editors.server = { [weak self] in self?.serverURL ?? options.url }
         editors.tell = { [weak self] in self?.send($0, as: "paseo:editor") }
         editors.runInPage = { [weak self] in self?.web.evaluateJavaScript($0, completionHandler: nil) }
@@ -219,7 +197,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private func handle(_ type: String, _ body: [String: Any]) {
         switch type {
         case "mode":
-            // The page asks which side shows (it draws GitHub, Activity, Files and Settings itself, over the map).
+            // The page asks which side shows (it draws GitHub, Activity and Settings itself, over the map).
             sendMode()
         case "activity":
             // Activity's unread count, for its tab.
@@ -234,20 +212,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             // ⌘K opens a glance count's menu: as a click on it, so the page gets where it is.
             if let id = body["id"] as? String { modeBar.clickGlance(id) }
         case "viewport":
-            // The page's map area (beside its session panel), where Conquer and the Terminal tab lie.
+            // The page's map area (beside its session panel).
             layoutWorkspace()
-            let rect = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
-                              width: body["width"] as? Double ?? 0, height: body["height"] as? Double ?? 0)
-            viewport = rect.width > 0 && rect.height > 0 ? rect : nil
             layoutContent()
-        case "workspace":
-            let w = body["workspace"] as? [String: Any]
-            let selected = w.flatMap { w in
-                (w["id"] as? String).map { TerminalWorkspace(id: $0, host: w["host"] as? String ?? "", name: w["name"] as? String ?? $0) }
-            }
-            drawer.show(selected)
         case "editor":
-            // The Files page's shown tab's editor terminal and its viewer's frame (or none).
+            // Your editor's terminal and the pane's frame beside the conversation (or none).
             editors.place(EditorPlacement(body), showing: mode.rawValue, web: web)
         case "editorFocus": if editors.placement.mode == mode.rawValue { editors.focus() }
         case "editorClose": if let request = EditorCloseRequest(body) { editors.close(request, window: window) }
@@ -262,7 +231,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "terminalFont":
             // Settings → Terminal: it asks for the font, the line height and spacing and the installed
             // monospaced families, and sets them (`set`), for every terminal at once.
-            if let change = body["set"] as? [String: Any] { setTerminalFont(drawer.font.applying(change, families: TerminalFonts.families())) }
+            if let change = body["set"] as? [String: Any] { setTerminalFont(terminalFont.applying(change, families: TerminalFonts.families())) }
             else { sendTerminalFont(families: true) }
         case "revealFile":
             if let path = body["path"] as? String, path.hasPrefix("/"), !path.hasPrefix("//"),
@@ -270,12 +239,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             }
         case "openLink":
-            // A link clicked in the chat: a new Conquer tab, in the map's place. A Linear issue opens
-            // in Linear's desktop app when it's installed; a GitHub pull request goes to the page for
+            // A link clicked in the chat (and not taken by the agent's browser): your default browser. A Linear
+            // issue opens in Linear's desktop app when it's installed; a GitHub pull request goes to the page for
             // its tab, unless the page sent it `direct`.
             if let text = body["url"] as? String, let url = URL(string: text), url.scheme?.hasPrefix("http") == true {
                 if LinearLink.openInApp(url) { break }
-                if body["direct"] as? Bool == true || !routeLink(url) { openInApp(url) }
+                if body["direct"] as? Bool == true || !routeLink(url) { openOutside(url) }
             }
         case "loaded":
             // The page has its first fleet and has drawn it: the splash lifts.
@@ -283,24 +252,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "menu":
             // The page's command palette, choosing a View menu item.
             switch body["action"] as? String {
-            case "terminal": toggleTerminal()
-            case "terminal-unsplit": if mode == .terminal { drawer.unsplit() }
             case "terminal-bigger": zoomTerminals(1)
             case "terminal-smaller": zoomTerminals(-1)
             case "terminal-actual": zoomTerminals(0)
-            case "conquer": show(.conquer)
             case "mode-next": show(nextMode)
             case "github": show(.github)
             case "activity": show(.activity)
-            case "terminal-tab": show(.terminal)
             case "settings": show(.settings)
             case "settings-close": if mode == .settings { show(beforeSettings) }
             case "command": show(.command)
-            case "conquer-tab": show(.conquer); conquer.whenStarted { [weak self] in self?.conquer.newTab() }
-            case "conquer-sidebar": show(.conquer); conquer.perform("toggleSidebar")
-            case "conquer-reload": if mode == .conquer { conquer.perform("reload") }
-            case "conquer-reload-without-cache": if mode == .conquer { conquer.perform("reloadWithoutCache") }
-            case "zen-cookies": conquer.perform("importCookies")
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
             case "check-updates": Updater.shared?.checkNow()
             default: break
@@ -352,17 +312,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             """, completionHandler: nil)
     }
 
-    /// The page's map area in `content`, where Conquer and the Terminal tab go.
-    private var mapInContent: CGRect {
-        guard let viewport else { return content.bounds }
-        let webRect = web.isFlipped ? viewport : CGRect(x: viewport.minX, y: web.bounds.height - viewport.maxY, width: viewport.width, height: viewport.height)
-        return content.convert(webRect, from: web)
-    }
-
-    /// Lay what stands in the map's place over the page's map area again (it moved, or the window resized).
+    /// Lay your editor and the agent's browser over their boxes again (the page moved, or the window resized).
     private func layoutContent() {
-        if mode == .conquer { conquer.frame = mapInContent }
-        placeTerminalTab()
         editors.place(nil, showing: mode.rawValue, web: web)
         boardBrowser.place()
     }
@@ -553,7 +504,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     /// Links that open a new window (PRs, issues) go to the default browser: web and
     /// mail links only, never `file:` or another app's URL scheme. A Linear issue opens in
-    /// Linear's desktop app, else in Conquer.
+    /// Linear's desktop app.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if let url = navigationAction.request.url, ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? ""),
@@ -611,33 +562,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// The window as the user sees it, for checks without screen recording:
     /// the page's snapshot with the native views over it, written as a PNG.
     func snapshot(to path: String, app: NSImage? = nil) {
-        // Conquer's page first, when it covers the map.
-        if mode == .conquer, app == nil, let page = conquer.current?.web {
-            return page.takeSnapshot(with: nil) { [weak self] shot, _ in self?.snapshot(to: path, app: shot ?? NSImage()) }
-        }
-        // Its tab strip and page bar are layers; the page goes over them.
-        var appChrome: CGImage?
-        if mode == .conquer, let layer = conquer.layer,
-           let ctx = Textures.context(Int(conquer.bounds.width * window.backingScaleFactor), Int(conquer.bounds.height * window.backingScaleFactor)) {
-            ctx.scaleBy(x: window.backingScaleFactor, y: window.backingScaleFactor)
-            layer.render(in: ctx)
-            appChrome = ctx.makeImage()
-        }
         let bounds = web.bounds
         let whole = window.contentView!.bounds
         let scale = window.backingScaleFactor
-        // The Terminal tab's view is layer-backed: its layer tree draws it.
-        var terminal: CGImage?
-        if !drawer.isHidden, let layer = drawer.layer,
-           let ctx = Textures.context(Int(drawer.bounds.width * scale), Int(drawer.bounds.height * scale)) {
-            ctx.scaleBy(x: scale, y: scale)
-            if drawer.isFlipped {
-                ctx.translateBy(x: 0, y: drawer.bounds.height)
-                ctx.scaleBy(x: 1, y: -1)
-            }
-            layer.render(in: ctx)
-            terminal = ctx.makeImage()
-        }
         // The splash, while it covers the window.
         var cover: CGImage?
         if splash.showing, let layer = splash.layer,
@@ -664,18 +591,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             // The page's area, from the window's bottom-left origin.
             let left = self.window.contentView!.convert(bounds, from: self.web)
             if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
-            if self.mode == .conquer {
-                let inContent = { (v: NSView) in self.window.contentView!.convert(v.bounds, from: v) }
-                if let appChrome { ctx.draw(appChrome, in: inContent(self.conquer)) }
-                if let page = self.conquer.current?.web, let image = app?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-                    ctx.draw(image, in: inContent(page))
-                }
-            }
-            if let terminal {
-                // Over the map, in its place.
-                let r = self.window.contentView!.convert(self.drawer.bounds, from: self.drawer)
-                ctx.draw(terminal, in: r)
-            }
             if let bar { ctx.draw(bar, in: self.modeBar.frame) }
             if let cover { ctx.draw(cover, in: whole) }
             guard let image = ctx.makeImage(),
@@ -698,33 +613,20 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return c.url ?? options.url
     }
 
-    /// Switch the map's place between the map, the browser and the pages (⌘` steps through them),
-    /// which the page draws over its map; the panels stay, and ⌘B (the page's
-    /// panel toggle) gives the browser the width.
-    /// The side not shown keeps running: the page and Conquer's tabs stay live.
+    /// Switch the map's place between the map and the pages (⌘` steps through them), which the page
+    /// draws over its map; the panels stay.
     func show(_ next: Mode) {
         guard !next.drawnByPage || enabledModes.contains(next) else { return }
         guard next != mode else { return }
         if next == .settings { beforeSettings = mode }
-        if next == .terminal { beforeTerminal = mode }
-        let leftTerminal = mode == .terminal
         mode = next
         modeBar.mode = next
-        placeConquer()
-        if leftTerminal { leaveTerminalTab() }
-        if next == .terminal { enterTerminalTab() }
-        // A file's editor shows only in its mode: Files, or Command for the files beside a conversation
-        // (the page says where once it draws it again).
+        // Your editor shows only in its mode, Command (the page says where once it draws it again).
         editors.place(nil, showing: next.rawValue, web: web)
         // An agent's browser shows only over the map.
         boardBrowser.place(commandShows: next == .command)
         sendMode()
-        if next == .conquer {
-            conquer.start()
-            conquer.focusPage()
-        } else if next != .terminal {
-            window.makeFirstResponder(web)
-        }
+        window.makeFirstResponder(web)
         if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
     }
 
@@ -740,14 +642,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
               "width": button.width, "height": button.height], as: "paseo:bar")
     }
 
-    /// Tell the page which side shows, so it draws GitHub, Activity, Files or Settings in the map's place.
+    /// ⌘R is the page's refresh (View → Refresh Page): GitHub or Activity shows and your editor hasn't the keyboard.
+    var pageRefreshes: Bool { AppKeys.pageRefreshes(mode, terminalHasKeys: editors.hasKeyFocus) }
+
     /// Asks the page for one of its commands (`web/src/appCommands.ts`), as its palette does.
-    /// ⌘R is the page's refresh (View → Refresh Page): GitHub, Files or Activity shows and no terminal has the keyboard.
-    var pageRefreshes: Bool { AppKeys.pageRefreshes(mode, terminalHasKeys: editors.hasKeyFocus || drawer.hasKeyFocus) }
 
     func pageCommand(_ name: String) {
         web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: '\(name)' }))", completionHandler: nil)
     }
+    /// Tell the page which side shows, so it draws GitHub, Activity or Settings in the map's place.
     private func sendMode() { send(["mode": mode.rawValue], as: "paseo:mode") }
 
     /// The page's tab a link opens in: a GitHub pull request (`github.com/<owner>/<repo>/pull/<n>…`),
@@ -774,84 +677,44 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return true
     }
 
-    /// A link the page opens in a new window: the default browser, but a Linear page (with no Linear
-    /// app to take it) in Conquer, as the chat's links are.
+    /// A link the page opens outside: your default browser (a check run only notes it, `openedOutside`).
     private func openOutside(_ url: URL) {
-        if LinearLink.appURL(for: url) != nil { openInApp(url) } else { NSWorkspace.shared.open(url) }
+        if options.info != nil { openedOutside.append(url); return }
+        NSWorkspace.shared.open(url)
+    }
+    /// The links a check run would have opened in the default browser.
+    private(set) var openedOutside: [URL] = []
+
+    /// A link, as the chat's open (checks): Linear's app, the GitHub tab, else the default browser.
+    func openLink(_ url: URL) {
+        if !routeLink(url) { openOutside(url) }
     }
 
-    /// Open `url` in a new Conquer tab (a link from the chat), in the map's
-    /// place, once its tabs and cookies are in.
-    func openInApp(_ url: URL) {
-        show(.conquer)
-        conquer.whenStarted { [weak self] in self?.conquer.open(url) }
-    }
-
-    /// Conquer stands exactly over the map (it follows the map as the page lays out).
-    private func placeConquer() {
-        if conquer.superview !== content {
-            conquer.removeFromSuperview()
-            content.addSubview(conquer)
-        }
-        conquer.autoresizingMask = []
-        conquer.frame = mapInContent
-        conquer.isHidden = mode != .conquer
-    }
-
-    /// The terminals' text size (⌘+, ⌘−, ⌘0): the Terminal tab's and the Files page's editors'.
+    /// Your editor's text size (⌘+, ⌘−, ⌘0 while it has the keyboard).
     func zoomTerminals(_ step: CGFloat) {
-        drawer.zoom(step)
-        editors.setFont(drawer.font)
-        sendTerminalFont()
+        var next = terminalFont
+        next.size = step == 0 ? TerminalFontSettings.defaultSize
+            : min(TerminalFontSettings.sizes.upperBound, max(TerminalFontSettings.sizes.lowerBound, terminalFont.size + step))
+        setTerminalFont(next)
     }
 
-    /// The terminals' font (Settings → Terminal), for the Terminal tab's and the Files page's editors'.
+    /// The terminals' font (Settings → Terminal), kept and applied to your editor at once.
     func setTerminalFont(_ font: TerminalFontSettings) {
-        drawer.apply(font)
+        terminalFont = font
+        font.save()
         editors.setFont(font)
         sendTerminalFont()
     }
 
     /// Tell the page the terminals' font (`paseo:terminal-font`), with the installed monospaced families when asked.
     func sendTerminalFont(families: Bool = false) {
-        var message = drawer.font.json
+        var message = terminalFont.json
         message["defaults"] = TerminalFontSettings.standard.json
         message["ranges"] = ["size": [TerminalFontSettings.sizes.lowerBound, TerminalFontSettings.sizes.upperBound],
                              "lineHeight": [0, TerminalFontSettings.maxLineHeight],
                              "letterSpacing": [TerminalFontSettings.letterSpacings.lowerBound, TerminalFontSettings.letterSpacings.upperBound]]
         if families { message["families"] = TerminalFonts.families() }
         send(message, as: "paseo:terminal-font")
-    }
-
-    /// ⌃` (View → Show Terminal): the Terminal tab, from anywhere; in it, back to the side before it.
-    @objc func toggleTerminal() {
-        show(mode == .terminal ? (beforeTerminal == .terminal ? .command : beforeTerminal) : .terminal)
-    }
-
-    /// The Terminal tab: its terminals, tabs and splits in the map's place, as Conquer lies. Opening it
-    /// with no terminal in the workspace starts one; hidden, it stops asking the daemon.
-    private func enterTerminalTab() {
-        drawer.isHidden = false
-        placeTerminalTab()
-        drawer.setActive(true)
-        drawer.opened()
-    }
-
-    private func leaveTerminalTab() {
-        drawer.setActive(false)
-        drawer.isHidden = true
-    }
-
-    /// Where the Terminal tab's view is (checks): over the map while the tab shows, else hidden.
-    func terminalPlace() -> [String: Any] {
-        ["in": drawer.superview === content && !drawer.isHidden ? "map" : "hidden",
-         "frame": NSStringFromRect(drawer.frame), "mapRect": NSStringFromRect(mapInContent)]
-    }
-
-    /// The Terminal tab lies exactly over the page's map, as Conquer does (⌘B gives it the window's width).
-    private func placeTerminalTab() {
-        guard !drawer.isHidden else { return }
-        drawer.frame = mapInContent
     }
 
     /// The app page the window is on (its query keeps the panel's place), or

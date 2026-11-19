@@ -1,9 +1,9 @@
 /**
  * Links to a GitHub pull request, opened in the macOS app's own GitHub tab
  * instead of a browser. The app sends the page each such link clicked
- * anywhere (the chat, a Conquer page) as `paseo:link`, only while that tab is
+ * anywhere (the chat, a PR's body) as `paseo:link`, only while that tab is
  * on; the page opens it there. (Linear issue links aren't the page's: the app
- * opens them in Linear's desktop app when it's installed, else in Conquer.)
+ * opens them in Linear's desktop app when it's installed, else in your browser.)
  */
 import { openGithubPlace, prPlaceOf, type GithubPlace } from "./github/place";
 import { postAppLink, postAppMenu } from "./worldBridge";
@@ -19,7 +19,7 @@ export function parseAppLink(href: string): AppLink | null {
   return pr ? { kind: "github", place: pr } : null;
 }
 
-/** Opens a link the app sent (`paseo:link`) in its tab, else in Conquer. */
+/** Opens a link the app sent (`paseo:link`) in its tab, else in your default browser. */
 export function openAppLink(href: string): void {
   const link = parseAppLink(href);
   if (!link) return postAppLink(href, true);

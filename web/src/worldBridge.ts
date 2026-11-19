@@ -277,7 +277,7 @@ export function onAppBar(action: BarAction, handler: (rect: BarRect) => void) {
   window.addEventListener("paseo:bar", receive);
   return () => window.removeEventListener("paseo:bar", receive);
 }
-/** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab).
+/** Open a web link from the macOS app: your default browser.
  * A GitHub pull request's link comes back as `paseo:link` for its tab, unless `direct`
  * (one the page has already looked at); a Linear issue's opens in Linear's desktop app
  * when it's installed. */

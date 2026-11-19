@@ -273,7 +273,7 @@ test("in the macOS app, a Linear pull request notification opens its issue's add
     const view = page.locator(".activity-view");
     await view.locator(`.activity-row[data-key="${item.key}"]`).click();
     await view.getByRole("button", { name: "Open in Linear" }).click();
-    // The page hands the app the issue's address (the app opens it in Linear's desktop app, else in Conquer).
+    // The page hands the app the issue's address (the app opens it in Linear's desktop app, else in your browser).
     const sent = () =>
       page.evaluate(() => (window as unknown as { sentToApp: { type: string; action?: string; url?: string; direct?: boolean }[] }).sentToApp);
     await waitFor(sent, (m) => m.some((x) => x.type === "openLink" && x.url === item.url && !x.direct), "the issue's address sent");

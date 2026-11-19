@@ -1,7 +1,7 @@
 import AppKit
 
-/// Where the Files page shows a file tab's editor terminal (Settings → Files → Open files in an editor command):
-/// the page reports its viewer's frame in its own coordinates (CSS pixels, top-left origin) with the tab's
+/// Where the page shows your editor's terminal (Settings → Files' command, beside an agent's conversation):
+/// the page reports the pane's frame in its own coordinates (CSS pixels, top-left origin) with the editor's
 /// terminal, as `editor` messages, and the app lays the terminal exactly over it (`EditorOverlay`). Nothing
 /// here needs SwiftTerm, so the native checks run it.
 struct EditorPlacement: Equatable {
@@ -12,13 +12,13 @@ struct EditorPlacement: Equatable {
     var rect: CGRect
     /// A dialog (⌘K, ⌘P, a confirmation) is open over it: the page's, so the terminal steps aside.
     var covered: Bool
-    /// The app's mode it shows in: "files" (the Files tab's viewer) or "command" (the files beside an agent's
-    /// conversation on Crew, `web/src/crew/CrewFiles.tsx`).
+    /// The app's mode it shows in (a `Mode`'s raw value): "command", beside an agent's conversation on Crew
+    /// (`web/src/crew/WorkspaceEditor.tsx`).
     var mode: String
 
     static let nothing = EditorPlacement(terminal: nil, host: "", rect: .zero, covered: false)
 
-    init(terminal: String?, host: String, rect: CGRect, covered: Bool, mode: String = "files") {
+    init(terminal: String?, host: String, rect: CGRect, covered: Bool, mode: String = "command") {
         self.terminal = terminal
         self.host = host
         self.rect = rect
@@ -33,7 +33,7 @@ struct EditorPlacement: Equatable {
         self.init(terminal: id, host: body["host"] as? String ?? "",
                   rect: CGRect(x: number("x"), y: number("y"), width: max(0, number("width")), height: max(0, number("height"))),
                   covered: body["covered"] as? Bool ?? false,
-                  mode: body["mode"] as? String == "command" ? "command" : "files")
+                  mode: (body["mode"] as? String).flatMap(Mode.init(rawValue:))?.rawValue ?? "command")
     }
 
     /// Whether a terminal shows at all: one is named, the app shows its mode (`showing`, a `Mode`'s raw value),
@@ -43,8 +43,8 @@ struct EditorPlacement: Equatable {
     }
 }
 
-/// The view the editor terminals stand in, laid over the page's viewer in the window's `content`
-/// (where Conquer and the Terminal tab go, as views after the web view in its own parent don't draw).
+/// The view your editor's terminal stands in, laid over the page's pane in the window's `content`
+/// (as views after the web view in its own parent don't draw).
 /// It takes the page's frame as the page moves it: the sidebar resizing or hiding, the window resizing,
 /// another tab, another mode.
 class EditorStage: NSView {

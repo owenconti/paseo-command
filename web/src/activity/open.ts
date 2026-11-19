@@ -1,8 +1,8 @@
 /**
  * Opening an Activity item where it lives: a pull request in the GitHub tab
  * (the app routes its link there), a Linear issue in Linear's desktop app when
- * it's installed (the app routes that too), anything else in Conquer; in a
- * browser, a new tab. Opening marks it read.
+ * it's installed (the app routes that too), anything else in your default
+ * browser; in a browser, a new tab. Opening marks it read.
  */
 import { macApp, postAppLink } from "../worldBridge";
 import { writeItems } from "./store";

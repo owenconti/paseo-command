@@ -1,7 +1,7 @@
 /**
  * Where a web link clicked in a conversation opens in the macOS app. By default the app decides (`postAppLink`:
- * a Conquer tab; a pull request in the GitHub tab, a Linear issue in Linear's app). While a robot's browser shows
- * on the Dungeon Board (or beside a conversation on the Crew map) it takes the links of that conversation instead
+ * your default browser; a pull request in the GitHub tab, a Linear issue in Linear's app). While a robot's browser
+ * shows beside its conversation on Crew it takes the links of that conversation instead
  * (`BoardBrowser.tsx` registers itself here): they open in the browser you are looking at.
  */
 import { postAppLink } from "./worldBridge";
