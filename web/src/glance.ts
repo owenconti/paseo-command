@@ -103,3 +103,75 @@ export function groupIssues(raw: RawIssue[], max = GLANCE.listMax): GlanceIssueG
     .sort((a, b) => (a.type === b.type ? a.position - b.position : a.type === "started" ? -1 : 1))
     .map(({ position: _, ...g }) => ({ ...g, issues: g.issues.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, max) }));
 }
+
+/** The lights' and dots' colours, as Crew's states draw them (the same in either theme). */
+export const TONE_COLOR: Record<Tone, string> = { good: "#3fbf86", slow: "#f2c94c", bad: "#d2452f" };
+const GREY = "#8b9ab0";
+
+/** One count on the top bar (the page's own in a browser, the macOS app's native one): plain data the app can draw. */
+export type GlanceItem = {
+  id: string;
+  group: "Linear" | "GitHub" | "Diagonal";
+  text: string;
+  /** Dots before the text, `#rrggbb`. */
+  dots: string[];
+  icon: "" | "review" | "assigned" | "warning";
+  /** "" strong, "none" nothing there, "ask" waits on you, "slow", "bad". */
+  tone: "" | "none" | "ask" | "slow" | "bad";
+  /** Its name and tooltip, saying what the count is. */
+  tip: string;
+  /** It opens a menu (an error or "nothing open" doesn't). */
+  menu: boolean;
+};
+
+const n = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+const hex = (color: string) => (/^#[0-9a-f]{6}$/i.test(color) ? color : GREY);
+
+/** The bar's counts for what the glance says, each part only while its integration is on. */
+export function glanceItems(g: Glance | null, on: { linear: boolean; github: boolean; health: boolean }): GlanceItem[] {
+  if (!g) return [];
+  const out: GlanceItem[] = [];
+  const failed = (group: GlanceItem["group"], error: string) =>
+    out.push({ id: `${group.toLowerCase()}-error`, group, text: "Unavailable", dots: [], icon: "warning", tone: "none", tip: `${group}: ${error}`, menu: false });
+  if (on.linear && g.linear) {
+    if ("error" in g.linear) failed("Linear", g.linear.error);
+    else if (!g.linear.groups.length)
+      out.push({ id: "linear-none", group: "Linear", text: "Nothing open", dots: [], icon: "", tone: "none", tip: "No Linear issues in progress, in review or to do", menu: false });
+    else
+      for (const s of g.linear.groups)
+        out.push({
+          id: `linear:${s.state.toLowerCase()}`,
+          group: "Linear",
+          text: String(s.total),
+          dots: [hex(s.color)],
+          icon: "",
+          tone: s.total ? "" : "none",
+          tip: `${s.state}: ${n(s.total, "issue")}`,
+          menu: true,
+        });
+  }
+  if (on.github && g.github) {
+    if ("error" in g.github) failed("GitHub", g.github.error);
+    else {
+      const { review, assigned } = g.github;
+      out.push({ id: "review", group: "GitHub", text: String(review.total), dots: [], icon: "review", tone: review.total ? "ask" : "none", tip: `Review requests: ${n(review.total, "pull request")}`, menu: true });
+      out.push({ id: "assigned", group: "GitHub", text: String(assigned.total), dots: [], icon: "assigned", tone: assigned.total ? "" : "none", tip: `Assigned to you: ${n(assigned.total, "pull request")}`, menu: true });
+    }
+  }
+  if (on.health && g.health) {
+    const h = g.health;
+    const up = h.up && h.services.length > 0;
+    const tone = overallTone(h);
+    out.push({
+      id: "health",
+      group: "Diagonal",
+      text: up ? msText(Math.max(...h.services.map((s) => s.ms))) : "Down",
+      dots: up ? h.services.map((s) => TONE_COLOR[healthTone(s.ms)]) : [TONE_COLOR.bad],
+      icon: "",
+      tone: tone === "good" ? "" : tone,
+      tip: up ? `Diagonal health: ${h.services.map((s) => `${s.name} ${msText(s.ms)}`).join(", ")}` : `Diagonal health: down, ${h.error ?? "no answer"}`,
+      menu: true,
+    });
+  }
+  return out;
+}

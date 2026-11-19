@@ -229,8 +229,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             // The page asks for the version and whether updates can be checked for.
             send(Updater.event, as: "paseo:update")
         case "barState":
-            // What the top bar's tools show: who needs you, usage, What's new, the panel's state.
+            // What the top bar's tools show: who needs you, usage, the glance, What's new, the panel's state.
             modeBar.apply(body)
+        case "glanceClick":
+            // ⌘K opens a glance count's menu: as a click on it, so the page gets where it is.
+            if let id = body["id"] as? String { modeBar.clickGlance(id) }
         case "viewport":
             // The page's map area (beside its session panel), where Conquer and the Terminal tab lie.
             layoutWorkspace()

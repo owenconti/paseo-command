@@ -41,7 +41,7 @@ async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeo
           paseoWorld: {
             postMessage(m: any) {
               if (m.type === "art") setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
-              if (["pageMap", "mapStyle", "loaded", "workspace", "viewport", "barState", "art", "detach", "browser"].includes(m.type)) sent.push(m);
+              if (["pageMap", "mapStyle", "loaded", "workspace", "viewport", "barState", "art", "detach", "browser", "glanceClick"].includes(m.type)) sent.push(m);
             },
           },
         },
@@ -113,22 +113,21 @@ const GLANCE = {
   health: { checkedAt: Date.now(), up: true, took: 80, services: [{ name: "pgsql", ms: 0.47 }, { name: "redis-cache", ms: 1.4 }, { name: "mongodb", ms: 3.2 }] },
 };
 
-test("at a glance: your Linear issues by state, the PRs asking you and Diagonal's health sit on the crew's head, each opening a menu", async () => {
+test("at a glance: your Linear issues by state, the PRs asking you and Diagonal's health sit on the top bar, left of the gear, each opening a menu", async () => {
   const page = await open({ lists: { settings: { integrations: { linear: true, github: true, health: true, typesafe: false } }, glance: GLANCE } });
-  const glance = page.getByRole("group", { name: "At a glance" });
+  const glance = page.locator(".app-bar").getByRole("group", { name: "At a glance" });
   await glance.waitFor();
-  // A readout cell each: Linear's states, GitHub's two lists, Diagonal's slowest service and its lights.
+  assert.equal(await map(page).locator(".crew-glance").count(), 0, "not on the crew's head");
+  // Each group's name, then its counts: Linear's states, GitHub's two lists, Diagonal's slowest service.
   assert.deepEqual(await glance.locator(".crew-glance-source").allTextContents(), ["Linear", "GitHub", "Diagonal"]);
-  assert.deepEqual(
-    (await glance.locator(".crew-glance-count").allTextContents()).map((t) => t.trim()),
-    ["2In Progress", "1In Review", "0Todo", "1To review", "0Assigned", "3.20 msslowest"],
-  );
-  // Beside the title.
-  const [title, strip] = await Promise.all([".crew-board-title", ".crew-glance"].map((s) => page.locator(s).evaluate((el) => el.getBoundingClientRect().toJSON())));
-  assert.ok(strip.left >= title.right - 1 && strip.top < title.bottom, `beside the title: ${JSON.stringify({ title, strip })}`);
-  // A light for each service: green under 1 ms, yellow under 3, red past it; the chip is as bad as the worst.
-  assert.deepEqual(await glance.locator(".crew-glance-lights i").evaluateAll((els) => els.map((e) => e.getAttribute("data-tone"))), ["good", "slow", "bad"]);
-  assert.equal(await page.getByRole("button", { name: /^Diagonal health:/ }).getAttribute("data-tone"), "bad");
+  assert.deepEqual((await glance.locator(".crew-glance-count").allTextContents()).map((t) => t.trim()), ["2", "1", "0", "1", "0", "3.20 ms"]);
+  // Left of the Settings gear, on the bar's row.
+  const [strip, gear] = await Promise.all([glance, page.locator(".app-bar").getByRole("button", { name: "Settings", exact: true })].map((l) => l.evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(strip.right <= gear.left + 1 && Math.abs(strip.top + strip.height / 2 - (gear.top + gear.height / 2)) <= 2, `left of the gear: ${JSON.stringify({ strip, gear })}`);
+  // A light for each service: green under 1 ms, yellow under 3, red past it; the count is as bad as the worst.
+  const diagonal = glance.getByRole("button", { name: /^Diagonal health:/ });
+  assert.deepEqual(await diagonal.locator(".crew-glance-dot").evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor)), ["rgb(63, 191, 134)", "rgb(242, 201, 76)", "rgb(210, 69, 47)"]);
+  assert.equal(await diagonal.getAttribute("data-tone"), "bad");
   // A state's chip lists its issues, newest first; one opens where it lives (a browser tab here).
   await page.evaluate(() => {
     (window as any).__opened = [];
@@ -176,6 +175,37 @@ test("at a glance: your Linear issues by state, the PRs asking you and Diagonal'
   const health = page.getByRole("menu", { name: "Diagonal's health" });
   await health.waitFor();
   assert.match((await health.textContent())!, /pgsql0\.47 ms.*redis-cache1\.40 ms.*mongodb3\.20 ms/);
+  await page.context().close();
+});
+
+test("in the macOS app the glance is the native bar's: the page sends its counts and opens a count's menu beneath it", async () => {
+  const page = await open({ mac: true, lists: { settings: { integrations: { linear: true, github: true, health: true, typesafe: false } }, glance: GLANCE } });
+  const counts = () => sent(page, "barState").then((m) => (m.at(-1)?.glance ?? []) as { id: string; group: string; text: string; tone: string; dots: string[] }[]);
+  await waitFor(counts, (c) => c.length === 6, "the counts sent to the bar");
+  assert.deepEqual((await counts()).map((c) => [c.id, c.group, c.text, c.tone]), [
+    ["linear:in progress", "Linear", "2", ""],
+    ["linear:in review", "Linear", "1", ""],
+    ["linear:todo", "Linear", "0", "none"],
+    ["review", "GitHub", "1", "ask"],
+    ["assigned", "GitHub", "0", "none"],
+    ["health", "Diagonal", "3.20 ms", "bad"],
+  ]);
+  assert.equal(await page.locator(".crew-glance").count(), 0, "the page draws no counts of its own");
+  // The native count's click: its menu beneath where the app says it is.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:bar", { detail: { action: "glance:review", x: 900, y: -32, width: 40, height: 22 } })));
+  const menu = page.getByRole("menu", { name: "Pull requests asking your review" });
+  await menu.waitFor();
+  const box = (await menu.boundingBox())!;
+  assert.ok(Math.abs(box.x - 900) <= 1 && box.y >= 0 && box.y <= 12, `beneath it: ${JSON.stringify(box)}`);
+  await menu.getByRole("menuitem", { name: /Add a cache/ }).waitFor();
+  await page.keyboard.press("Escape");
+  await menu.waitFor({ state: "detached" });
+  // ⌘K asks the app to click the count, so the menu opens beneath it.
+  await page.keyboard.press("Meta+k");
+  await palette(page).getByRole("combobox").fill("asking your review");
+  await palette(page).getByRole("option", { name: /Show pull requests asking your review/ }).click();
+  await waitFor(() => sent(page, "glanceClick"), (m) => m.length === 1, "the app asked to click it");
+  assert.equal((await sent(page, "glanceClick"))[0]!.id, "review");
   await page.context().close();
 });
 

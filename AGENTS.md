@@ -329,7 +329,8 @@ and GitHub publication; report the published version and release link.
   lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Files, Terminal, GitHub, Conquer, Activity, those enabled;
   ⌘1…⌘6 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
   whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes (the Files tab's Changes) and ⇧⌘E Show Files are, `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
-  What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`). The page lies below the bar
+  What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`;
+  the glance, `GlanceBar`, between the usage meters and the gear). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
   (`postAppBarState` → `barState`: attention, usage meters, What's new unseen, the radio connecting, panel side, layout and visibility), and a tool's click
   comes to the page as `paseo:bar` (`onAppBar`) with the button's rectangle in page coordinates, so usage, What's new, games and shortcuts open beneath it.
@@ -831,19 +832,26 @@ the component Crew's drawer is.
   project's head tallies its agents by state, most urgent first (`stateTally` in `roster.ts`, `Tally`: a dot in the state's
   colour and the count, the state's name on hover). The
   arrow keys, Home and End move through the map's nodes and heads.
-- At a glance (`crew/Glance.tsx`, pure `src/glance.ts`; the user's ask: what's on their plate, on the crew's head): beside
-  "Your crew", a readout panel (the user's pick of three mockups), a cell each with big counts and their labels beneath. Cells: your Linear issues by state (started states by position, In Progress, In Review, then
-  unstarted, Todo; `readMyIssues` in `server/linear/reads.ts`, `MY_ISSUES_QUERY`, kept 50 s), the pull requests asking your review
-  and assigned to you (the GitHub tab's `readPrs`, its cache and search budget), and Diagonal's health (`GET
-  app.go-diagonal.com/health/status`, no credentials, kept 50 s, `server/glance.ts` `HEALTH`): a light for each database service
-  in its answer (every number but `iterations`, in ms; under 1 ms green, under 3 ms yellow, else red, `healthTone`, in Crew's
-  state colours) under its slowest time, "Down" when it doesn't answer. `GET /api/glance` (`?fresh=1`), each part only while its integration is on (`linear`, `github`, `health`:
-  Settings → Integrations → Diagonal health, off by default); a part that fails says why ("Unavailable") without hiding the
-  rest. The page asks every minute while Crew shows, and as the window comes back. Each count opens a menu (`menuKeys`): an
-  issue opens in Linear (its app in the macOS app), a PR as PR links do (the GitHub tab), "Show them in the GitHub tab"
-  its scope; the health menu lists each service's time, Check again now. ⌘K (page Command): "Show your Linear issues: <state>",
-  "Show pull requests asking your review / assigned to you", "Show Diagonal’s health" (`crew-glance`), "Check Diagonal’s
-  health now" (`crew-glance-refresh`). Tests: `server/glance.test.ts`, `src/glance.test.ts`, `e2e/crew.e2e.ts`.
+- At a glance (`crew/Glance.tsx` `GlanceBar`, `crew/glance.css`, pure `src/glance.ts`; the user's ask: what's on their plate):
+  on the app's top bar, left of the Settings gear (the user's call; it began as a readout panel on the crew's head). Each
+  group's name, then its counts (`glanceItems`): your Linear issues by state (a dot in the state's colour and the count;
+  started states by position, In Progress, In Review, then unstarted, Todo; `readMyIssues` in `server/linear/reads.ts`,
+  `MY_ISSUES_QUERY`, kept 50 s), the pull requests asking your review and assigned to you (the GitHub tab's `readPrs`, its
+  cache and search budget), and Diagonal's health (`GET app.go-diagonal.com/health/status`, no credentials, kept 50 s,
+  `server/glance.ts` `HEALTH`): a light for each database service in its answer (every number but `iterations`, in ms;
+  under 1 ms green, under 3 ms yellow, else red, `healthTone`, `TONE_COLOR`) and the slowest's time, "Down" when it doesn't
+  answer. In the macOS app the bar is native: the page sends the counts in `barState` (`glance`) and
+  `native/Sources/PaseoCommandNative/GlanceBar.swift` draws them (`GlanceChip`); a count's click is the bar action
+  `glance:<id>` (`paseo:bar`, with its rectangle), and the page opens its menu beneath it (`HostedMenu`, in
+  `.app-bar-hosted`); ⌘K's entries ask the app to click the count (`glanceClick`, `postAppGlanceClick`). In a browser the
+  page's own `.app-bar` draws them. `GET /api/glance` (`?fresh=1`), each part only while its integration is on (`linear`,
+  `github`, `health`: Settings → Integrations → Diagonal health, off by default); a part that fails says "Unavailable" (its
+  why on hover) without hiding the rest. The page asks every minute while it shows, and as the window comes back. Each count
+  opens a menu (`menuKeys`): an issue opens in Linear (its app in the macOS app), a PR as PR links do (the GitHub tab),
+  "Show them in the GitHub tab" its scope; the health menu lists each service's time, Check again now. ⌘K (page App):
+  "Show your Linear issues: <state>", "Show pull requests asking your review / assigned to you", "Show Diagonal’s health"
+  (`crew-glance`), "Check Diagonal’s health now" (`crew-glance-refresh`). Tests: `server/glance.test.ts`,
+  `src/glance.test.ts`, `e2e/crew.e2e.ts`.
 - What is open (`CrewDetail.tsx`: main's `detailView`, the agent's `Session`, a subagent's, New agent, a workspace, a
   project, Add project, with `ChatDecorContext` putting the robot beside each reply and in the working row, and
   `ChatFooterContext` the strip above the message box, `Stage` in `parts.tsx`: its robot, glow, mark and drones, its

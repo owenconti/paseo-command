@@ -1552,12 +1552,12 @@ function App() {
   // The open agent's browser, beside its conversation on Crew.
   const where = "";
   const browserOf = "the browser";
-  // Crew's glance (crew/Glance.tsx): each chip's menu, while it shows on Crew's head.
+  // The top bar's glance (crew/Glance.tsx): each count's menu.
   const glance = useGlanceData();
   const glanceEntries = (() => {
-    const out: { id: string; group: string; page: "Command"; label: string; keywords: string; run: () => void }[] = [];
+    const out: { id: string; group: string; page: "App"; label: string; keywords: string; run: () => void }[] = [];
     const menu = (id: string, label: string, keywords: string, arg: string) =>
-      out.push({ id: `crew-glance-${id}`, group: "Navigate", page: "Command", label, keywords, run: () => runAppCommand("crew-glance", arg) });
+      out.push({ id: `crew-glance-${id}`, group: "Navigate", page: "App", label, keywords, run: () => runAppCommand("crew-glance", arg) });
     const l = integrations.linear ? glance?.linear : undefined;
     if (l && "groups" in l)
       for (const g of l.groups)
@@ -1572,7 +1572,7 @@ function App() {
       out.push({
         id: "crew-glance-refresh",
         group: "Navigate",
-        page: "Command",
+        page: "App",
         label: "Check Diagonal’s health now",
         keywords: "diagonal health status check refresh database glance",
         run: () => runAppCommand("crew-glance-refresh"),
@@ -1828,12 +1828,8 @@ function App() {
       : []),
     // The open agent's browser beside its conversation on Crew (the macOS app's).
     ...(crewBrowsing ? browserEntries : []),
-    // Crew's glance (its menus), while Crew shows.
-    ...(crewShown
-      ? [
-          ...glanceEntries,
-        ]
-      : []),
+    // The top bar's glance: each count's menu.
+    ...glanceEntries,
     // The session panel, beside the other tabs while something is open (Crew's drawer has it on the Command tab).
     ...(!panelAbsent
       ? [

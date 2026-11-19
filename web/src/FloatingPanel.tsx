@@ -1,3 +1,4 @@
+import { GlanceBar } from "./crew/Glance";
 import {
   useEffect,
   useLayoutEffect,
@@ -255,6 +256,7 @@ export function FloatingPanel(props: Props) {
         // The app's native top bar has the buttons; what they open lives here.
         <div className="app-bar-hosted">
           <UsageCard reports={props.usage} hosted />
+          <GlanceBar hosted />
           <ReleasesButton hosted />
           <GamesButton hidden />
           <ShortcutsButton hidden />
@@ -276,6 +278,7 @@ export function FloatingPanel(props: Props) {
               </button>
             )}
             {props.usage.length > 0 && <UsageCard reports={props.usage} />}
+            <GlanceBar hosted={false} />
             <SettingsButton />
             <ReleasesButton />
             <GamesButton />

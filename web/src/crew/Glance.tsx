@@ -1,19 +1,20 @@
-/** At a glance, on Crew's head beside its title (`src/glance.ts`, `GET /api/glance`): a readout panel with a cell
- * each for your Linear issues by state (In Progress, In Review, Todo), the pull requests asking your review and
- * assigned to you, and Diagonal's health (its slowest service's time, and a light for each database service: under
- * 1 ms green, under 3 ms yellow, else red). Each count opens a menu of what it counts; an issue opens in Linear (its desktop app in the macOS app), a pull request in the
- * GitHub tab. Asked every minute while Crew shows (and as the window comes back); ⌘K opens each menu (`crew-glance`)
- * and checks again (`crew-glance-refresh`). */
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Activity, AlertTriangle, CircleDot, GitPullRequest, RefreshCw, SquareKanban } from "lucide-react";
+/** At a glance, on the app's top bar left of the Settings gear (`src/glance.ts`, `GET /api/glance`): your Linear issues
+ * by state (a dot in the state's colour and the count), the pull requests asking your review and assigned to you, and
+ * Diagonal's health (a light for each database service: under 1 ms green, under 3 ms yellow, else red, and the slowest's
+ * time). Each count opens a menu of what it counts; an issue opens in Linear (its desktop app in the macOS app), a pull
+ * request in the GitHub tab. Asked every minute while the page shows (and as the window comes back); ⌘K opens each menu
+ * (`crew-glance`) and checks again (`crew-glance-refresh`). */
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { AlertTriangle, CircleDot, GitPullRequest, RefreshCw, UserCheck } from "lucide-react";
 import { api } from "../api";
 import { onAppCommand } from "../appCommands";
 import { menuKeys } from "../menuKeys";
 import { placeBelow } from "../Picker";
-import { macApp, postAppLink, postAppMenu } from "../worldBridge";
+import { macApp, postAppBarState, postAppGlanceClick, postAppLink, postAppMenu, type BarRect } from "../worldBridge";
+import { useIntegrations } from "../integrationSettings";
+import "./glance.css";
 import { openGithubPlace } from "../github/place";
-import type { Integrations } from "../integrations";
-import { GLANCE, healthTone, msText, overallTone, type Glance as GlanceData, type GlancePrList, type Health } from "../glance";
+import { GLANCE, glanceItems, healthTone, msText, type Glance as GlanceData, type GlanceItem, type GlancePrList, type Health } from "../glance";
 
 // ── The store: one poll for the page ─────────────────────────────────────────
 let current: GlanceData | null = null;
@@ -90,9 +91,6 @@ function showPrList(scope: "review" | "assigned") {
   } else window.open(`https://github.com/pulls/${scope === "review" ? "review-requested" : "assigned"}`, "_blank", "noopener,noreferrer");
 }
 
-/** Which menu ⌘K asks for: a Linear state's (by name), "review", "assigned" or "health". */
-export type GlanceMenu = string;
-
 // ── A count and its menu ──────────────────────────────────────────────────────
 function Count(props: {
   id: string;
@@ -160,8 +158,6 @@ function Count(props: {
   );
 }
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
 function prMenu(list: GlancePrList, scope: "review" | "assigned", empty: string) {
   return (
     <>
@@ -217,150 +213,170 @@ function healthMenu(h: Health, loading: boolean) {
   );
 }
 
-function Lights({ h }: { h: Health }) {
+type Groups = Extract<NonNullable<GlanceData["linear"]>, { groups: unknown }>["groups"];
+
+/** What a count's menu lists, by its id; null for a count without one. */
+function menuOf(id: string, g: GlanceData, loading: boolean): { label: string; content: ReactNode } | null {
+  const groups: Groups = g.linear && "groups" in g.linear ? g.linear.groups : [];
+  const state = id.startsWith("linear:") ? groups.find((x) => `linear:${x.state.toLowerCase()}` === id) : undefined;
+  if (state)
+    return {
+      label: `Your issues ${state.state.toLowerCase()}`,
+      content: (
+        <>
+          {!state.issues.length && <p className="crew-glance-empty">No issues.</p>}
+          {state.issues.map((i) => (
+            <button key={i.id} role="menuitem" tabIndex={-1} onClick={() => openUrl(i.url)}>
+              <i className="crew-glance-dot" style={state.color ? { background: state.color } : undefined} aria-hidden="true" />
+              <span>
+                <b>{i.title}</b>
+                <small>{i.key}</small>
+              </span>
+            </button>
+          ))}
+          {state.total > state.issues.length && <p className="crew-glance-empty">{`${state.total - state.issues.length} more`}</p>}
+        </>
+      ),
+    };
+  if ((id === "review" || id === "assigned") && g.github && "review" in g.github)
+    return id === "review"
+      ? { label: "Pull requests asking your review", content: prMenu(g.github.review, "review", "Nothing asks your review.") }
+      : { label: "Pull requests assigned to you", content: prMenu(g.github.assigned, "assigned", "No pull requests are assigned to you.") };
+  if (id === "health" && g.health) return { label: "Diagonal's health", content: healthMenu(g.health, loading) };
+  return null;
+}
+
+/** A count as the page draws it (a browser's bar): its dots, icon and text. */
+function ChipFace({ item }: { item: GlanceItem }) {
+  const Icon = item.icon === "review" ? GitPullRequest : item.icon === "assigned" ? UserCheck : item.icon === "warning" ? AlertTriangle : null;
   return (
-    <span className="crew-glance-lights" aria-hidden="true">
-      {h.up && h.services.length ? h.services.map((s) => <i key={s.name} data-tone={healthTone(s.ms)} />) : <i data-tone="bad" />}
-    </span>
+    <>
+      {item.dots.map((color, i) => (
+        <i key={i} className="crew-glance-dot" style={{ background: color }} aria-hidden="true" />
+      ))}
+      {Icon && <Icon size={12} aria-hidden="true" />}
+      <b>{item.text}</b>
+    </>
   );
 }
 
-export function Glance({ integrations }: { integrations: Integrations }) {
+/** The menu of a native bar count, beneath where the app says it is. */
+function HostedMenu({ rect, label, onClose, children }: { rect: BarRect; label: string; onClose: () => void; children: ReactNode }) {
+  const menu = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const down = (e: MouseEvent) => {
+      if (!menu.current?.contains(e.target as Node)) onClose();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onClose();
+    };
+    document.addEventListener("mousedown", down, true);
+    window.addEventListener("keydown", key, true);
+    menu.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus({ preventScroll: true });
+    return () => {
+      document.removeEventListener("mousedown", down, true);
+      window.removeEventListener("keydown", key, true);
+    };
+  }, [onClose]);
+  const width = Math.min(380, innerWidth - 16);
+  const left = Math.max(8, Math.min(rect.x, innerWidth - width - 8));
+  const top = Math.max(0, rect.y + rect.height) + 6;
+  return (
+    <div
+      ref={menu}
+      role="menu"
+      aria-label={label}
+      className="popover-menu linear-row-menu crew-glance-menu hosted"
+      style={{ position: "fixed", left, top, bottom: "auto", width, maxHeight: `calc(100vh - ${top + 12}px)`, overflowY: "auto" }}
+      onKeyDown={(e) => menuKeys(e, onClose)}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("[role=menuitem]")) onClose();
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The glance on the top bar, left of the Settings gear. In the macOS app the bar is native: this tells it the counts
+ * (`postAppBarState({glance})`, drawn by `GlanceBar.swift`) and opens a count's menu beneath it when it's clicked
+ * (`paseo:bar`, `glance:<id>`). In a browser it draws the counts itself in the page's bar.
+ */
+export function GlanceBar({ hosted }: { hosted: boolean }) {
+  const { integrations } = useIntegrations();
   const on = integrations.linear || integrations.github || integrations.health;
   const { glance, loading } = useGlance(on);
+  const items = useMemo(() => glanceItems(on ? glance : null, integrations), [glance, on, integrations]);
   const [open, setOpen] = useState<string | null>(null);
+  const [rect, setRect] = useState<BarRect | null>(null);
+  const itemsKey = JSON.stringify(items);
+  useEffect(() => {
+    if (hosted) postAppBarState({ glance: items });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hosted, itemsKey]);
+  // A native count's click: its menu beneath it, or closed again.
+  useEffect(() => {
+    if (!hosted) return;
+    const receive = (event: Event) => {
+      const d = (event as CustomEvent).detail;
+      const action = typeof d?.action === "string" ? d.action : "";
+      if (!action.startsWith("glance:")) return;
+      const id = action.slice("glance:".length);
+      setRect({ x: d.x ?? 0, y: d.y ?? 0, width: d.width ?? 0, height: d.height ?? 0 });
+      setOpen((now) => (now === id ? null : id));
+    };
+    window.addEventListener("paseo:bar", receive);
+    return () => window.removeEventListener("paseo:bar", receive);
+  }, [hosted]);
   useEffect(
     () =>
       onAppCommand("crew-glance", (arg) => {
         if (typeof arg !== "string") return;
-        // The menu opens once its count is drawn (the glance may still be coming).
+        // In the app, as a click on the native count, so the page learns where it is.
+        if (hosted) return postAppGlanceClick(arg);
         setOpen(null);
         requestAnimationFrame(() => setOpen(arg));
       }),
-    [],
+    [hosted],
   );
   useEffect(() => onAppCommand("crew-glance-refresh", () => void refreshGlance(true)), []);
+  const close = useCallback(() => setOpen(null), []);
   if (!on || !glance) return null;
-  const linear = integrations.linear ? glance.linear : undefined;
-  const github = integrations.github ? glance.github : undefined;
-  const health = integrations.health ? glance.health : undefined;
-  if (!linear && !github && !health) return null;
-  const menus = { open, setOpen };
-  const dot = (color: string) => <i className="crew-glance-dot" style={color ? { background: color } : undefined} aria-hidden="true" />;
-  const issueMenu = (g: Extract<NonNullable<GlanceData["linear"]>, { groups: unknown }>["groups"][number]) => (
-    <>
-      {g.issues.map((i) => (
-        <button key={i.id} role="menuitem" tabIndex={-1} onClick={() => openUrl(i.url)}>
-          {dot(g.color)}
-          <span>
-            <b>{i.title}</b>
-            <small>{i.key}</small>
-          </span>
-        </button>
-      ))}
-      {g.total > g.issues.length && <p className="crew-glance-empty">{`${g.total - g.issues.length} more`}</p>}
-    </>
-  );
-  const groups = linear && "groups" in linear ? linear.groups : null;
-  const prs = github && "review" in github ? github : null;
-  const linearCount = (g: NonNullable<typeof groups>[number], label: ReactNode) => (
-    <Count
-      key={g.state}
-      {...menus}
-      id={`linear:${g.state.toLowerCase()}`}
-      tone={g.total ? undefined : "none"}
-      name={`${g.state}: ${plural(g.total, "issue")}`}
-      menuLabel={`Your issues ${g.state.toLowerCase()}`}
-      label={label}
-      menu={issueMenu(g)}
-    />
-  );
-  const prCount = (scope: "review" | "assigned", label: ReactNode) => {
-    const list = prs![scope];
-    return (
-      <Count
-        key={scope}
-        {...menus}
-          id={scope}
-        tone={!list.total ? "none" : scope === "review" ? "ask" : undefined}
-        name={scope === "review" ? `Review requests: ${plural(list.total, "pull request")}` : `Assigned to you: ${plural(list.total, "pull request")}`}
-        menuLabel={scope === "review" ? "Pull requests asking your review" : "Pull requests assigned to you"}
-        label={label}
-        menu={prMenu(list, scope, scope === "review" ? "Nothing asks your review." : "No pull requests are assigned to you.")}
-      />
-    );
-  };
-  const healthCount = (label: ReactNode) => (
-    <Count
-      {...menus}
-      id="health"
-      tone={overallTone(health!)}
-      name={`Diagonal health: ${health!.up ? health!.services.map((s) => `${s.name} ${msText(s.ms)}`).join(", ") : `down: ${health!.error ?? "no answer"}`}`}
-      menuLabel="Diagonal's health"
-      label={label}
-      menu={healthMenu(health!, loading)}
-    />
-  );
-  const failed = (what: string, error: string) => (
-    <span className="crew-glance-failed" role="img" aria-label={`${what}: ${error}`} data-tip={`${what}: ${error}`} data-summary="">
-      <AlertTriangle size={12} aria-hidden="true" />
-      Unavailable
-    </span>
-  );
-  const slowest = health && health.up && health.services.length ? Math.max(...health.services.map((x) => x.ms)) : null;
-
+  if (hosted) {
+    const menu = open ? menuOf(open, glance, loading) : null;
+    return menu && rect ? (
+      <HostedMenu rect={rect} label={menu.label} onClose={close}>
+        {menu.content}
+      </HostedMenu>
+    ) : null;
+  }
+  if (!items.length) return null;
+  const groups = [...new Set(items.map((i) => i.group))];
   return (
     <div className="crew-glance" role="group" aria-label="At a glance">
-      {linear && (
-        <section className="crew-glance-cell" aria-label="Linear">
-          <span className="crew-glance-source">
-            <SquareKanban size={13} aria-hidden="true" />
-            Linear
+      {groups.map((group) => (
+        <span key={group} className="crew-glance-group" role="group" aria-label={group}>
+          <span className="crew-glance-source" aria-hidden="true">
+            {group}
           </span>
-          <div className="crew-glance-nums">
-            {"error" in linear
-              ? failed("Linear", linear.error)
-              : !groups!.length
-                ? <span className="crew-glance-quiet">Nothing open</span>
-                : groups!.map((g) => linearCount(g, <><b>{g.total}</b><small>{dot(g.color)}{g.state}</small></>))}
-          </div>
-        </section>
-      )}
-      {github && (
-        <section className="crew-glance-cell" aria-label="GitHub">
-          <span className="crew-glance-source">
-            <GitPullRequest size={13} aria-hidden="true" />
-            GitHub
-          </span>
-          <div className="crew-glance-nums">
-            {!prs
-              ? failed("GitHub", (github as { error: string }).error)
-              : [
-                  prCount("review", <><b>{prs.review.total}</b><small>To review</small></>),
-                  prCount("assigned", <><b>{prs.assigned.total}</b><small>Assigned</small></>),
-                ]}
-          </div>
-        </section>
-      )}
-      {health && (
-        <section className="crew-glance-cell" aria-label="Diagonal">
-          <span className="crew-glance-source">
-            <Activity size={13} aria-hidden="true" />
-            Diagonal
-          </span>
-          <div className="crew-glance-nums">
-            {healthCount(
-              <>
-                <b>{slowest === null ? "Down" : msText(slowest)}</b>
-                <small>
-                  <Lights h={health} />
-                  {slowest === null ? "no answer" : "slowest"}
-                </small>
-              </>,
-            )}
-          </div>
-        </section>
-      )}
+          {items
+            .filter((i) => i.group === group)
+            .map((item) => {
+              const menu = item.menu ? menuOf(item.id, glance, loading) : null;
+              return menu ? (
+                <Count key={item.id} id={item.id} open={open} setOpen={setOpen} tone={item.tone} name={item.tip} menuLabel={menu.label} label={<ChipFace item={item} />} menu={menu.content} />
+              ) : (
+                <span key={item.id} className="crew-glance-count" data-tone={item.tone} role="img" aria-label={item.tip} data-tip={item.tip} data-summary="">
+                  <ChipFace item={item} />
+                </span>
+              );
+            })}
+        </span>
+      ))}
     </div>
   );
 }

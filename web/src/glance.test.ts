@@ -55,3 +55,29 @@ test("health: every number but iterations is a service; lights by response time"
   assert.equal(msText(0.4753), "0.48 ms");
   assert.equal(msText(123.4), "123 ms");
 });
+
+test("the bar's counts: Linear's states, GitHub's two lists, Diagonal's lights and slowest time; parts off or failing", async () => {
+  const { glanceItems } = await import("./glance");
+  const on = { linear: true, github: true, health: true };
+  const g = {
+    linear: { groups: [{ state: "In Progress", type: "started" as const, color: "#f2c94c", total: 9, issues: [] }, { state: "Todo", type: "unstarted" as const, color: "", total: 0, issues: [] }] },
+    github: { review: { total: 2, rows: [] }, assigned: { total: 0, rows: [] } },
+    health: { checkedAt: 0, up: true, services: [{ name: "pgsql", ms: 0.4 }, { name: "mongodb", ms: 3.2 }] },
+  };
+  const items = glanceItems(g, on);
+  assert.deepEqual(items.map((i) => [i.id, i.group, i.text, i.tone]), [
+    ["linear:in progress", "Linear", "9", ""],
+    ["linear:todo", "Linear", "0", "none"],
+    ["review", "GitHub", "2", "ask"],
+    ["assigned", "GitHub", "0", "none"],
+    ["health", "Diagonal", "3.20 ms", "bad"],
+  ]);
+  assert.deepEqual(items[1]!.dots, ["#8b9ab0"], "a state without a colour is grey");
+  assert.deepEqual(items[4]!.dots, ["#3fbf86", "#d2452f"]);
+  assert.equal(items[0]!.tip, "In Progress: 9 issues");
+  assert.deepEqual(glanceItems(g, { linear: false, github: true, health: false }).map((i) => i.id), ["review", "assigned"]);
+  const failing = glanceItems({ linear: { error: "boom" }, health: { checkedAt: 0, up: false, services: [], error: "It answered 503." } }, on);
+  assert.deepEqual(failing.map((i) => [i.id, i.text, i.menu]), [["linear-error", "Unavailable", false], ["health", "Down", true]]);
+  assert.equal(failing[0]!.tip, "Linear: boom");
+  assert.deepEqual(glanceItems(null, on), []);
+});

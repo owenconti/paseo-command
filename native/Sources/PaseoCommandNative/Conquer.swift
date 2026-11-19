@@ -196,7 +196,7 @@ final class UsageMeters: NSButton {
 /// switch the map's place between the map (Command), Files, the terminals, GitHub, the browser (Conquer)
 /// and Activity (⌘` steps through them, ⌘1…⌘6
 /// pick the one in that place), "Update ready" when a newer build
-/// is in, and the app's tools at the right: who needs you, usage, the Settings gear, What's new, mini games,
+/// is in, and the app's tools at the right: who needs you, usage, the glance (`GlanceBar`), the Settings gear, What's new, mini games,
 /// keyboard shortcuts and the session panel's side, layout and visibility. All of it is native;
 /// the page says what the tools show (`apply`) and opens what they ask for (`onAction`, with the
 /// button, so its popovers open beneath it). It stands in for the hidden title bar: it drags the
@@ -227,6 +227,8 @@ final class ModeBar: NSView {
     private let tools = NSStackView()
     private let attention = NSButton()
     private let usage = UsageMeters()
+    /// The glance (Linear, GitHub, Diagonal), left of the gear.
+    private let glance = GlanceBar()
     /// Settings, in the map's place: lit while it shows; again goes back to the side before.
     private let settings = BarButton(symbol: "gearshape", label: "Settings", tip: "\(Mode.settings.tip) (⌘,)")
     private let releases = BarButton(symbol: "sparkles", label: "What's new", tip: "What's new")
@@ -305,6 +307,7 @@ final class ModeBar: NSView {
             guard let self else { return }
             self.onAction?(inside ? "usage-enter" : "usage-leave", self.usage)
         }
+        glance.onClick = { [weak self] name, view in self?.onAction?(name, view) }
         for (button, name) in [(settings, "settings"), (releases, "releases"), (games, "games"), (shortcuts, "shortcuts"),
                                (panelSide, "panel-side"), (panelLayout, "panel-layout"), (panelToggle, "panel-toggle")] {
             button.target = self
@@ -314,11 +317,13 @@ final class ModeBar: NSView {
         tools.orientation = .horizontal
         tools.spacing = 2
         tools.translatesAutoresizingMaskIntoConstraints = false
-        for view in [update, attention, usage, settings, releases, games, shortcuts, panelSide, panelLayout, panelToggle] as [NSView] {
+        for view in [update, attention, usage, glance, settings, releases, games, shortcuts, panelSide, panelLayout, panelToggle] as [NSView] {
             tools.addArrangedSubview(view)
         }
         tools.setCustomSpacing(10, after: update)
         tools.setCustomSpacing(6, after: attention)
+        tools.setCustomSpacing(8, after: usage)
+        tools.setCustomSpacing(8, after: glance)
         addSubview(tools)
         let titleLeading = title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leading)
         self.titleLeading = titleLeading
@@ -339,8 +344,11 @@ final class ModeBar: NSView {
 
     /// The tabs shown, in order, and whether the Settings gear is lit (checks).
     func state() -> [String: Any] {
-        ["tabs": buttons.filter { !$0.1.isHidden }.map(\.0.rawValue), "settingsOn": settings.on, "panelButtons": !panelToggle.isHidden]
+        ["tabs": buttons.filter { !$0.1.isHidden }.map(\.0.rawValue), "settingsOn": settings.on, "panelButtons": !panelToggle.isHidden,
+         "glance": glance.state()]
     }
+    /// One of the glance's counts, as a click on it (⌘K opens its menu beneath it).
+    func clickGlance(_ id: String) { glance.click(id) }
     /// The gear, as a click on it (checks).
     func clickSettings() { settings.performClick(nil) }
     @objc private func tool(_ sender: NSView) {
@@ -356,6 +364,7 @@ final class ModeBar: NSView {
         let meters = (state["usage"] as? [[String: Any]] ?? []).map { (pct: $0["pct"] as? Double ?? 0, tone: $0["tone"] as? String ?? "") }
         usage.meters = meters
         usage.isHidden = meters.isEmpty
+        glance.apply(state["glance"] as? [[String: Any]] ?? [])
         releases.dot = state["releasesUnread"] as? Bool ?? false
         releases.setAccessibilityLabel(releases.dot ? "What's new, unseen notes" : "What's new")
         setMusicConnecting(state["musicConnecting"] as? Bool ?? false)

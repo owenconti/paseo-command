@@ -1,3 +1,4 @@
+import type { GlanceItem } from "./glance";
 export const UNITY_WORLDS = {
   galaxy: "Galaxy",
   lake: "Lake Country",
@@ -242,12 +243,16 @@ export type AppBarState = {
   /** The Dungeon Board shows: there is no session panel, so the bar's three panel buttons go. */
   panelAbsent: boolean;
   layoutEnabled: boolean;
+  /** The glance's counts (`crew/Glance.tsx`), drawn left of the Settings gear. */
+  glance: GlanceItem[];
 };
 let barState: Partial<AppBarState> = {};
 export function postAppBarState(part: Partial<AppBarState>) {
   barState = { ...barState, ...part };
   appChannel()?.postMessage({ type: "barState", ...barState });
 }
+/** ⌘K opens a glance count's menu: the app clicks its count, which answers as `paseo:bar` `glance:<id>`. */
+export const postAppGlanceClick = (id: string) => appChannel()?.postMessage({ type: "glanceClick", id });
 /** A rectangle of the app's top bar (a button), in the page's coordinates: above it, so
  * its top is negative; popovers open beneath it. */
 export type BarRect = { x: number; y: number; width: number; height: number };

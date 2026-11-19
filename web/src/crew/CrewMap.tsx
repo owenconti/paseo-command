@@ -3,8 +3,7 @@
  * (oldest first), each workspace a panel of its agents' robots as large nodes with their state and progress. Picking one
  * opens it in the drawer on the map's right (`CrewDetail`, the same component the session panel shows beside the other
  * tabs); Back (or Esc) returns to the map. A workspace's head archives it, and a claimed pool box's host head releases
- * the box. Its head carries the glance (`Glance.tsx`: your Linear issues, PRs asking you, Diagonal's health). The robots,
- * drones, marks, glows and medallions are `parts.tsx`'s. */
+ * the box. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { Archive, ChevronDown, RotateCcw } from "lucide-react";
 import { STATE_NAMES, modelName, type State } from "../model/fleet";
@@ -21,8 +20,6 @@ import type { Selection, Workspace } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
 import { buildRoster, hostAgents, hostSpans, projectAgents, stateTally, type RosterAgent } from "./roster";
 import { CrewDetail } from "./CrewDetail";
-import { Glance } from "./Glance";
-import { useIntegrations } from "../integrationSettings";
 import { Medals, Portrait, useCrewData, type CrewFleet } from "./parts";
 import "./crew.css";
 
@@ -67,7 +64,6 @@ const NODE = 72;
 
 export function CrewMap(props: Props) {
   const { snapshot, data } = useCrewData(props);
-  const { integrations } = useIntegrations();
   // A claimed pool box's host stays on the map with nothing on it, so it can be released (and shows releasing).
   const keepHosts = new Set(
     props.pool
@@ -235,7 +231,6 @@ export function CrewMap(props: Props) {
                       .join(" · ")}
             </p>
           </div>
-          <Glance integrations={integrations} />
         </header>
         <PoolClaims agents={props.agents} onOpen={props.onDispatch} />
         {props.pool && (

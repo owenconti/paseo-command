@@ -1,0 +1,147 @@
+/* The glance on the top bar (Glance.tsx), left of the Settings gear: each group's name, then its counts. In the macOS
+   app the bar is native (GlanceBar.swift) and only the menus are the page's. */
+.crew-glance {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-right: 8px;
+}
+.crew-glance-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.crew-glance-source {
+  margin-right: 3px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+}
+.crew-glance-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 120ms ease-out;
+}
+span.crew-glance-count {
+  cursor: default;
+}
+button.crew-glance-count:hover,
+.crew-glance-count[aria-expanded="true"] {
+  background: var(--row-hover);
+}
+.crew-glance-count > svg {
+  color: var(--text-3);
+}
+.crew-glance-count b {
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.crew-glance-count[data-tone="none"] b {
+  color: var(--text-4);
+  font-weight: var(--fw-regular);
+}
+.crew-glance-count[data-tone="ask"] b,
+.crew-glance-count[data-tone="slow"] b {
+  color: var(--amber-text);
+}
+.crew-glance-count[data-tone="ask"] > svg {
+  color: var(--text-2);
+}
+.crew-glance-count[data-tone="bad"] b {
+  color: var(--red-text);
+}
+.crew-glance-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+  /* A hairline ring, so a pale state's dot (Linear's Todo) still shows. */
+  box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--line-strong) 70%, transparent);
+}
+
+/* A count's menu. */
+.popover-menu.crew-glance-menu {
+  width: min(380px, 80vw);
+  max-height: 420px;
+}
+.popover-menu.crew-glance-menu.hosted {
+  z-index: 60;
+}
+.crew-glance-menu > button b {
+  overflow: hidden;
+  font-weight: var(--fw-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-glance-menu > button span {
+  min-width: 0;
+}
+.crew-glance-menu > button > .crew-glance-dot {
+  align-self: flex-start;
+  margin-top: 5px;
+}
+.crew-glance-empty,
+.crew-glance-note {
+  margin: 0;
+  padding: 6px 9px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.crew-glance-service {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  font-size: var(--fs-sm);
+}
+/* A database service's light, in Crew's state colours (TONE_COLOR in src/glance.ts). */
+.crew-glance-service i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3fbf86;
+}
+.crew-glance-service[data-tone="slow"] i {
+  background: #f2c94c;
+}
+.crew-glance-service[data-tone="bad"] i {
+  background: #d2452f;
+}
+.crew-glance-service span {
+  flex: 1;
+  color: var(--text-2);
+}
+.crew-glance-service b {
+  font-weight: var(--fw-regular);
+  font-variant-numeric: tabular-nums;
+}
+.crew-glance-service[data-tone="slow"] b {
+  color: var(--amber-text);
+}
+.crew-glance-service[data-tone="bad"] b {
+  color: var(--red-text);
+}
+/* A narrow window keeps the tools: the glance's group names go first, then the glance. */
+@media (max-width: 900px) {
+  .crew-glance-source {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .crew-glance {
+    display: none;
+  }
+}
