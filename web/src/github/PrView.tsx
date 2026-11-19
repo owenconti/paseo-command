@@ -17,6 +17,7 @@ import {
 import { errorMessage } from "../api";
 import { usePageRefresh } from "../pageRefresh";
 import { githubWrite, invalidate, load, patch, readPath, useGithubRead } from "./api";
+import { MentionRepo } from "./MentionTextarea";
 import { Avatar, Body, ChecksIcon, CHECKS_LABEL, Churn, CommentBox, Decision, PrStateIcon, STATE_LABEL, Time } from "./bits";
 import type { DiffSidebar } from "./commentList";
 import { DiffView, LayoutControls, type DiffLayout, type DiffReview, type DiffViewHandle } from "./DiffView";
@@ -757,6 +758,8 @@ export function PrView({
   };
 
   return (
+    // Its comments' @ suggests its repository's people (MentionTextarea).
+    <MentionRepo.Provider value={repo}>
     <div className="gh-main-inner gh-pr">
       <header className="gh-head">
         <button className="ghost-btn gh-back" onClick={onBack} aria-description="Back (Esc)">
@@ -979,5 +982,6 @@ export function PrView({
         </>
       )}
     </div>
+    </MentionRepo.Provider>
   );
 }

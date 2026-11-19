@@ -6,6 +6,7 @@ import { menuKeys } from "../menuKeys";
 import { placeBelow } from "../Picker";
 import { githubWrite, invalidate, load, patch } from "./api";
 import { Avatar, CommentBox, Time } from "./bits";
+import { MentionTextarea } from "./MentionTextarea";
 import {
   actionKey,
   actionLabel,
@@ -482,7 +483,7 @@ function MergePanel({ pr, box, mode, method }: { pr: PrDetail; box: MergeBox; mo
           </label>
           <label>
             <span>Commit message</span>
-            <textarea rows={4} value={text.body} onChange={(e) => setText({ ...text, body: e.target.value })} placeholder="Add an optional extended description" />
+            <MentionTextarea rows={4} value={text.body} onValue={(body) => setText({ ...text, body })} placeholder="Add an optional extended description" />
           </label>
         </div>
       )}

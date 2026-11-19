@@ -14,6 +14,7 @@ import { Markdown } from "../Markdown";
 import { openAppLink, parseAppLink } from "../appLinks";
 import { macApp, postAppLink } from "../worldBridge";
 import { sanitizeGithubHtml } from "./html";
+import { MentionTextarea } from "./MentionTextarea";
 import type { ChecksState, Person, PrState, ReviewDecision, YourReview } from "./types";
 
 /** The small pieces the GitHub screens share: people, times, states, the comment box. */
@@ -247,15 +248,15 @@ export function CommentBox({
           <Body text={text} empty="Nothing to preview." />
         </div>
       ) : (
-        <textarea
+        <MentionTextarea
           ref={area}
           value={text}
           placeholder={placeholder}
           rows={3}
           aria-label={placeholder}
-          onChange={(e) => {
-            setText(e.target.value);
-            onChange?.(e.target.value);
+          onValue={(next) => {
+            setText(next);
+            onChange?.(next);
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {

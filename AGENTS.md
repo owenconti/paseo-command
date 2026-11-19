@@ -473,6 +473,15 @@ and GitHub publication; report the published version and release link.
   handlers, frames, forms, non-web URLs or the app's classes; ids only GitHub's `user-content-`; comments dropped). Its links open as
   others do (a PR in the tab, a Linear issue in Linear's desktop app, others in Conquer; footnotes scroll). Without HTML (over 400 KB, a draft,
   Preview) the Markdown is drawn, hidden comments on lines of their own left out. Styled in `github.css` (`.gh-html`).
+  @-mentions (the user's ask): typing `@` in any of a PR's comment boxes (`CommentBox` in `bits.tsx`: comments, replies,
+  line comments, the review summary, the close comment) or the merge's description (`MergeBox.tsx`) lists the repository's
+  organization's members beneath the caret (`web/src/github/MentionTextarea.tsx`, the repository from `PrView`'s
+  `MentionRepo`; pure `mentions.ts`: `mentionAt` (a word's start, never an address or code), `rankMentions` (login prefix,
+  a name's word, then the login holding it; 8), `insertMention`), read only once a mention starts (`GET
+  /api/github/q/mentions?repo=`, `readMentions` in `reads.ts`: `membersWithRole`, 100 a page to `MENTIONS_MAX` 500, by login,
+  kept as the people are; a personal repository's `readPeople` instead, `org: false`). ↑/↓ pick, Enter or Tab put `@login `
+  in, a click too, Esc closes only the list. A workspace's Changes comments have no repository, so no list. Tests:
+  `src/github/mentions.test.ts`, `server/github/github.test.ts`, `e2e/github.e2e.ts`.
   Its header shows Open Paseo agent while a Paseo workspace, on any host, has the PR's branch checked out (`paseo.ts`, `paseoMatches`,
   over the page's fleet: the PR Paseo names for the workspace, else the workspace's branch and remote against the PR's head ref and
   head repository, `headRepo` in `q/pr`, a fork's for a PR from one, never the base's; a workspace Paseo names another PR for doesn't

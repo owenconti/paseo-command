@@ -203,6 +203,8 @@ export type FakeGithub = {
   repoSearch: Record<string, Raw[]>;
   /** A repository's assignable users and its recent PRs' authors, by `owner/name` (lowercase), for the people query. */
   people: Map<string, { assignable: Raw[]; authors: Raw[] }>;
+  /** An organization's members, by its lowercase login, for the mentions query (a page of 100 at a time). */
+  members: Map<string, Raw[]>;
   /** The teams with access to a repository, by `owner/name`, as REST lists them (`{ slug, name }`), or GitHub's refusal. */
   teams: Map<string, Raw[] | FakeAnswer>;
   /** The viewer's repositories, repositories by `owner/name` (lowercase), and owners' (by lowercase login), for the repos query. */
@@ -266,6 +268,7 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
     prCounts: fakePrCounts(),
     repoSearch: {},
     people: new Map(),
+    members: new Map(),
     teams: new Map(),
     viewerRepos: [],
     repos: new Map(),
@@ -339,6 +342,16 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
         }
         if (vars.name !== undefined) data.exact = fake.repos.get(`${vars.login}/${vars.name}`.toLowerCase()) ?? null;
         return { json: { data } };
+      }
+      if (query.includes("membersWithRole")) {
+        const members = fake.members.get(String(vars.owner).toLowerCase());
+        if (!members) return { json: { data: { repositoryOwner: { __typename: "User" } } } };
+        const from = vars.after ? Number(vars.after) : 0;
+        const page = members.slice(from, from + 100);
+        const more = from + 100 < members.length;
+        return {
+          json: { data: { repositoryOwner: { __typename: "Organization", membersWithRole: { nodes: page, pageInfo: { hasNextPage: more, endCursor: more ? String(from + 100) : null } } } } },
+        };
       }
       if (query.includes("assignableUsers")) {
         const p = fake.people.get(`${vars.owner}/${vars.name}`.toLowerCase());

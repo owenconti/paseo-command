@@ -156,6 +156,7 @@ const GITHUB: Group = {
     { keys: [["⇧", "⌘", "C"]], label: "Copy the pull request's link (on a repository's list, its pull requests' link)" },
     { keys: [["⌘", "↩"]], label: "Send the comment or review being written" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
+    { keys: [["@"]], label: "In a comment: mention someone from the repository's organization (↑/↓ pick, Enter or Tab put them in, Esc closes the list)" },
   ],
 };
 /** The Files page's keys (`files/FilesView.tsx`), while it shows. */

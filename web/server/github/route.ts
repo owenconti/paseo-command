@@ -1,5 +1,5 @@
 /**
- * `/api/github/…`: the GitHub tab's named reads (`GET q/viewer|prs|repos|repoSearch|people|teams|pr|diff`,
+ * `/api/github/…`: the GitHub tab's named reads (`GET q/viewer|prs|repos|repoSearch|people|teams|mentions|pr|diff`,
  * `fresh=1` past the cache) and whitelisted writes (`POST m/<name>`). No
  * passthrough: an unknown name is a 404. A read GitHub can't answer right now
  * (off, no token, refused, limited) is a `GithubUnavailable` 200; a bad
@@ -11,12 +11,12 @@ import { bodyOf } from "../api/http";
 import { errorText } from "../wire";
 import { apiFailure, assertEnabled, GithubApiError, unavailable, writeStatus } from "./client";
 import { checkFilters, FILTER_FIELDS, FILTERS, isPeople, MAX_PEOPLE, MAX_SEARCHES, PERSON, searchCount } from "../../src/github/filters";
-import { prParams, readDiff, readPeople, readPr, readTeams, readPrs, readRepoPrs, readRepoSearch, readRepos, readViewer } from "./reads";
+import { prParams, readDiff, readMentions, readPeople, readPr, readTeams, readPrs, readRepoPrs, readRepoSearch, readRepos, readViewer } from "./reads";
 import { githubWrite } from "./writes";
 
 import { COMMIT_SHA, readMainCommits, readMainCommit } from "./commits";
 
-const READS = ["commits", "commit", "viewer", "prs", "repos", "repoSearch", "people", "teams", "pr", "diff"] as const;
+const READS = ["commits", "commit", "viewer", "prs", "repos", "repoSearch", "people", "teams", "mentions", "pr", "diff"] as const;
 type ReadName = (typeof READS)[number];
 /** A review with 100 drafted comments of some length fits; nothing larger is read. */
 export const WRITE_BODY_LIMIT = 2 * 1024 * 1024;
@@ -69,12 +69,13 @@ async function read(name: ReadName, params: URLSearchParams): Promise<unknown> {
       return readRepoSearch(text, f);
     }
     case "people":
-    case "teams": {
+    case "teams":
+    case "mentions": {
       only(params, ["repo", "fresh"]);
       const repo = repoParam(params);
       const f = fresh(params);
       assertEnabled();
-      return name === "people" ? readPeople(repo, f) : readTeams(repo, f);
+      return name === "people" ? readPeople(repo, f) : name === "teams" ? readTeams(repo, f) : readMentions(repo, f);
     }
     case "prs": {
       if (params.has("repo")) {

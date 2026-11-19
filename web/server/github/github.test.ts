@@ -631,6 +631,28 @@ test("a repository's people: you, recent authors, then its assignable users", as
   assert.equal((await ask("/api/github/q/people?repo=nope")).status, 400);
 });
 
+test("@-mentions: the organization's members, every page, by login; a personal repository's people instead", async () => {
+  const many = Array.from({ length: 150 }, (_, i) => ({ login: `m${String(i).padStart(3, "0")}` }));
+  fake.members.set("acme", [{ login: "zoe", name: "Zoe" }, ...many, { login: "ada", name: "Ada" }, { login: "Ada" }]);
+  const r = await ask("/api/github/q/mentions?repo=acme/web");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.org, true);
+  const logins = r.body.people.map((p: { login: string }) => p.login);
+  assert.equal(logins.length, 152, "both pages, a login once");
+  assert.deepEqual([logins[0], logins.at(-1)], ["ada", "zoe"], "by login");
+  assert.equal(r.body.people[0].name, "Ada");
+  // Kept, as the people are.
+  const before = fake.calls.length;
+  await ask("/api/github/q/mentions?repo=acme/web");
+  assert.equal(fake.calls.length, before);
+  // A personal repository: its people (you first).
+  fake.people.set("owen/app", { assignable: [{ login: "bob" }], authors: [{ login: "carl" }] });
+  const personal = await ask("/api/github/q/mentions?repo=owen/app");
+  assert.equal(personal.body.org, false);
+  assert.deepEqual(personal.body.people.map((p: { login: string }) => p.login), ["me", "carl", "bob"]);
+  assert.equal((await ask("/api/github/q/mentions?repo=nope")).status, 400);
+});
+
 test("a repository's teams, for its reviewers: by name, none when the token can't list them", async () => {
   fake.teams.set("acme/web", [{ slug: "web-core", name: "Web core" }, { slug: "bad slug", name: "x" }, { slug: "api", name: "API" }]);
   const r = await ask("/api/github/q/teams?repo=acme/web");

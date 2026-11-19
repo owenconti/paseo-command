@@ -256,6 +256,10 @@ async function setUp(
     if (name === "repoSearch") return route.fulfill({ json: found(u.searchParams.get("q") ?? "") });
     if (name === "people") return route.fulfill({ json: { ...PEOPLE, repo: u.searchParams.get("repo")! } });
     if (name === "teams") return route.fulfill({ json: TEAMS });
+    if (name === "mentions")
+      return route.fulfill({
+        json: { repo: u.searchParams.get("repo")!, org: true, people: [{ login: "ada", name: "Ada Lovelace" }, { login: "adam" }, { login: "bob" }, { login: "sam", name: "Sam Rivera" }] },
+      });
     if (name === "prs" && u.searchParams.get("repo")) {
       const repo = u.searchParams.get("repo")!;
       let rows = repo === "sam/tools" ? TOOLS : REVIEW;
@@ -398,6 +402,67 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
     await page.keyboard.press("Escape");
     await view.locator(".gh-row").first().waitFor();
     assert.equal(await view.locator(".gh-head h2").first().textContent(), "Review requests2");
+  } finally {
+    await context.close();
+  }
+});
+
+test("@ in a PR's comment box suggests the organization's members: ↑/↓, Enter or Tab put one in, Esc closes only the list", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 900 });
+  const { asked, writes } = await setUp(page);
+  try {
+    await page.goto(app.url);
+    await page.locator(".crew-board").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-nav-item", { hasText: "Your pull requests" }).click();
+    await view.locator(".gh-row", { hasText: "My own change" }).click();
+    const box = view.locator("#gh-pr-comment textarea");
+    await box.waitFor();
+    const list = view.getByRole("listbox", { name: "Members of the organization" });
+    const options = () => list.getByRole("option").evaluateAll((els) => els.map((e) => e.querySelector("b")!.textContent));
+    // Nothing is asked until a mention starts.
+    await box.click();
+    await page.keyboard.type("Thanks ");
+    assert.equal(asked.filter((a) => a.path.endsWith("/q/mentions")).length, 0);
+    await page.keyboard.type("@ad");
+    await list.waitFor();
+    await waitFor(options, (o) => o.join() === "ada,adam", "the members who fit");
+    assert.ok(asked.some((a) => a.path.endsWith("/q/mentions") && a.query.repo));
+    // Beneath the caret, inside the box's column.
+    const [l, b] = await Promise.all([list, box].map((x) => x.evaluate((e) => e.getBoundingClientRect().toJSON())));
+    assert.ok(l.top > b.top && l.left >= b.left - 1, JSON.stringify({ l, b }));
+    // ↓ then Enter: the second, with a space after; Enter doesn't post or break the line.
+    await page.keyboard.press("ArrowDown");
+    await waitFor(() => list.getByRole("option", { selected: true }).locator("b").innerText(), (t) => t === "adam", "adam picked");
+    await page.keyboard.press("Enter");
+    assert.equal(await box.inputValue(), "Thanks @adam ");
+    await list.waitFor({ state: "detached" });
+    // A name's word finds its person too; Tab puts it in.
+    await page.keyboard.type("and @riv");
+    await waitFor(options, (o) => o.join() === "sam", "a name's word");
+    await page.keyboard.press("Tab");
+    assert.equal(await box.inputValue(), "Thanks @adam and @sam ");
+    // Esc closes the list, and only it: the comment and its text stay.
+    await page.keyboard.type("cc @b");
+    await waitFor(options, (o) => o.join() === "bob", "who starts with b");
+    await page.keyboard.press("Escape");
+    await list.waitFor({ state: "detached" });
+    assert.equal(await box.inputValue(), "Thanks @adam and @sam cc @b");
+    // A click puts one in; an address (a@b) suggests nothing.
+    await page.keyboard.press("Backspace");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.type("@bo");
+    await waitFor(options, (o) => o.join() === "bob", "bob");
+    await list.getByRole("option", { name: /bob/ }).click();
+    assert.equal(await box.inputValue(), "Thanks @adam and @sam cc @bob ");
+    await page.keyboard.type("mail ada@ex");
+    assert.equal(await list.count(), 0);
+    await page.keyboard.press("Meta+Enter");
+    await waitFor(() => Promise.resolve(writes.find((w) => w.path.endsWith("/m/comment"))), Boolean, "the comment posted");
+    assert.equal((writes.find((w) => w.path.endsWith("/m/comment"))!.body as { body: string }).body, "Thanks @adam and @sam cc @bob mail ada@ex");
   } finally {
     await context.close();
   }

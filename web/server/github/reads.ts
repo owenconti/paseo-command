@@ -36,6 +36,7 @@ import {
   type PrScope,
   type PrState,
   type RepoList,
+  type RepoMentions,
   type RepoPeople,
   type RepoRow,
   type RepoSearch,
@@ -479,6 +480,56 @@ export function readPeople(repo: string, fresh = false): Promise<RepoPeople> {
       const authors = take(nodes(r.pullRequests));
       const others = take(nodes(r.assignableUsers)).sort((a, b) => a.login.toLowerCase().localeCompare(b.login.toLowerCase()));
       return { repo, viewer, people: [...authors, ...others] };
+    },
+    PEOPLE_TTL_MS,
+  );
+}
+
+// ── mentions ─────────────────────────────────────────────────────────────────
+/** At most this many members are read for @-mentions (pages of 100). */
+export const MENTIONS_MAX = 500;
+export const MENTIONS_QUERY = `query($owner: String!, $after: String) {
+  repositoryOwner(login: $owner) {
+    __typename
+    ... on Organization { membersWithRole(first: 100, after: $after) { nodes { login name avatarUrl } pageInfo { hasNextPage endCursor } } }
+  }
+}`;
+
+/**
+ * Who a comment's @-mention suggests (`CommentBox`, `mentions.ts`): the members of the repository's organization, by
+ * login (up to `MENTIONS_MAX`; the token needs `read:org`). A personal repository has no organization: its people
+ * (`readPeople`: you, recent PR authors, assignable users) instead. Kept as long as the people are.
+ */
+export function readMentions(repo: string, fresh = false): Promise<RepoMentions> {
+  return cached(
+    `mentions:${repo.toLowerCase()}`,
+    fresh,
+    async () => {
+      const owner = repo.split("/")[0]!;
+      const people: Person[] = [];
+      let after: string | undefined;
+      let org = false;
+      for (let page = 0; page < MENTIONS_MAX / 100; page++) {
+        const data = await graphql(MENTIONS_QUERY, { owner, ...(after ? { after } : {}) });
+        const o = rec(data.repositoryOwner);
+        if (str(o.__typename) !== "Organization") break;
+        org = true;
+        const members = rec(o.membersWithRole);
+        for (const n of nodes(members)) {
+          const p = personOf(n);
+          if (p) people.push(p);
+        }
+        const info = rec(members.pageInfo);
+        if (info.hasNextPage !== true || !str(info.endCursor)) break;
+        after = str(info.endCursor);
+      }
+      if (!org) {
+        const repoPeople = await readPeople(repo, fresh);
+        return { repo, org: false, people: [repoPeople.viewer, ...repoPeople.people] };
+      }
+      const seen = new Set<string>();
+      const unique = people.filter((p) => !seen.has(p.login.toLowerCase()) && seen.add(p.login.toLowerCase()));
+      return { repo, org: true, people: unique.sort((a, b) => a.login.toLowerCase().localeCompare(b.login.toLowerCase())) };
     },
     PEOPLE_TTL_MS,
   );

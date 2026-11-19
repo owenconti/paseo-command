@@ -145,6 +145,9 @@ export type RepoSearch = { query: string; repos: RepoRow[]; owner?: { login: str
  * others who can be assigned (its collaborators and members).
  */
 export type RepoPeople = { repo: string; viewer: Person; people: Person[] };
+/** `GET /api/github/q/mentions?repo=`: who an @-mention suggests: the repository's organization's members (`org`), else
+ *  (a personal repository) its people. */
+export type RepoMentions = { repo: string; org: boolean; people: Person[] };
 
 /** A team that can be asked to review: its `slug` (what GitHub's requests take) and name. */
 export type Team = { slug: string; name: string };
