@@ -62,6 +62,18 @@ assert(EditorStage.frame(of: CGRect(x: 10, y: 0, width: 100, height: 50), in: pl
 // Another mode: hidden, where it was; back to Command: shown again.
 assert(!stage.follow(showing: "github", web: web) && stage.isHidden)
 assert(stage.follow(showing: "command", web: web) && !stage.isHidden)
+// A menu of the page's over its top right (the page's coordinates): cut out, and its clicks go to the page.
+let holed = EditorPlacement(["terminal": "t", "x": 0, "y": 80, "width": 900, "height": 300,
+                             "holes": [["x": 600, "y": 80, "width": 300, "height": 100]]])
+assert(holed.holes == [CGRect(x: 600, y: 80, width: 300, height: 100)])
+stage.follow(holed, web: web)
+assert(stage.holes == [CGRect(x: 600, y: 200, width: 300, height: 100)], "\(stage.holes)")
+assert(stage.layer?.mask != nil)
+let inHole = stage.superview!.convert(NSPoint(x: 700, y: 250), from: stage)
+assert(stage.hitTest(inHole) == nil, "a click in the menu goes to the page")
+assert(stage.hitTest(stage.superview!.convert(NSPoint(x: 100, y: 100), from: stage)) != nil)
+stage.follow(short, web: web)
+assert(stage.holes.isEmpty && stage.layer?.mask == nil, "the hole goes with the menu")
 // A dialog over it, then gone; no editor (the tab shows the viewer); then another tab's.
 var over = short; over.covered = true
 assert(!stage.follow(over, web: web) && stage.isHidden)

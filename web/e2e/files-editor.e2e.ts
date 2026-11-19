@@ -164,6 +164,18 @@ test("an agent's workspace in your editor beside its conversation on Crew (F): o
     const frame = await slot.evaluate((e) => e.getBoundingClientRect().toJSON());
     await waitFor(() => lastPlacement(page), (p) => p?.terminal === "term-1" && p.mode === "command" && p.x === frame.x && p.width === frame.width, "placed for Command");
     await waitFor(() => sent(page, "editorFocus"), (s) => s.length >= 1, "the editor given the keyboard");
+    // A menu of the page's over the pane (the top bar's glance menus, a row menu): cut out of the terminal, so it shows.
+    await page.evaluate(() => {
+      const menu = document.createElement("div");
+      menu.className = "popover-menu test-menu";
+      Object.assign(menu.style, { position: "fixed", right: "20px", top: "160px", width: "300px", height: "120px", zIndex: "50" });
+      document.body.appendChild(menu);
+    });
+    const holed = await waitFor(() => lastPlacement(page), (p) => (p?.holes?.length ?? 0) === 1, "the menu cut out");
+    assert.deepEqual(Object.keys(holed.holes[0]).sort(), ["height", "width", "x", "y"]);
+    assert.ok(holed.holes[0].width >= 300 && holed.holes[0].height >= 120, JSON.stringify(holed.holes));
+    await page.evaluate(() => document.querySelector(".test-menu")?.remove());
+    await waitFor(() => lastPlacement(page), (p) => (p?.holes?.length ?? 1) === 0, "the hole goes with the menu");
     // Show changes: Settings → Files' command, in it.
     await pane.getByRole("button", { name: "Show changes" }).click();
     await waitFor(() => Promise.resolve(sentToEditor.length), (n) => n === 1, "show changes sent");

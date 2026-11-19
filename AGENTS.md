@@ -787,7 +787,9 @@ the page keeps its id per workspace (`editor:workspaces` in localStorage) and fi
 starts another (a module-level `starting` map, so React's double effects start one). It keeps running while you step away;
 if it quits, Start again. The macOS app lays the terminal over the pane's `.crew-editor-slot` (`EditorOverlay.swift`, placements
 with `mode: "command"`, `setEditorMode` in a layout effect; the app shows an editor only while its placement's mode shows,
-`EditorPlacement.mode`, `visible(showing:)`). Main's `filesShown` (`crewBrowsing` and `world:filesOpen`): F outside a field,
+`EditorPlacement.mode`, `visible(showing:)`). The page's own things over the pane (tooltips, menus such as the top bar's
+glance menus, the bar's popovers: `OVERLAYS` in `web/src/overlays.ts`, shared with the agent's browser) go with each placement as
+`holes`, which `EditorStage` cuts out of the terminal (a layer mask; clicks there reach the page), as `BrowserStage` does. Main's `filesShown` (`crewBrowsing` and `world:filesOpen`): F outside a field,
 the strip's Editor button and the tools' Editor tab, ⌘K "Show …’s workspace in your editor" / "Hide the editor beside the
 conversation" (`crew-files`, page Command). It and the browser share the place. Asks go to it (`workspaceEditorAsks.ts`:
 `askWorkspaceEditor`, kept until its editor runs): a chat's file link (`openFileLink` in `Session.tsx`, title "Open in your

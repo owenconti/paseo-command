@@ -9,6 +9,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { ArrowLeft, ArrowRight, ExternalLink, Maximize2, Minimize2, Plus, RotateCw, X } from "lucide-react";
 import { daemonAgentId } from "../agentIdentity";
 import { MODAL_EVENT, modalOpen } from "../focus";
+import { overlayHoles } from "../overlays";
 import { openSettings } from "../settingsStore";
 import type { Agent } from "../types";
 import { postAppLink } from "../worldBridge";
@@ -25,7 +26,6 @@ import {
   tabLabel,
   useBoardBrowsers,
   type BrowserHosting,
-  type Rect,
 } from "./browserBridge";
 import "./board-browser.css";
 
@@ -33,8 +33,6 @@ export const BROWSER_ADDRESS = "board-browser-address";
 /** A Linear issue or project: the app opens it in Linear's desktop app (`LinearLink.swift`). */
 const LINEAR_LINK = /^https:\/\/linear\.app\/[^/]+\/(issue|project)\//i;
 /** The page's own layers that can lie over the web page: cut out of it, so they show and take their clicks. */
-const OVER = ".tooltip.shown, .popover-menu";
-const OVER_FILLED = OVER;
 
 /** How agents' own browser tools stand, in a sentence for the empty browser. */
 export function hostingNote(hosting: BrowserHosting, host: string, name: string): { text: string; settings?: boolean } {
@@ -79,13 +77,7 @@ export function BoardBrowser(props: {
     const measure = () => {
       frameRequest = 0;
       const r = node.getBoundingClientRect();
-      const holes: Rect[] = [];
-      for (const el of document.querySelectorAll<HTMLElement>(filled ? OVER_FILLED : OVER)) {
-        const o = el.getBoundingClientRect();
-        if (o.width < 1 || o.height < 1 || o.right <= r.left || o.left >= r.right || o.bottom <= r.top || o.top >= r.bottom) continue;
-        // A little wider than the thing, for its shadow's nearest edge.
-        holes.push({ x: Math.floor(o.left) - 2, y: Math.floor(o.top) - 2, width: Math.ceil(o.width) + 4, height: Math.ceil(o.height) + 4 });
-      }
+      const holes = overlayHoles(r);
       postBrowserPlacement({
         host,
         agent: id,

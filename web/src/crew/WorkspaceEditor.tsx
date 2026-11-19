@@ -12,6 +12,7 @@ import { GitCompare, Play, SquareTerminal } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "../api";
 import { focusEditor, hideEditor, onEditorEvent, postEditorPlacement } from "../files/editorBridge";
 import { MODAL_EVENT, modalOpen } from "../focus";
+import { overlayHoles } from "../overlays";
 import { ASK_EVENT, takeEditorAsk, type EditorAsk } from "./workspaceEditorAsks";
 import "./crew-files.css";
 
@@ -52,7 +53,10 @@ function Slot({ terminal, host }: { terminal: string; host?: string }) {
     if (!el) return;
     const send = (force = false) => {
       const r = el.getBoundingClientRect();
-      postEditorPlacement({ terminal, ...(host ? { host } : {}), x: r.left, y: r.top, width: r.width, height: r.height, covered: modalOpen() }, force);
+      postEditorPlacement(
+        { terminal, ...(host ? { host } : {}), x: r.left, y: r.top, width: r.width, height: r.height, covered: modalOpen(), holes: overlayHoles(r) },
+        force,
+      );
     };
     send(true);
     focusEditor();

@@ -12,6 +12,9 @@ struct EditorPlacement: Equatable {
     var rect: CGRect
     /// A dialog (⌘K, ⌘P, a confirmation) is open over it: the page's, so the terminal steps aside.
     var covered: Bool
+    /// The page's own things lying over the pane (a menu, a tooltip, the top bar's popovers), in the page's
+    /// coordinates: cut out of the terminal, so they show and take their clicks.
+    var holes: [CGRect] = []
     /// The app's mode it shows in (a `Mode`'s raw value): "command", beside an agent's conversation on Crew
     /// (`web/src/crew/WorkspaceEditor.tsx`).
     var mode: String
@@ -34,6 +37,10 @@ struct EditorPlacement: Equatable {
                   rect: CGRect(x: number("x"), y: number("y"), width: max(0, number("width")), height: max(0, number("height"))),
                   covered: body["covered"] as? Bool ?? false,
                   mode: (body["mode"] as? String).flatMap(Mode.init(rawValue:))?.rawValue ?? "command")
+        holes = (body["holes"] as? [[String: Any]] ?? []).prefix(12).map { d in
+            let n = { (key: String) in CGFloat((d[key] as? NSNumber)?.doubleValue ?? 0) }
+            return CGRect(x: n("x"), y: n("y"), width: max(0, n("width")), height: max(0, n("height")))
+        }.filter { $0.width > 0 && $0.height > 0 }
     }
 
     /// Whether a terminal shows at all: one is named, the app shows its mode (`showing`, a `Mode`'s raw value),
@@ -76,7 +83,40 @@ class EditorStage: NSView {
             if frame != self.frame { self.frame = frame }
         }
         if isHidden == shows { isHidden = !shows }
+        cut(shows ? placement.holes : [])
         return shows
+    }
+
+    /// The holes now, in this view's coordinates (y up, from its bottom left).
+    private(set) var holes: [CGRect] = []
+    private var masked = CGRect.null
+
+    /// Cut the page's things over the pane (`holes`, the page's coordinates) out of the terminal.
+    private func cut(_ inPage: [CGRect]) {
+        let r = placement.rect
+        let inside = inPage.map { h in
+            CGRect(x: h.minX - r.minX, y: bounds.height - (h.maxY - r.minY), width: h.width, height: h.height).intersection(bounds)
+        }.filter { !$0.isNull && $0.width > 0 && $0.height > 0 }
+        guard inside != holes || masked != bounds else { return }
+        holes = inside
+        masked = bounds
+        wantsLayer = true
+        guard !inside.isEmpty else { layer?.mask = nil; return }
+        let path = CGMutablePath()
+        path.addRect(bounds)
+        for hole in inside { path.addRect(hole) }
+        let mask = CAShapeLayer()
+        mask.frame = bounds
+        mask.fillRule = .evenOdd
+        mask.path = path
+        layer?.mask = mask
+    }
+
+    /// Clicks in a hole go to the page beneath.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let local = convert(point, from: superview)
+        if holes.contains(where: { $0.contains(local) }) { return nil }
+        return super.hitTest(point)
     }
 }
 

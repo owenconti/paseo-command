@@ -8,7 +8,17 @@ const channel = () =>
   (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: { postMessage(m: unknown): void } } } }).webkit?.messageHandlers
     ?.paseoWorld;
 
-export type EditorPlacement = { terminal?: string; host?: string; x: number; y: number; width: number; height: number; covered: boolean };
+export type EditorPlacement = {
+  terminal?: string;
+  host?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  covered: boolean;
+  /** The page's things over the pane (`overlays.ts`), in page coordinates: the app cuts them out of the terminal. */
+  holes?: { x: number; y: number; width: number; height: number }[];
+};
 let last = "";
 /** Where the editor goes (no terminal: none shows). Sent only when it changes, unless `force`. */
 export function postEditorPlacement(p: EditorPlacement, force = false) {
