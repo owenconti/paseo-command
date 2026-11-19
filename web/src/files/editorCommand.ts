@@ -12,10 +12,12 @@
  * the Terminal tab's shells do, so the editor's own PATH, config and LSP apply.
  */
 export type OpenIn = "viewer" | "editor";
-export type FilesSettings = { openIn: OpenIn; editorCommand: string };
+/** `changesCommand`: the Ex command the workspace's editor runs to show its changes (Show changes, ⇧⌘G). */
+export type FilesSettings = { openIn: OpenIn; editorCommand: string; changesCommand: string };
 
 export const DEFAULT_EDITOR_COMMAND = "nvim {file}";
-export const DEFAULT_FILES_SETTINGS: FilesSettings = { openIn: "viewer", editorCommand: DEFAULT_EDITOR_COMMAND };
+export const DEFAULT_CHANGES_COMMAND = ":DiffviewOpen";
+export const DEFAULT_FILES_SETTINGS: FilesSettings = { openIn: "viewer", editorCommand: DEFAULT_EDITOR_COMMAND, changesCommand: DEFAULT_CHANGES_COMMAND };
 export const EDITOR_COMMAND_MAX = 300;
 const PLACEHOLDER = /\{([A-Za-z_]+)\}/g;
 
@@ -73,5 +75,32 @@ export function editorLaunch(template: string, file: string, line?: number): { c
 export function filesSettings(raw: unknown): FilesSettings {
   const r = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const command = typeof r.editorCommand === "string" && !editorCommandProblem(r.editorCommand) ? r.editorCommand.trim() : DEFAULT_EDITOR_COMMAND;
-  return { openIn: r.openIn === "editor" ? "editor" : "viewer", editorCommand: command };
+  const changes = typeof r.changesCommand === "string" && !changesCommandProblem(r.changesCommand) ? r.changesCommand.trim() : DEFAULT_CHANGES_COMMAND;
+  return { openIn: r.openIn === "editor" ? "editor" : "viewer", editorCommand: command, changesCommand: changes };
 }
+
+// ── The workspace's own editor (crew/WorkspaceEditor.tsx): one per workspace, in its folder ──────────────────────
+/** The shell text that starts the workspace's editor in its folder: the command with `{file}` as `.`. */
+export const workspaceEditorLaunch = (template: string) => editorLaunch(template, ".", 1);
+
+/** What's wrong with the Show changes command, or null: one Ex command line, starting with ":". */
+export function changesCommandProblem(command: string): string | null {
+  const t = command.trim();
+  if (!t.startsWith(":")) return "Start it with :, as you'd type it in nvim (such as :DiffviewOpen).";
+  if (t.length > EDITOR_COMMAND_MAX) return `Keep the command under ${EDITOR_COMMAND_MAX} characters.`;
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(t)) return "The command must be one line, without control characters.";
+  return null;
+}
+
+/** Back to Normal mode from any mode (Insert, Visual, a terminal buffer): ⌃\ ⌃N, as `:help CTRL-\_CTRL-N`. */
+const NORMAL = "\x1c\x0e";
+/** A path as an Ex command's argument: vim's `fnameescape` characters escaped. */
+export const exPath = (path: string) => path.replace(/[ \t*?[{`$%#'"|!<\\]/g, (c) => `\\${c}`);
+/** The keys that make a running editor open `path` at `line`: Normal mode, then `:e +line path`. */
+export function openFileKeys(path: string, line = 1): string {
+  const n = Number.isInteger(line) && line > 0 && line < 10_000_000 ? line : 1;
+  return `${NORMAL}:e +${n} ${exPath(path.startsWith("-") ? `./${path}` : path)}\r`;
+}
+/** The keys that run an Ex command line in a running editor (Normal mode first). */
+export const exCommandKeys = (command: string) => `${NORMAL}${command.trim()}\r`;

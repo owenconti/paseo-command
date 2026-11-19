@@ -42,7 +42,7 @@ question, failure and offline. Test daemon mutations against fake daemons only.
 The command palette (⌘K, `web/src/CommandPalette.tsx`) lists what the app can do. Its entries are
 `paletteCommands` in `web/src/main.tsx` (the open agent's own in `agentCommands`), ranked by `web/src/palette.ts`.
 Every entry has a `page`, the part of Paseo Command it belongs to (`PAGES`): Command (the map, agents, workspaces,
-projects, hosts, dispatch), Conquer, Activity, GitHub, Files, Settings (its toggles and editors too), Terminal,
+projects, hosts, dispatch, your editor), Conquer, Activity, GitHub, Settings (its toggles and editors too), Terminal,
 else App (the window, updates, text size, ⌘` stepping, what's new, games). A "Show …" entry for a tab names that tab's page.
 The palette shows it on the row's right before any keys; found things add their `kind` ("Command · Agent"). Among equal
 matches the page on screen (`shown`) ranks first. Write it `page: "GitHub" as const` (spreads widen strings).
@@ -180,7 +180,7 @@ and GitHub publication; report the published version and release link.
   back to the side before, the gear and ⌘, opening it again; ⌘` steps on from that side; the palette's Settings asks with `menu` `settings`; a saved
   `settings` mode still shows it), in a browser the page's own state (its bar's gear; Esc or its × closes it). Laid out as the other pages (a resizable sidebar of its
   sections, the chosen one beside it under its heading, kept in localStorage; ↑/↓ step through them; Manage … key opens Integrations): sound and music (a
-  volume only while its sound is on), notifications, integrations, New agent (presets, profiles), Files (open files in the viewer or an editor command),
+  volume only while its sound is on), notifications, integrations, New agent (presets, profiles), Files (your editor's command and its changes command),
   Terminal (the macOS app's terminal font: family from a searchable `Picker`, size, line height (a typed number: any value above 0 up to 100,
   applied as it parses, ↑/↓ stepping 0.05; what can't work is said beside it and the last good value stays), letter spacing, a preview and Restore defaults; ⌘K
   "Terminal settings…", `openSettings("terminal")`; in a browser it says it's the app's). Rows put what a setting is on the left and
@@ -190,7 +190,7 @@ and GitHub publication; report the published version and release link.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
   `web/server/settings.ts`), which the page once kept in localStorage and moves into the file on load.
 - `native/Sources/PaseoCommandNative/TerminalDrawer.swift`: the Terminal tab, the macOS app's only terminals (the Files editor's aside; there is no side or
-  bottom terminal panel: the user removed it). The mode bar's tab after Files (`Mode.terminal`; ⌘3 by its place, ⌘` steps through it; View → Terminal
+  bottom terminal panel: the user removed it). The mode bar's tab after Command (`Mode.terminal`; ⌘2 by its place, ⌘` steps through it; View → Terminal
   and View → Show Terminal, ⌃`, from anywhere, which in the tab goes back to the side before it (`toggleTerminal`, its title then Back from Terminal);
   ⌘K "Show terminal" (`terminal-tab`) or, in the tab, "Leave the terminal tab" (`terminal`), page Terminal; ⌃⇧` is no longer a key) shows the selected
   workspace's (or agent's) daemon terminals full size in the map's place, laid as Conquer is (`placeTerminalTab`, over `mapInContent`; ⌘B gives it the
@@ -326,9 +326,9 @@ and GitHub publication; report the published version and release link.
   While it's on, Crew's workspace head carries the auto-merge seal (`AUTO_MERGE` in `web/src/model/prStatus.ts`), its tooltip saying how
   it merges and who turned it on.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
-  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Files, Terminal, GitHub, Conquer, Activity, those enabled;
-  ⌘1…⌘6 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
-  whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes (the Files tab's Changes) and ⇧⌘E Show Files are, `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
+  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Terminal, GitHub, Conquer, Activity, those enabled;
+  ⌘1…⌘5 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
+  whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes (the workspace's changes in your editor) is, `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`;
   the glance, `GlanceBar`, between the usage meters and the gear). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
@@ -339,7 +339,7 @@ and GitHub publication; report the published version and release link.
   below the bar, passing other events through (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is
   hidden and shown again. Check such layout with `.windowshot` (the screen's pixels), not `.snapshot`. Bar controls must be `NSButton`s: the title bar's
   toolbar passes clicks through only to controls. The panel has no header of its own and, hidden (⌘B), takes no width.
-- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Files → Terminal → GitHub → Conquer → Activity, those enabled, and ⌘1…⌘6 pick one; View menu; the tabs light on hover)
+- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Terminal → GitHub → Conquer → Activity, those enabled, and ⌘1…⌘5 pick one; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels stay, and ⌘B (the page's panel toggle)
   gives it the window's width. The hidden side keeps running. Conquer takes its keys only while it has the keyboard (`hasKeyFocus`),
@@ -348,7 +348,7 @@ and GitHub publication; report the published version and release link.
   (`PageBar.swift`). Its sidebar, as in Zen and Arc: pinned tabs and their folders (one level; drag to reorder, pin above New Tab, unpin below it, into and out of folders;
   right-click for Pin, Back to Pinned Page, Replace Pinned URL with Current URL, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
   its favicon or a spinner. A closed pinned tab only unloads. Its commands (`ConquerView.commands`, the Conquer menu) take their keys ahead of
-  the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌥⌘1…⌥⌘8 that tab, ⌥⌘9 the last (⌘1…⌘6 stay the mode bar's), ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
+  the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌥⌘1…⌥⌘8 that tab, ⌥⌘9 the last (⌘1…⌘5 stay the mode bar's), ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
   ⌘R reload (⇧⌘R without cache), ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads. App restart is only in the React command palette, without a shortcut. It has its own persistent cookie store,
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
@@ -363,7 +363,7 @@ and GitHub publication; report the published version and release link.
   credential providers such as 1Password's) isn't available for arbitrary sites in a third-party app's WKWebView: Password AutoFill offers
   credentials only for an app's own associated domains, and the browser entitlement (`com.apple.developer.web-browser.public-key-credential`,
   granted by Apple) covers passkeys only. So there's no Conquer menu or ⌘K entry for it.
-- Pages: GitHub, Activity, Files and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
+- Pages: GitHub, Activity and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
   app's sizes plus `--page-text`, 2 px by default), one width scale (`--lz`, from `--page-scale`, for columns, rows, controls and icons) and, in dark, one
   neutral near-black palette; each is a sidebar headed by its name beside its content, the same rows and heads. A content head is a
   `.page-head` (`pages.css`) and never overlaps: its title (`.page-crumb` parts, then `.page-head-name`, then `.page-head-count`)
@@ -374,10 +374,9 @@ and GitHub publication; report the published version and release link.
   and the shortcuts dialog's Pages group; the terminal keeps those keys only while it has the keyboard.
   ⌘R refreshes what the shown page shows, as its head's refresh button does, never reloading the web page (`web/src/pageRefresh.ts`:
   the view on screen registers its refresh with `usePageRefresh`; one runs at a time, ⌘R in flight ignored; the button spins): a GitHub PR
-  (its read with `fresh=1`, and the diff while Files changed shows) or list (that list only), Files (the tree's folders, the open file, the
-  file list and changed files), Files → Changes (the changes), Activity (the feed). Settings has none, nor the map (its fleet is live: ⌘R
+  (its read with `fresh=1`, and the diff while Files changed shows) or list (that list only), Activity (the feed). Settings has none, nor the map (its fleet is live: ⌘R
   does nothing there). In the macOS app it's View → Refresh Page (`AppKeys.addRefreshPage`), offered the menu ahead of the views while
-  GitHub, Files or Activity shows and no terminal has the keyboard (`AppKeys.pageRefreshes`), asking the page's `page-refresh`; a file's
+  GitHub or Activity shows and no terminal has the keyboard (`AppKeys.pageRefreshes`), asking the page's `page-refresh`; your
   editor and the Terminal tab keep ⌘R (no ⌘ key reaches a terminal program, as in Terminal.app, so it does nothing there) and Conquer
   keeps Reload Page while it has the keyboard. In a browser the page takes ⌘R only while a refresh is registered, else the browser
   reloads. ⌘K: "Refresh the pull request(s)", "Refresh the files", "Refresh the changes", "Refresh activity" (`page-refresh`, ⌘R); "Refresh
@@ -423,9 +422,9 @@ and GitHub publication; report the published version and release link.
   agents from Slack, Settings → Slack). Don't add it back unless asked. The user's data stays as it is, ignored: `settings.json`'s
   `integrations.slack` and `slackSections`, `secrets.json`'s `slackUserToken`/`slackAppToken` (saving either file keeps them) and
   `slack-activity.json`.
-- GitHub (the mode bar's tab after Files; View menu; palette "Show GitHub"; all only while `integrations.github` is on): pull
+- GitHub (the mode bar's tab after Terminal; View menu; palette "Show GitHub"; all only while `integrations.github` is on): pull
   requests the page draws (`web/src/github/GitHubView.tsx`) over the map's frame while the app reports `paseo:mode`
-  `github`, as Activity is (a workspace's changes are the Files tab's Changes, below). Its sidebar:
+  `github`, as Activity is (a workspace's changes are your editor's: Show changes, below). Its sidebar:
   Pull requests (Review requests, Your pull requests, Involving you, each counted), then Repositories (`RepoNav.tsx`, `GET /api/github/q/repos`:
   one GraphQL query for your, your organizations' and collaborations' repositories, those of PRs involving you and of your favourites, each
   counting its open PRs): only Favourites (starred repositories, and those of starred organizations, whose heads show even with none open),
@@ -557,20 +556,8 @@ and GitHub publication; report the published version and release link.
   into your pending review (`drafts.ts`, localStorage per PR until sent or discarded) or at once (Add single comment); threads sit under
   their lines (its line annotations, slotted, so our components and CSS draw them) with Reply and Resolve; Viewed per file. Review opens Finish your review: a summary and Comment, Approve or Request changes
   (only Comment on your own PR), sent with the drafted comments at the head read.
-  On a workspace's Changes diff (the Files tab's, below; `DiffReview.local`: no Viewed, never GitHub) the same + takes a comment as that workspace's pending
-  comment (`web/src/github/localComments.ts`: path, side, line or range, the lines' text, the comment, when), kept by the server in the
-  data directory's `diff-comments.json` keyed `<host>|<workspace>` (local host ""; `web/server/diffComments.ts`, `GET
-  /api/diff-comments?workspace=&host=`, `POST /api/diff-comments` with `action` add|edit|remove|move|apply|discard, written atomically,
-  keeping unknown keys and fields; a damaged file is never overwritten), never in the worktree, so git stays clean. They hang under
-  their lines, editable and deletable; each refresh re-anchors them (`placeComments`: in place while their lines read the same, else the
-  nearest place on their side where they do, the move saved; else outdated, listed above the diff); the head counts them ("3 pending
-  comments"). The page shares them through `localCommentsStore.ts`. The chat of an agent in that workspace shows "N pending comments ·
-  Apply" above its composer (`web/src/composer/PendingComments.tsx`): its list reviews them (each removable, Discard all, Show the
-  changes: the Files tab's Changes, as ⇧⌘G); Apply sends one message through the chat's send (queued while the agent works; `applyMessage`: an instruction, then each
-  as `path:line` or `path:a-b`, its lines quoted, the comment), then marks them applied (`appliedAt`, kept as history, hidden from the
-  diff and counts). ⌘K (the open agent's, page Command): "Apply pending diff comments (N)", "Show pending diff comments", only while
-  there are some (`diff-comments-apply|show`). Places (`place.ts`, kept in localStorage; `openGithubPlace`
-  opens one from elsewhere; a remembered or asked-for `{kind: "changes"}` place, the old Changes', goes to the Files tab's Changes instead,
+  Places (`place.ts`, kept in localStorage; `openGithubPlace`
+  opens one from elsewhere; a remembered or asked-for `{kind: "changes"}` place, the old Changes', is dropped for the default place,
   `redirectChanges`) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
   `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,
   C comment, V viewed, U unified/split, F file list (a repository's filters), T filter the diff's files, ⌘F find in the diff, ⇧C the diff's Files / Comments, N / ⇧N its next / previous comment, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.
@@ -590,103 +577,14 @@ and GitHub publication; report the published version and release link.
   /api/github/q/viewer|prs|repos|repoSearch|people|teams|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
   whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed|reviewers|assignees|merge|autoMerge|queue|ready|updateBranch|state|deleteBranch|star`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
   otherwise) and `web/e2e/github.e2e.ts` in the browser.
-- Files (the mode bar's tab after Command, always shown; View menu, its item and View → Show Files ⇧⌘E offered the menu from anywhere by
-  `AppKeys.offeredToMenu`, Conquer having no ⇧⌘E; ⌘K "Show files"; in a browser ⇧⌘E only says the tab is the macOS app's): the selected workspace's
-  (or the selected agent's) files, read only, drawn by the page (`web/src/files/FilesView.tsx`, `files.css`, borrowing `github.css`'s sidebar, heads,
-  empty states and the diff's find strip and scroller) while the app reports `paseo:mode` `files`. The sidebar is the tree (`tree.ts`, pure: `treeRows`
-  over each open folder's listing, read as it opens; `filterRows`; `rankPaths`): directories first, by name; `.gitignore`d entries and `.git` hidden
-  until its eye button (or ⌘K) shows them dimmed (`files:showIgnored`); changed files dotted (and their folders). "Filter files…" (T, ⌘K) is fuzzy
-  (`fuzzyPath`, as the diff's file filter) over every path, the tree narrowed to what fits with its folders, names marked, "N of M"; ↑/↓ pick, Enter
-  opens, Esc clears. In the tree ↑/↓ (J/K), →/← open, close or go in or up, Enter opens; hovering (or the keyboard reaching) a file reads it ahead.
-  ⌘P (the page takes it while Files shows; ⌘K "Go to file…") quick-opens any file by name, the recently opened first while nothing's typed. Its inner
-  edge resizes the sidebar (`files:sidebarWidth`) and ⌘S hides it (`files:sidebarHidden`). Opened files are tabs above the viewer, as an editor's (`FileTabs` in
-  `FilesView.tsx`; the model is pure, `web/src/files/tabs.ts`): a click in the tree, the filter or ⌘P opens a preview tab (italic; the next preview
-  takes its place), a double-click (in the tree or on the tab) or using the file (a wheel, click or key in it, find) keeps it; tabs drag to reorder,
-  show the name with as much of the folder as tells clashing names apart (`tabLabels`), the changed dot and ×; a middle-click closes; the row scrolls
-  sideways and keeps the shown tab in view. ⌘W closes the shown tab while Files shows (none open: nothing): in the macOS app View → Close File Tab
-  (`AppKeys.addCloseFileTab`, offered the menu ahead of the views by `AppKeys.offeredToMenu` only while Files shows; the View menu comes before
-  Conquer's disabled Close Tab, which elsewhere takes ⌘W and does nothing, as before; the window's Close never has it there) asks the page's
-  `files-close-tab`; in a browser ⌘W is the browser's, so ⌃W too. ⇧⌘T reopens the last closed (pinned), ⌃Tab / ⌃⇧Tab and ⌥⌘→ / ⌥⌘← step, wrapping
-  (the page takes them; Conquer's are disabled while it hasn't the keyboard). ⌘K: Close the file's tab, Reopen the closed tab, Next tab, Previous
-  tab, Close other tabs (`files-close-tab|reopen-tab|next-tab|previous-tab|close-other-tabs`), each only when it applies. Each workspace (host
-  and workspace) keeps its open folders, its tabs with each one's scroll (put back when the tab shows), the shown one (`file`), the closed ones and
-  recent files (`files:workspaces`, 40 workspaces; `web/src/files/kept.ts`). The file shows in @pierre/diffs's `File` (its single-file renderer) under its `Virtualizer` (only the
-  lines in view drawn), highlighted in the diffs' worker pool (`DiffWorkers`) in their themes, with line numbers; ⌘F (`files-find`) finds in it with
-  the diff's `FindBar`, marks and `revealMatch` (`findInText` in `diffSearch.ts`: a file's lines are keyed `R<n>` as `File` draws them). Its head
-  (`.page-head`, `.page-btn`): the path, size and lines, Changed's badge, Show changes (a changed file: Changes, below, all changes, scrolled
-  to the file), Copy path, Find, Reload. Binary files, images and files over 1 MB
-  (`FILE_LIMITS`) are refused politely. Asked again every 15 s while shown. Long lines wrap by default (`File`'s `overflow: "wrap"`,
-  each line's number on its first row; the virtualizer measures wrapped lines and `useDiffAnchor` keeps the first line in view in place as
-  they're drawn): the head's Wrap toggle and ⌘K "Wrap lines" / "Don’t wrap lines" (`files-wrap`, `files:wrap`). Markdown (`.md`, `.markdown`,
-  `.mdx` as plain Markdown) opens rendered (`web/src/files/MarkdownPreview.tsx`): react-markdown with GFM, code blocks highlighted as the
-  chat's (`CodeBlock` from `Markdown.tsx`), the chat's `.md` look at the pages' sizes in a reading column (`.fv-md` in `files.css`; its code
-  blocks wrap with the toggle); HTML in it rebuilt from an allowlist by a rehype step (`markdownHtml.ts`: `<details>`, `<kbd>`, `<br>`,
-  aligned `<p>`, `<img>`…, checked attributes only; never scripts, styles, frames, forms, handlers, ids, classes), which also gives headings
-  GitHub's anchors (`data-anchor`) and elements their source line (`data-line`, the line in view for the editor). Links and images resolve
-  in `web/src/files/markdown.ts` (pure, `markdown.test.ts`): a relative or `/`-rooted path against the file's folder, never out of the
-  workspace, opens in Files (a file as a kept tab, at `#L12`/`#L12-L20` in its source or a `#heading` in its preview; a folder in the tree),
-  `#heading` scrolls, http(s) and mailto open as links do (a PR in the GitHub tab, a Linear issue in Linear, others in Conquer; a browser
-  tab outside the app), any other scheme stays text. Images: the workspace's PNG, JPEG, GIF and WebP through `GET /api/files/image?workspace=&host=&path=`
-  (`filesImage` in `web/server/api/files.ts`: by name and first bytes, never SVG, at most `FILES.maxImageBytes` 10 MB, `checkPath`ed, the
-  daemon keeping it in the workspace, `nosniff`), https ones through the chat's bounded loader (`loadImage`), each once near the view;
-  others a labelled placeholder. The head's Preview / Source toggle is kept per Markdown type (`files:markdownView`, only the types set to
-  source), with ⌘K "Show the Markdown source" / "Show the preview" (`files-markdown-source|preview`); a Markdown file opened at a line
-  (a chat link, `#L12`) shows its source there until the toggle's used. ⌘F in the preview finds in the rendered text (`findInPieces`:
-  across a block's text nodes, never between blocks; a match in a closed `<details>` opens it), marked with the CSS Custom Highlight API
-  under the diff's names (their colours in `files.css`, as the page's own). In editor mode the tab's View shows the preview. The page's reads (`web/src/files/api.ts`, a store
-  by path) come from `web/server/api/files.ts`, through the workspace's host's daemon (its file explorer: `listDirectory`, `readFile`, so remote
-  hosts work; `getCheckoutDiff` for the changed files): `GET /api/files/tree?workspace=&host=&dir=` (entries marked `ignored` by the `.gitignore`s on
-  the way down and `.git/info/exclude`, read through the daemon and matched by `web/server/files/gitignore.ts`; global excludes aren't read),
-  `GET /api/files/read?…&path=` (text, or `refused`: binary, image, large; a size known from the folder's listing refuses unread),
-  `GET /api/files/all` (every file not ignored, walked breadth first, at most 25,000 files and 4,000 folders, `capped`), `GET /api/files/changed`,
-  `GET /api/files/image` (above);
-  each kept a few seconds (`fresh=1` past it). Paths are relative: absolute, `~`, `..`, `.`, empty segments, backslashes and NULs are refused before
-  the daemon is asked (`checkPath`), and the daemon refuses what resolves outside the workspace (symlinks out). It never writes. Tests: `files.test.ts`
-  (over the fake daemon's `trees`), `src/files/tree.test.ts`, `src/files/markdown.test.ts`, `src/files/markdownHtml.test.ts`, `e2e/files.e2e.ts`; `native/scripts/fake-server.ts` has a tree and a branch diff for `wks_main`.
-  Files in the user's editor (Settings → Files, "Open files in": Built-in viewer, the default, or Editor command, `nvim {file}` by default; `{line}`
-  too; kept as `files: {openIn, editorCommand}` in the data directory's `settings.json`, the file's other keys kept, an unreadable file never
-  overwritten; `web/src/files/filesSettings.ts`): `web/src/files/editorCommand.ts` (pure, shared) checks the command (`editorCommandProblem`: one line,
-  `{file}` needed, only `{file}`/`{line}`, never inside quotes) and builds what runs (`editorLaunch`: `/bin/sh -c 'exec "${SHELL:-/bin/sh}" -l -i -c "$1"'`
-  with the command as that argument, so the host's login shell, its PATH, rc files and LSP setup, runs it; the path single-quoted (`shellQuote`), a
-  leading `-` made `./-…`, the line a number), so no file name becomes shell syntax. `POST /api/terminals/editor {workspace, host?, path, line?}`
-  (`createEditorTerminal` in `web/server/api/terminals.ts`) creates a daemon terminal with that `command`/`args` in the workspace's folder (the
-  command from the settings file only, the path checked by `checkPath`); it ends when the editor quits; listed with `editor: true` while the server
-  runs, which the Terminal tab leaves out of its tabs. With the command set, in the macOS app, opening a file (tree, ⌘P, a tab, Changes' Open in
-  Files) opens it in the editor, which pins the tab; each tab keeps its own terminal (`editor` in the tab, `web/src/files/tabs.ts`, kept in
-  `files:workspaces`), alive while the tab exists, the Files page shown or not. The page draws a box in the viewer's place (`EditorSlot` in
-  `FilesView.tsx`) and tells the app (`web/src/files/editorBridge.ts`: `editor` with the terminal and the box's frame, sent as it changes, polled
-  every 250 ms for moves, `covered` while a dialog is open, `MODAL_EVENT` in `focus.ts`; `editorFocus`; `editorClose`; `editorForget`); the app
-  (`EditorOverlay.swift`, SwiftTerm through `TerminalSession`, the Terminal tab's text size and `Ink` tones; `EditorEmbed.swift`: `EditorPlacement`,
-  `EditorStage`, its frame through the web view into `content`, as Conquer's, shown only while Files shows; `EditorKeys`;
-  `EditorCloseRequest`) lays the terminal over it and gives it the keyboard as it shows or is clicked. Keys there: the app keeps the window's
-  (⌘1…⌘6, ⇧⌘G, ⇧⌘E, ⌘W: Close File Tab; not ⌘R, which refreshes nothing there) and the menu's (⌘`, ⌃`, ⌘C/⌘V as the terminal does, the terminal text size); ⌘K opens the page's
-  palette (`AppWindow.performKeyEquivalent`, the Terminal tab's terminal too) and the keyboard comes back as it closes; everything else is the
-  editor's. Closing tabs whose editors run (×, ⌘W, Close other tabs) asks once (an NSAlert sheet; Cancel keeps them), then ends them on the
-  daemon. An editor that quits (`exited`) leaves its tab in the viewer with Reopen in editor; a relay that went (`lost`) is checked against
-  `GET /api/terminals`. The head's View / Editor toggle (the macOS app's) shows the viewer over a running editor, or opens the editor at the line
-  in view; ⌘K "Open in editor" / "Open in viewer" (page Files, `files-open-editor|viewer`) only when they apply. In a browser the viewer stays,
-  with a note. Tests: `src/files/editorCommand.test.ts` (quoting through a real `sh`), `server/api/terminals.test.ts`, `src/files/tabs.test.ts`,
-  `e2e/files-editor.e2e.ts`, `native/tests/EditorEmbedTests.swift` (frame following, key routing through `AppWindow`, the close question);
-  checks: `editor` in the `--info` state, hooks `editortype`, `editorclose`, `editorcancel`, `editorfocus`, `key` (`CheckKeys`); the fake daemon
-  runs a `command` terminal as a fake editor that quits on `:q`.
-  Changes (`web/src/files/ChangesView.tsx`, no GitHub needed): the workspace's branch against its base from its host's daemon (`getCheckoutDiff`,
-  so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on any
-  integration), all changes, committed or uncommitted (`github:changesMode`), with ahead/behind, the diff (`DiffView`: Filter files, ⌘F find,
-  unified/split and the file list, one setting with the GitHub tab's `github:layout`/`github:fileList`) and the workspace's pending comments
-  (above); asked every 15 s while shown. With GitHub on, Review #N opens its PR in the GitHub tab (Files changed) and Compare on GitHub opens in
-  Conquer; off, neither shows. It shows in the tabs' place, reached by the Changes button first in the tabs' row (`.fv-tabbar`, the changed-file
-  count from `files/changed`), a view toggle outside the tab model rather than a tab: never closed (⌘W/⌃W close only file tabs, nothing while
-  Changes show), not reordered or previewed, there with no file open; a file tab's click, ⌃Tab/⌥⌘→ (back to the shown tab) or ⇧⌘T go back to
-  the files; whether it shows is kept per workspace (`changes` in `files:workspaces`). Files and Changes open each other: a changed file's dot in
-  the tree (a button) and the head's Show changes open Changes at it (all changes); each diff file's Open in Files (`DiffView`'s `onOpenFile`)
-  opens it as a kept tab. In Changes (not typing; the tree keeps its own keys): J/K/↓/↑ the diff's files, T its file filter, U, F, M, ⇧C Files / Comments, N / ⇧N the next / previous comment; ⌘K
-  (page Files) has each (`files-diff-next|prev|layout|list|filter|find`, `files-changes-mode`). Opened from elsewhere by `openFilesChanges(path?)`
-  (`web/src/files/open.ts`: kept as `files:openChanges` for the page to take as it mounts, and sent as `files-changes`), the caller showing
-  the tab (`postAppMenu("files")`): the workspace view's Changes button and ⌘K "Show …'s changes against main" (page Files, the macOS app's) and
-  ⇧⌘G from anywhere: in the macOS app View → Show Branch Changes, which `AppWindow.performKeyEquivalent` offers the menu ahead of the page,
-  the terminal and Conquer's pages (`AppKeys.swift`) except while Conquer has the keyboard, where it stays Conquer's Find Previous, and which
-  asks the page's `branch-changes` (`AppKeys.branchChangesCommand`); in a browser the page takes the key itself and, as with nothing selected,
-  only says why. Tests: `e2e/changes.e2e.ts`, `e2e/diff-comments.e2e.ts`.
+- Files: the Files tab (tree, file tabs, viewer, Markdown preview, Changes and its pending diff comments) was removed at the
+  user's request: their nvim manages every file view, edit and diff (see "Your editor beside its conversation", below). Don't add
+  the built-in views back unless asked. A GitHub pull request's diff still renders read only in the GitHub tab (`DiffView`). What
+  stays: `web/server/api/files.ts` (`GET /api/files/tree|read|all|changed|image`, the chat's autolinks reading `files/all` through
+  `web/src/files/api.ts`), `web/server/api/changes.ts`, and Settings → Files: the editor command (`files.editorCommand`, `{file}` and
+  `{line}`, checked by `editorCommandProblem` and run by `editorLaunch` under the host's login shell, `web/src/files/editorCommand.ts`)
+  and the changes command (`files.changesCommand`, an Ex command, `:DiffviewOpen` by default, `changesCommandProblem`). The user's old
+  data stays as it is, ignored: `files.openIn`, `diff-comments.json`, the `files:*` and `github:changesMode` localStorage keys.
 - Chat Markdown renders fenced `mermaid` blocks (`web/src/mermaid/`), in every conversation (Crew's drawer and the
   session panel). The engine loads near the viewport, with serialized strict-mode renders and each view's
   palette; its SVG is shown as an isolated image. Source/copy, zoom/reset and an expanded focus-trapped view have
@@ -883,13 +781,13 @@ the component Crew's drawer is.
   map) puts the map aside (kept mounted, its scroll too, `visibility: hidden`) and gives the agent the window: a strip
   across the top (`FocusStrip`, `.crew-focus-strip`: ← Crew, which with Esc goes back, then every other robot, those
   needing you first, tinted and pulsing, then working, then the rest; a click opens one), the conversation on the left
-  and its tools on the right (the files, `CrewFiles`, and the browser, `BoardBrowser`, main's, the map's siblings) under
-  one tab bar (`.crew-tool-tabs`: Files, Browser, × hides them and the conversation takes the width; F and B still
+  and its tools on the right (your editor, `WorkspaceEditor`, and the browser, `BoardBrowser`, main's, the map's siblings) under
+  one tab bar (`.crew-tool-tabs`: Editor, Browser, × hides them and the conversation takes the width; F and B still
   toggle). The conversation's width beside its tools is dragged on its right edge (`crew:focusChatWidth`, `--crew-chat`
   on the map's frame, which the tools read; at least 380 px, the tools 360). In focus the panes' own close, fill and title
   rows and the conversation's "← Fleet" are hidden (the tab bar and the strip have them). Under 900 px the tools lie over
   the conversation. Tests: `e2e/crew.e2e.ts`, `e2e/files-editor.e2e.ts`.
-- Beside the other tabs (GitHub, Files, Terminal, Conquer, Activity) the session panel (`FloatingPanel`, one column) shows
+- Beside the other tabs (GitHub, Terminal, Conquer, Activity) the session panel (`FloatingPanel`, one column) shows
   what is open as the same `CrewDetail`, only while something is (main's `panelAbsent` = `crewShown || detailEmpty`: the
   panel takes no width and the bar's panel buttons go). It keeps its side, width and ⌘B; choosing something (J/K, ⌘K, a
   notification, the GitHub tab's Open in agent) opens it. There are no lists (the Agents, Workspaces, Projects and Hosts
@@ -904,21 +802,27 @@ the component Crew's drawer is.
 - Tests: `web/src/crew/roster.test.ts`, `web/e2e/crew.e2e.ts`, `web/e2e/pool.e2e.ts` (Release and Archive on the heads).
   `npm run native:mock -- --dungeon --probe --pr-flags` serves a fleet for it (the `dungeon` fleet is a test fixture).
 
-### The agent's files beside its conversation
+### Your editor beside its conversation
 
-The open agent's workspace files stand in its browser's place, left of its conversation on Crew (the user's pick, "A"
-of three mockups; `web/src/crew/CrewFiles.tsx`, `crew-files.css`): the Files tab's own view, `FilesView` with `embedded`
-(the tree, file tabs, Changes, ⌘P, the viewer), whose files open in the editor from Settings → Files (nvim for the
-user). Main's `filesShown` (`crewBrowsing` and `world:filesOpen`, `useFilesOpen` in `browser/settings.ts`, kept across
-agents and launches): F outside a field (not inside the pane), the strip's Files button (`Stage`'s `files`, beside
-Browser) and ⌘K "Show …’s files beside the conversation" / "Hide the files…" (`crew-files`, page Command). The files and
-the browser share the place: opening either closes the other, and an agent's opened tab only counts on the Browser button
-while the files show. Its head names the workspace and branch, with Open in the Files tab (the same tabs and editors,
-kept per workspace in `files:workspaces`), Fill the view and ×. Embedded, the view takes its keys (⌘S, ⌘P, the tab keys)
-only while it has the keyboard, registers no ⌘R, and places its editor with `mode: "command"` (`setEditorMode` in
-`files/editorBridge.ts`, set in a layout effect so the first placement names it); the macOS app shows an editor only
-while its placement's mode shows (`EditorPlacement.mode`, `visible(showing:)`, `EditorOverlay.place(_:showing:web:)`;
-Files' placements default to `files`). Tests: `e2e/files-editor.e2e.ts`, `native/tests/EditorEmbedTests.swift`.
+The open agent's workspace opens in the user's own editor (Settings → Files' command; nvim for the user) in its browser's
+place, right of its conversation on Crew (`web/src/crew/WorkspaceEditor.tsx`, `crew-files.css`; the user's ask: their nvim
+manages everything about viewing, editing and diffing files). One editor per workspace: `POST /api/terminals/workspace-editor`
+(`createWorkspaceEditor` in `web/server/api/terminals.ts`) runs the command on `.` in the workspace's folder as a daemon
+terminal named `paseo editor · <program>` (`WORKSPACE_EDITOR`, listed with `editor: true`, so the Terminal tab leaves it out);
+the page keeps its id per workspace (`editor:workspaces` in localStorage) and finds it again while the daemon lists it, else
+starts another (a module-level `starting` map, so React's double effects start one). It keeps running while you step away;
+if it quits, Start again. The macOS app lays the terminal over the pane's `.crew-editor-slot` (`EditorOverlay.swift`, placements
+with `mode: "command"`, `setEditorMode` in a layout effect; the app shows an editor only while its placement's mode shows,
+`EditorPlacement.mode`, `visible(showing:)`). Main's `filesShown` (`crewBrowsing` and `world:filesOpen`): F outside a field,
+the strip's Editor button and the tools' Editor tab, ⌘K "Show …’s workspace in your editor" / "Hide the editor beside the
+conversation" (`crew-files`, page Command). It and the browser share the place. Asks go to it (`workspaceEditorAsks.ts`:
+`askWorkspaceEditor`, kept until its editor runs): a chat's file link (`openFileLink` in `Session.tsx`, title "Open in your
+editor") opens the editor and sends `:e +<line> <path>` from Normal mode (`openFileKeys`, the path Ex-escaped by `exPath`);
+Show changes (its head's button, ⇧⌘G from anywhere, ⌘K "Show …’s changes in your editor", `files-workspace-changes`) sends the
+changes command (`exCommandKeys`). Both through `POST /api/terminals/editor-send` (`sendToEditor`: only to a terminal the daemon
+lists as that workspace's editor, the path `checkPath`ed). In a browser a file link says the editor is the macOS app's. Tests:
+`e2e/files-editor.e2e.ts`, `e2e/autolink-files.e2e.ts`, `server/api/terminals.test.ts`, `src/files/editorCommand.test.ts`,
+`native/tests/EditorEmbedTests.swift`.
 
 ### The agent's browser
 

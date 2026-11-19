@@ -127,8 +127,8 @@ test("the relay marks its replay, and drops an answer to a query from a program 
 test("an editor terminal: Settings → Files' command on the file, in the workspace, quoted", async () => {
   const saved = await post("settings", { files: { openIn: "editor", editorCommand: "nvim +{line} {file}" } });
   assert.equal(saved.status, 200, JSON.stringify(saved.data));
-  assert.deepEqual(saved.data.files, { openIn: "editor", editorCommand: "nvim +{line} {file}" });
-  assert.deepEqual((await get("settings")).data.files, { openIn: "editor", editorCommand: "nvim +{line} {file}" });
+  assert.deepEqual(saved.data.files, { openIn: "editor", editorCommand: "nvim +{line} {file}", changesCommand: ":DiffviewOpen" });
+  assert.deepEqual((await get("settings")).data.files, { openIn: "editor", editorCommand: "nvim +{line} {file}", changesCommand: ":DiffviewOpen" });
   local.calls.length = 0;
   const made = await post("terminals/editor", { workspace: "wks_app", path: "src/it's $(x).ts", line: 12, rows: 30, cols: 90 });
   assert.equal(made.status, 200, JSON.stringify(made.data));
@@ -174,6 +174,34 @@ test("an editor terminal: never a path out of the workspace, nor a command from 
   assert.equal((await post("settings", { files: { openIn: "emacs" } })).status, 400);
   // Saving one key keeps the other.
   assert.equal((await post("settings", { files: { openIn: "viewer" } })).data.files.editorCommand, "nvim +{line} {file}");
+});
+
+test("a workspace's own editor: the command on its folder; opens a file or shows changes when told, nothing else", async () => {
+  assert.equal((await post("settings", { files: { editorCommand: "nvim {file}", changesCommand: ":Git difftool" } })).status, 200);
+  local.calls.length = 0;
+  const made = await post("terminals/workspace-editor", { workspace: "wks_app", rows: 40, cols: 120, command: "rm -rf ~" });
+  assert.equal(made.status, 200, JSON.stringify(made.data));
+  const created = local.calls.find((c) => c.method === "createTerminal")!;
+  assert.equal(created.args[0], "/home/review/code");
+  assert.equal(created.args[1].args[3], "nvim '.'", "the folder, from the settings file only");
+  assert.equal(made.data.terminal.name, "paseo editor · nvim");
+  const id = made.data.terminal.id;
+  assert.ok((await get("terminals?workspace=wks_app")).data.terminals.some((t: { id: string; editor?: boolean }) => t.id === id && t.editor === true));
+  // A file: Normal mode, then :e at the line, its path escaped for Ex.
+  local.calls.length = 0;
+  assert.equal((await post("terminals/editor-send", { workspace: "wks_app", id, open: { path: "src/my file#1.ts", line: 12 } })).status, 200);
+  assert.deepEqual(local.calls.find((c) => c.method === "sendTerminalInput")!.args, [id, { type: "input", data: "\x1c\x0e:e +12 src/my\\ file\\#1.ts\r" }]);
+  // Changes: the settings file's command, never the request's.
+  local.calls.length = 0;
+  assert.equal((await post("terminals/editor-send", { workspace: "wks_app", id, changes: true, command: ":!rm -rf ~" })).status, 200);
+  assert.deepEqual(local.calls.find((c) => c.method === "sendTerminalInput")!.args, [id, { type: "input", data: "\x1c\x0e:Git difftool\r" }]);
+  // Never a path out of the workspace, another workspace's terminal or a shell terminal.
+  for (const path of ["/etc/passwd", "../up", "~/x"]) assert.equal((await post("terminals/editor-send", { workspace: "wks_app", id, open: { path } })).status, 400, path);
+  const shell = (await post("terminals/create", { workspace: "wks_app" })).data.terminal.id;
+  assert.equal((await post("terminals/editor-send", { workspace: "wks_app", id: shell, open: { path: "a.ts" } })).status, 400, "not an editor");
+  assert.equal((await post("terminals/editor-send", { workspace: "wks_none", id, open: { path: "a.ts" } })).status, 400);
+  // A changes command that isn't one Ex line is never saved.
+  for (const changesCommand of ["DiffviewOpen", ":Diff\n:!rm", 5]) assert.equal((await post("settings", { files: { changesCommand } })).status, 400, String(changesCommand));
 });
 
 test("the relay refuses another origin", async () => {

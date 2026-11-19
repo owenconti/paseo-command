@@ -186,14 +186,14 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   // No terminal panel: nothing shows, hides, docks or maximizes one; unsplit only in the Terminal tab.
   for (const gone of [/Show or hide the terminal/, /Maximize the terminal/, /Move the terminal/, /^Unsplit terminals/])
     assert.equal(await palette.getByRole("option", { name: gone }).count(), 0, String(gone));
-  // The mode bar's tabs shown, in its order, with ⌘1…⌘6 by their place (no integrations here):
-  // Command, Files, Terminal, Conquer; Settings is the bar's gear, ⌘, alone.
+  // The mode bar's tabs shown, in its order, with ⌘1…⌘5 by their place (no integrations here):
+  // Command, Terminal, Conquer; Settings is the bar's gear, ⌘, alone.
   await search.fill("next in the map");
-  await palette.getByRole("option", { name: /Next in the map's place: crew, Files, terminal, browser(?!,)/ }).waitFor();
+  await palette.getByRole("option", { name: /Next in the map's place: crew, terminal, browser(?!,)/ }).waitFor();
   await search.fill("show the browser");
   const browserTab = palette.getByRole("option", { name: /Show the browser \(Conquer\)/ });
-  assert.match(await browserTab.locator(".palette-keys").innerText(), /⌘\s*4/);
-  // The Terminal tab: ⌃` from anywhere (shown), or ⌘3 by its place.
+  assert.match(await browserTab.locator(".palette-keys").innerText(), /⌘\s*3/);
+  // The Terminal tab: ⌃` from anywhere (shown), or ⌘2 by its place.
   await search.fill("show terminal");
   const terminalTab = palette.getByRole("option", { name: /^Show terminal/ });
   assert.equal(await terminalTab.locator(".palette-page").innerText(), "Terminal");
@@ -205,7 +205,8 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   await search.fill("");
   const labels = await palette.getByRole("option").allInnerTexts();
   const at = (re: RegExp) => labels.findIndex((l) => re.test(l));
-  assert.ok(at(/^Show files/) >= 0 && at(/^Show the browser/) > at(/^Show files/), labels.join(" | "));
+  assert.equal(labels.filter((l) => /^Show files/.test(l)).length, 0, "no Files tab");
+  assert.ok(at(/^Show the browser/) >= 0, labels.join(" | "));
   await search.fill("show terminal");
   await page.keyboard.press("Enter");
   await palette.waitFor({ state: "detached" });

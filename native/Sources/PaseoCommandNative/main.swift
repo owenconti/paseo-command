@@ -197,7 +197,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.command") { [weak self] in self?.main?.show(.command) }
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
         listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
-        listen("com.paseo.command.native.files") { [weak self] in self?.main?.show(.files) }
         listen("com.paseo.command.native.terminaltab") { [weak self] in self?.main?.show(.terminal) }
         // Run `<info>.do`'s Conquer steps, one a line, a second apart (checks; see `ConquerView.check`).
         listen("com.paseo.command.native.conquer") { [weak self] in
@@ -365,13 +364,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // ⇧⌘G: the selected workspace's branch changes in the GitHub tab (the page's GitHub
         // place), from anywhere but Conquer while it has the keyboard (its Find Previous).
         AppKeys.addBranchChanges(to: view, target: self, action: #selector(showBranchChanges))
-        // ⇧⌘E: the Files tab (the selected workspace's files), from anywhere.
-        AppKeys.addShowFiles(to: view, target: self, action: #selector(showFiles))
-        // ⌘W while Files shows: its shown file tab, ahead of Conquer's Close Tab and the window's Close.
-        AppKeys.addCloseFileTab(to: view, target: self, action: #selector(closeFileTab))
-        // ⌘R while GitHub, Files or Activity shows: the page's shown view refreshes (never a reload of the web view).
+        // ⌘R while GitHub or Activity shows: the page's shown view refreshes (never a reload of the web view).
         AppKeys.addRefreshPage(to: view, target: self, action: #selector(refreshPage))
-        // ⌘` steps Command → Files → Terminal → GitHub → Conquer → Activity → Command, through those shown
+        // ⌘` steps Command → Terminal → GitHub → Conquer → Activity → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -423,8 +418,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
     @objc private func showSettings() { main?.toggleSettings() }
     @objc private func showBranchChanges() { main?.pageCommand(AppKeys.branchChangesCommand) }
-    @objc private func showFiles() { main?.show(.files) }
-    @objc private func closeFileTab() { main?.pageCommand("files-close-tab") }
     @objc private func refreshPage() { main?.pageCommand(AppKeys.refreshPageCommand) }
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }
@@ -450,7 +443,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }
             return browser
         case #selector(showBranchChanges): return !browser
-        case #selector(closeFileTab): return main.mode == .files && (NSApp.keyWindow.map { $0 === main.window } ?? true)
         case #selector(refreshPage): return main.pageRefreshes && (NSApp.keyWindow.map { $0 === main.window } ?? true)
         case #selector(toggleTerminal): item.title = main.mode == .terminal ? "Back from Terminal" : "Show Terminal"
         case #selector(unsplitTerminals): return main.mode == .terminal && main.drawer.isSplit

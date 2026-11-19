@@ -75,16 +75,13 @@ final class Menus: NSObject, NSMenuItemValidation {
     var ran: [String] = []
     @objc func mode(_ sender: NSMenuItem) { ran.append("mode \(sender.keyEquivalent)") }
     @objc func branchChanges() { ran.append("branchChanges") }
-    @objc func showFiles() { ran.append("showFiles") }
-    @objc func closeFileTab() { ran.append("closeFileTab") }
     @objc func refreshPage() { ran.append("refreshPage") }
     @objc func nextMode() { ran.append("nextMode") }
     @objc func terminal() { ran.append("terminal") }
     @objc func close() { ran.append("closeWindow") }
-    var files = true
     var refreshes = { false }
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        item.action == #selector(closeFileTab) ? files : item.action == #selector(refreshPage) ? refreshes() : true
+        item.action == #selector(refreshPage) ? refreshes() : true
     }
 }
 let menus = Menus()
@@ -92,8 +89,6 @@ let bar = NSMenu()
 let viewMenu = NSMenu(title: "View")
 for i in 1...6 { viewMenu.addItem(withTitle: "Mode \(i)", action: #selector(Menus.mode(_:)), keyEquivalent: "\(i)").target = menus }
 AppKeys.addBranchChanges(to: viewMenu, target: menus, action: #selector(Menus.branchChanges))
-AppKeys.addShowFiles(to: viewMenu, target: menus, action: #selector(Menus.showFiles))
-AppKeys.addCloseFileTab(to: viewMenu, target: menus, action: #selector(Menus.closeFileTab))
 AppKeys.addRefreshPage(to: viewMenu, target: menus, action: #selector(Menus.refreshPage))
 viewMenu.addItem(withTitle: "Next", action: #selector(Menus.nextMode), keyEquivalent: "`").target = menus
 let terminalItem = viewMenu.addItem(withTitle: "Terminal", action: #selector(Menus.terminal), keyEquivalent: "`")
@@ -122,20 +117,17 @@ assert(window.makeFirstResponder(editor))
 var palettes = 0
 window.terminalHasKeys = { (window.firstResponder as? NSView)?.isDescendant(of: stage) == true }
 window.onPalette = { palettes += 1 }
-window.filesShows = { true }
-// ⌘R is the page's refresh only while no terminal has the keyboard (`AppKeys.pageRefreshes`, Files showing).
-window.pageRefreshes = { AppKeys.pageRefreshes(.files, terminalHasKeys: window.terminalHasKeys()) }
+// ⌘R is the page's refresh only while no terminal has the keyboard (`AppKeys.pageRefreshes`).
+window.pageRefreshes = { AppKeys.pageRefreshes(.github, terminalHasKeys: window.terminalHasKeys()) }
 menus.refreshes = window.pageRefreshes
 func press(_ spec: String) -> String { CheckKeys.deliver(CheckKeys.event(spec, window: window)!, to: window) }
 // ⌘K: the page's palette.
 assert(EditorKeys.opensPalette(CheckKeys.event("cmd+k", window: window)!))
 assert(!EditorKeys.opensPalette(CheckKeys.event("cmd+shift+k", window: window)!) && !EditorKeys.opensPalette(CheckKeys.event("ctrl+k", window: window)!))
 assert(press("cmd+k") == "window" && palettes == 1)
-// The window's own keys: the modes, Show Branch Changes, Show Files, and ⌘W, the file's tab (never the window).
+// The window's own keys: the modes and Show Branch Changes (the workspace's changes, in this editor).
 assert(press("cmd+3") == "window" && menus.ran.last == "mode 3")
 assert(press("cmd+shift+g") == "window" && menus.ran.last == "branchChanges")
-assert(press("cmd+shift+e") == "window" && menus.ran.last == "showFiles")
-assert(press("cmd+w") == "window" && menus.ran.last == "closeFileTab")
 assert(!menus.ran.contains("closeWindow"))
 // ⌘R stays the editor's: not offered ahead, and View → Refresh Page, disabled, refreshes nothing. (No ⌘ key reaches a
 // terminal program, as in Terminal.app: SwiftTerm sends one only when asked to, `shouldSendCommandKeyToTerminal`.)

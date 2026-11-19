@@ -133,7 +133,7 @@ export function GitHubView({
 }) {
   const [historyState, setHistoryState] = useState<HistoryState>();
   const [place, setPlaceState] = useState<GithubPlace>(readPlace);
-  // A workspace's changes, remembered from when they were this tab's: the Files page's Changes now.
+  // A workspace’s changes, remembered from when they were this tab’s: your editor’s now.
   useEffect(() => {
     if (redirectChanges(readStore<unknown>("github:place", null))) writePlace(place);
   }, []);

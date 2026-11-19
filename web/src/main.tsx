@@ -86,7 +86,7 @@ import { CommandPalette } from "./CommandPalette";
 import { PresetsEditorHost } from "./PresetsEditor";
 import { ProfilesEditorHost } from "./ProfilesEditor";
 import { openProfileEditor } from "./profilesStore";
-import { isBranchChangesShortcut, isFilesShortcut, onAppCommand, runAppCommand, type AppCommand } from "./appCommands";
+import { isBranchChangesShortcut, onAppCommand, runAppCommand, type AppCommand } from "./appCommands";
 import type { Command, Page } from "./palette";
 import {
   linearKey,
@@ -101,13 +101,9 @@ import { installPageRefresh } from "./pageRefresh";
 import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
 import type { GithubViewState } from "./github/GitHubView";
-import { openFilesChanges } from "./files/open";
-import type { FilesViewState } from "./files/FilesView";
-import { pendingLabel } from "./github/localComments";
-import { useLocalComments } from "./github/localCommentsStore";
 import { openGithubPlace, prPlaceOf } from "./github/place";
 import { paseoMatches, type PaseoMatch, type PrHead } from "./github/paseo";
-import { MODE_LABEL as CHANGES_MODE_LABEL, SCOPE_TITLE as PR_SCOPE_TITLE, TAB_LABEL as PR_TAB_LABEL } from "./github/names";
+import { SCOPE_TITLE as PR_SCOPE_TITLE, TAB_LABEL as PR_TAB_LABEL } from "./github/names";
 import type { MergeAction } from "./github/merge";
 import { FILTERS as PR_FILTERS, fieldLabel as prFieldLabel, filtersSet as prFiltersSet, ME as PR_ME, PEOPLE_FIELDS as PR_PEOPLE_FIELDS, VALUE_FIELDS as PR_VALUE_FIELDS } from "./github/filters";
 import { useActivityUnread } from "./activity/store";
@@ -126,6 +122,7 @@ import { FloatingPanel } from "./FloatingPanel";
 import { AppPanel } from "./AppPanel";
 import { CrewDetail } from "./crew/CrewDetail";
 import { useGlanceData } from "./crew/Glance";
+import { ASK_EVENT, askWorkspaceEditor } from "./crew/workspaceEditorAsks";
 import { useOpenAgentMode } from "./agentModeStore";
 import { CrewMap } from "./crew/CrewMap";
 import { Session } from "./Session";
@@ -183,7 +180,6 @@ const MODE_PAGES: Record<AppMode, Page> = {
   conquer: "Conquer",
   activity: "Activity",
   github: "GitHub",
-  files: "Files",
   terminal: "Terminal",
   settings: "Settings",
 };
@@ -203,10 +199,7 @@ const GitHubView = React.lazy(() =>
   import("./github/GitHubView").then((module) => ({ default: module.GitHubView })),
 );
 // The Files tab (the selected workspace's files, read only), likewise.
-const CrewFiles = React.lazy(() => import("./crew/CrewFiles").then((module) => ({ default: module.CrewFiles })));
-const FilesView = React.lazy(() =>
-  import("./files/FilesView").then((module) => ({ default: module.FilesView })),
-);
+const WorkspaceEditor = React.lazy(() => import("./crew/WorkspaceEditor").then((module) => ({ default: module.WorkspaceEditor })));
 
 /** Keeps the mode bar's Activity tab showing the feed's unread count (macOS app only). */
 function ActivityBadge() {
@@ -833,10 +826,23 @@ function App() {
       ? agents.find((a) => a.id === selection.id)
       : undefined;
   // Its workspace's pending diff comments, for ⌘K's Apply and Show.
-  const agentComments = useLocalComments(agent?.host, agent?.workspaceId);
   // On Crew (the macOS app's: it draws the pages) the open agent's browser stands beside its conversation.
   const crewBrowsing = crewShown && macApp() && !!agent && !selection?.subagent;
   const filesShown = crewBrowsing && filesOpen;
+  // A file link or Show changes for a workspace: its editor shows beside the open agent's conversation (Command).
+  const editorAsks = useRef({ agentOpen: false });
+  editorAsks.current.agentOpen = !!agent && !selection?.subagent;
+  useEffect(() => {
+    const ask = () => {
+      if (!macApp()) return;
+      if (!editorAsks.current.agentOpen) return setNotice("Open one of its agents to use the workspace’s editor.");
+      setBrowserOpen(false);
+      setFilesOpen(true);
+      postAppMenu("command");
+    };
+    window.addEventListener(ASK_EVENT, ask);
+    return () => window.removeEventListener(ASK_EVENT, ask);
+  }, []);
   const browserShown = crewBrowsing && browserOpen && !filesShown;
   const agentBrowser = agent ? boardBrowsers.browsers[browserKey(agent.host, daemonAgentId(agent))] : undefined;
   const browserTab = agentBrowser?.tabs.find((t) => t.id === agentBrowser.current) ?? agentBrowser?.tabs[0];
@@ -1053,17 +1059,16 @@ function App() {
     },
     [openDispatch],
   );
-  // The workspace's changes in the Files tab's Changes.
+  // The workspace's changes: Settings → Files' changes command in its editor, beside the open agent's conversation.
   const showWorkspaceChanges = useCallback(() => {
-    openFilesChanges();
-    postAppMenu("files");
-  }, []);
+    if (githubWorkspace) askWorkspaceEditor({ workspace: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), changes: true });
+  }, [githubWorkspace]);
   // ⇧⌘G (the macOS app's View → Show Branch Changes, from anywhere but Conquer with the keyboard;
   // in a browser, the page's own key): the selected workspace's, or agent's, changes in the Files tab.
   const branchChanges = useRef(() => {});
   branchChanges.current = () => {
     if (!githubWorkspace) setNotice("Select a workspace or agent to see its branch's changes.");
-    else if (!macApp()) setNotice("The Files tab, with its Changes, is in the macOS app.");
+    else if (!macApp()) setNotice("Your editor, where changes show, is the macOS app’s.");
     else showWorkspaceChanges();
   };
   useEffect(() => {
@@ -1080,31 +1085,9 @@ function App() {
       offCommand();
     };
   }, []);
-  // The Files tab's state, for ⌘K's entries for it.
-  const [filesView, setFilesView] = useState<FilesViewState | undefined>();
-  // The Files tab's Changes: Review #N opens the PR in the GitHub tab (while it's on); Compare on GitHub in Conquer.
-  const openChangesPr = useCallback((repo: string, number: number) => {
-    openGithubPlace({ kind: "pr", repo, number, tab: "files" });
-    postAppMenu("github");
-  }, []);
-  const openInConquer = useCallback((url: string) => {
-    if (macApp()) postAppLink(url, true);
-    else window.open(url, "_blank", "noopener");
-  }, []);
-  // ⇧⌘E: the macOS app's View → Show Files shows the tab; in a browser, the page says it's the app's.
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      if (macApp() || !isFilesShortcut(e) || e.defaultPrevented) return;
-      e.preventDefault();
-      setNotice("The Files tab is in the macOS app.");
-    };
-    window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
-  }, []);
-  // GitHub, Activity, Files and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
+  // GitHub, Activity and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
   const pageShown =
     settingsShown ||
-    appMode === "files" ||
     (appMode === "github" && integrations.github) ||
     (appMode === "activity" && showActivity);
   usePageTextKeys(pageShown);
@@ -1511,30 +1494,6 @@ function App() {
             },
           ]
         : []),
-      ...(a.workspaceId && agentComments.pending.length && !selection?.subagent
-        ? [
-            ...(live
-              ? [
-                  {
-                    id: "apply-diff-comments",
-                    group: "Actions",
-                    page: "Command" as const,
-                    label: `Apply pending diff comments (${agentComments.pending.length})`,
-                    keywords: "apply pending diff comments review send address changes local",
-                    run: () => runAppCommand("diff-comments-apply"),
-                  },
-                ]
-              : []),
-            {
-              id: "show-diff-comments",
-              group: "Actions",
-              page: "Command" as const,
-              label: "Show pending diff comments",
-              keywords: "pending diff comments review list discard local",
-              run: () => runAppCommand("diff-comments-show"),
-            },
-          ]
-        : []),
       {
         id: "open-paseo",
         group: "Actions",
@@ -1563,8 +1522,7 @@ function App() {
     conquer: "browser",
     activity: "Activity",
     github: "GitHub",
-    files: "Files",
-    terminal: "terminal",
+      terminal: "terminal",
     settings: "Settings",
   };
   const modeTabs = shownModes(integrations).map((mode) => [mode, modeNames[mode]] as const);
@@ -1608,7 +1566,7 @@ function App() {
           id: "crew-files",
           group: "Actions",
           page: "Command" as const,
-          label: filesShown ? "Hide the files beside the conversation" : `Show ${agentName(agent, workspaceOf(agent)?.branch)}’s files beside the conversation`,
+          label: filesShown ? "Hide the editor beside the conversation" : `Show ${agentName(agent, workspaceOf(agent)?.branch)}’s workspace in your editor`,
           keys: [["F"]],
           keywords: "crew files editor nvim vim tree workspace code open file changes diff beside conversation",
           run: toggleFiles,
@@ -2060,15 +2018,15 @@ function App() {
           },
         ]
       : []),
-    ...(macApp() && githubWorkspace && !(appMode === "files" && filesView?.changes)
+    ...(macApp() && githubWorkspace && agent && !selection?.subagent
       ? [
           {
             id: "files-workspace-changes",
             group: "Actions",
-            page: "Files" as const,
-            label: `Show ${githubWorkspace.name}’s changes against main`,
+            page: "Command" as const,
+            label: `Show ${githubWorkspace.name}’s changes in your editor`,
             keys: [["⇧", "⌘", "G"]],
-            keywords: "files diff changes branch main compare git review workspace uncommitted committed",
+            keywords: "files diff changes branch main compare git review workspace nvim diffview fugitive editor",
             run: showWorkspaceChanges,
           },
         ]
@@ -2305,99 +2263,6 @@ function App() {
                 ]
               : []),
           ];
-        })()
-      : []),
-    ...(appMode !== "files"
-      ? [
-          {
-            id: "files-show",
-            group: "App",
-            page: "Files" as const,
-            label: githubWorkspace ? `Show files (${githubWorkspace.name})` : "Show files",
-            keys: [["⇧", "⌘", "E"], ...(tabKeys("files") ?? [])],
-            keywords: "files explorer tree browse source code open read workspace folder mode tab",
-            run: () => postAppMenu("files"),
-          },
-        ]
-      : []),
-    ...(appMode === "files" && filesView
-      ? (() => {
-          const v = filesView;
-          const command = (id: AppCommand, label: string, keywords: string, keys?: string[], group = "App", arg?: unknown) => ({
-            id: arg === undefined ? id : `${id}:${String(arg)}`,
-            group,
-            page: "Files" as const,
-            label,
-            ...(keys ? { keys: [keys] } : {}),
-            keywords: `files ${keywords}`,
-            run: () => runAppCommand(id, arg),
-          });
-          return v.workspace
-            ? [
-                command("files-quick-open", "Go to file…", "open quick find name path fuzzy go to file", ["⌘", "P"], "Navigate"),
-                command("files-filter", "Filter the files", "tree filter search find path name", ["T"]),
-                command("files-ignored", v.showIgnored ? "Hide ignored files" : "Show ignored files", "gitignore ignored hidden .git node_modules build toggle"),
-                command("files-sidebar", "Show or hide the Files sidebar", "sidebar tree collapse panel", ["⌘", "S"]),
-                v.changes
-                  ? command("page-refresh", "Refresh the changes", "reload update sync diff changes", ["⌘", "R"])
-                  : command("page-refresh", "Refresh the files", "reload update sync tree file", ["⌘", "R"]),
-                ...(v.changes
-                  ? [
-                      command("files-diff-next", "Next file in the changes", "diff file next down changes", ["J"]),
-                      command("files-diff-prev", "Previous file in the changes", "diff file previous up changes", ["K"]),
-                      command("files-diff-layout", v.layout === "split" ? "Unified diff" : "Split diff", "diff layout side by side split unified changes", ["U"]),
-                      command("files-diff-list", v.listShown ? "Hide the diff’s file list" : "Show the diff’s file list", "diff files list tree changes", ["F"]),
-                      command("files-diff-filter", "Filter the diff’s files", "diff files filter search find path name fuzzy go to file changes", ["T"]),
-                      command("files-diff-find", "Find in the diff", "diff search find text content lines match changes", ["⌘", "F"]),
-                      command(
-                        "files-diff-sidebar",
-                        v.listShown && v.sidebar === "comments" ? "Show the diff’s files" : "Show the diff’s pending comments",
-                        "diff comments pending list sidebar files switch changes",
-                        ["⇧", "C"],
-                      ),
-                      ...(v.comments > 0
-                        ? [
-                            command("files-diff-next-comment", "Next pending comment in the changes", "diff comment pending next changes", ["N"]),
-                            command("files-diff-prev-comment", "Previous pending comment in the changes", "diff comment pending previous changes", ["⇧", "N"]),
-                          ]
-                        : []),
-                      ...(["all", "base", "uncommitted"] as const)
-                        .filter((m) => m !== v.changesMode)
-                        .map((m) =>
-                          command("files-changes-mode", `Show ${CHANGES_MODE_LABEL[m].toLowerCase()} changes`, `diff changes mode ${m} committed uncommitted branch`, ["M"], "App", m),
-                        ),
-                    ]
-                  : []),
-                ...(v.tabs > 0 && !v.changes ? [command("files-close-tab", "Close the file’s tab", "close tab file editor", macApp() ? ["⌘", "W"] : ["⌃", "W"], "Navigate")] : []),
-                ...(v.reopenable ? [command("files-reopen-tab", "Reopen the closed tab", "reopen restore undo closed tab file", ["⇧", "⌘", "T"], "Navigate")] : []),
-                ...(v.tabs > 1
-                  ? [
-                      command("files-next-tab", "Next tab", "next tab right step cycle file", ["⌃", "Tab"], "Navigate"),
-                      command("files-previous-tab", "Previous tab", "previous tab left step cycle file", ["⌃", "⇧", "Tab"], "Navigate"),
-                      command("files-close-other-tabs", "Close other tabs", "close others other tabs keep only this file", undefined, "Navigate"),
-                    ]
-                  : []),
-                // The user's editor (Settings → Files, the macOS app's): in it, or back in the viewer.
-                ...(v.canEditor && v.editor !== "shown"
-                  ? [command("files-open-editor", "Open in editor", "editor nvim vim terminal edit lsp open external")]
-                  : []),
-                ...(v.canEditor && v.editor === "shown"
-                  ? [command("files-open-viewer", "Open in viewer", "viewer built-in read view highlight")]
-                  : []),
-                ...(v.file ? [command("files-copy-path", "Copy the file’s path", "copy path clipboard name")] : []),
-                ...(v.text ? [command("files-find", v.markdown === "preview" ? "Find in the preview" : "Find in the file", "search find text content lines match", ["⌘", "F"])] : []),
-                ...(v.text && v.editor !== "shown" && !v.changes ? [command("files-wrap", v.wrap ? "Don’t wrap lines" : "Wrap lines", "wrap long lines soft word wrap overflow scroll sideways")] : []),
-                ...(v.markdown === "preview" && v.editor !== "shown" && !v.changes
-                  ? [command("files-markdown-source", "Show the Markdown source", "markdown md source raw text code preview toggle")]
-                  : []),
-                ...(v.markdown === "source" && v.editor !== "shown" && !v.changes
-                  ? [command("files-markdown-preview", "Show the preview", "markdown md preview rendered render formatted readme toggle")]
-                  : []),
-                ...(v.file && v.change && v.change !== "deleted" && !v.changes
-                  ? [command("files-show-changes", "Show the file’s changes", "diff changes branch compare modified against main")]
-                  : []),
-              ]
-            : [];
         })()
       : []),
     ...(showActivity && appMode !== "activity"
@@ -2739,9 +2604,9 @@ function App() {
       run: () => choose({ type: "project", id: projectKey(p) }),
     })),
   ];
-  // The tabs' Show entries in the mode bar's order (Command, Files, GitHub, Conquer, Activity),
+  // The tabs' Show entries in the mode bar's order (Command, GitHub, Conquer, Activity),
   // in the places they take among the rest.
-  const tabEntries = ["command-show", "files-show", "github-show", "conquer", "activity-show"];
+  const tabEntries = ["command-show", "github-show", "conquer", "activity-show"];
   const tabSlots = paletteCommands.flatMap((c, i) => (tabEntries.includes(c.id) ? [i] : []));
   tabSlots
     .map((i) => paletteCommands[i])
@@ -2939,14 +2804,11 @@ function App() {
                 {...(crewBrowsing ? { browser: { shown: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser }, files: { shown: filesShown, toggle: toggleFiles } } : {})}
               />
             )}
-            {filesShown && agent && (
+            {filesShown && agent && githubWorkspace && (
               <React.Suspense fallback={null}>
-                <CrewFiles
-                  workspace={githubWorkspace}
-                  name={agentName(agent, workspaceOf(agent)?.branch)}
-                  onClose={() => setFilesOpen(false)}
+                <WorkspaceEditor
+                  workspace={{ id: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), name: githubWorkspace.name, ...(githubWorkspace.branch ? { branch: githubWorkspace.branch } : {}) }}
                   onNotice={setNotice}
-                  {...(integrations.github ? { onOpenPr: openChangesPr, onExternal: openInConquer } : {})}
                 />
               </React.Suspense>
             )}
@@ -2965,16 +2827,6 @@ function App() {
             {integrations.github && appMode === "github" && (
               <React.Suspense fallback={null}>
                 <GitHubView onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} onOpenInAgent={openPrInAgent} />
-              </React.Suspense>
-            )}
-            {appMode === "files" && (
-              <React.Suspense fallback={null}>
-                <FilesView
-                  workspace={githubWorkspace}
-                  onNotice={setNotice}
-                  onViewState={setFilesView}
-                  {...(integrations.github ? { onOpenPr: openChangesPr, onExternal: openInConquer } : {})}
-                />
               </React.Suspense>
             )}
             {showActivity && macApp() && <ActivityBadge />}

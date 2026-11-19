@@ -63,7 +63,6 @@ const TAB_NAMES: Record<AppMode, string> = {
   conquer: "the browser (Conquer)",
   activity: "Activity",
   github: "GitHub",
-  files: "Files",
   terminal: "the terminals",
   settings: "Settings",
 };
@@ -81,24 +80,23 @@ const NATIVE: Group = {
     },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the crew, Files, the terminals, GitHub, the browser (Conquer), Activity",
+      label: "Next in the map's place: the crew, the terminals, GitHub, the browser (Conquer), Activity",
     },
     {
-      keys: [["⌘", "1…6"]],
-      label: "The mode bar's tab in that place: the crew, Files, the terminals, GitHub, the browser (Conquer), Activity",
+      keys: [["⌘", "1…5"]],
+      label: "The mode bar's tab in that place: the crew, the terminals, GitHub, the browser (Conquer), Activity",
     },
-    { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the selected workspace's (or agent's) files" },
     { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },
   ],
 };
-/** What every page (GitHub, Activity, Files, Settings) takes, while it shows (`pageText.ts`). */
+/** What every page (GitHub, Activity, Settings) takes, while it shows (`pageText.ts`). */
 const PAGES: Group = {
   title: "Pages",
-  note: "In GitHub, Activity, Files and Settings",
+  note: "In GitHub, Activity and Settings",
   rows: [
     { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text (one size for every page)" },
     { keys: [["⌘", "0"]], label: "Actual text size" },
-    { keys: [["⌘", "R"]], label: "Refresh what's shown (a pull request or list, the files, the changes, Activity; Settings has none)" },
+    { keys: [["⌘", "R"]], label: "Refresh what's shown (a pull request or list, Activity; Settings has none)" },
   ],
 };
 /** The Activity tab's keys (`activity/ActivityView.tsx`), while the keyboard is in it. */
@@ -114,7 +112,7 @@ const CREW: Group = {
     { keys: [["Esc"]], label: "Close the conversation beside the map, once out of its message box (the robot you left keeps the keyboard)" },
     { keys: [["←"], ["→"]], label: "On the conversation's left edge: make it wider or narrower (⇧ for bigger steps; drag it, double-click for the default)" },
     { keys: [["B"]], label: "Show or hide the open robot's browser beside its conversation (the macOS app's)" },
-    { keys: [["F"]], label: "Show or hide its workspace's files beside the conversation, in your editor from Settings → Files (the macOS app's)" },
+    { keys: [["F"]], label: "Show or hide its workspace in your editor (Settings → Files), beside the conversation (the macOS app's)" },
     { keys: [["⇧", "⌘", "W"]], label: "Hide the browser, from its page or a field too" },
   ],
 };
@@ -159,54 +157,17 @@ const GITHUB: Group = {
     { keys: [["@"]], label: "In a comment: mention someone from the repository's organization (↑/↓ pick, Enter or Tab put them in, Esc closes the list)" },
   ],
 };
-/** The Files page's keys (`files/FilesView.tsx`), while it shows. */
-const FILES: Group = {
-  title: "Files",
-  note: "In the Files tab",
+/** Your editor beside an agent's conversation (`crew/WorkspaceEditor.tsx`, the macOS app's): the keys the app keeps
+ * while it has the keyboard; every other key is the editor's. */
+const EDITOR: Group = {
+  title: "Your editor",
+  note: "Beside an agent's conversation (F), in the macOS app",
   rows: [
-    { keys: [["⌘", "P"]], label: "Open a file by name (fuzzy over every path; ↑/↓ pick, Enter opens)" },
-    { keys: [["Click"], ["Double-click"]], label: "A file in the tree: open it in a preview tab (italic, replaced by the next), or keep it open" },
-    { keys: [["T"]], label: "Filter the tree by path (↑/↓ pick, Enter opens, Esc clears)" },
-    { keys: [["↓"], ["↑"]], label: "In the tree: the next or previous file or folder" },
-    { keys: [["→"], ["←"]], label: "In the tree: open or close a folder (or go into it, or up to its parent)" },
-    { keys: [["Enter"]], label: "In the tree: open the file, or open or close the folder" },
-    { keys: [["⌘", "F"]], label: "Find in the file, or in the Changes' diff (Enter next, ⇧Enter previous, Esc closes)" },
-    { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
+    { keys: [["⇧", "⌘", "G"]], label: "From anywhere: the workspace's changes, Settings → Files' changes command run in the editor" },
+    { keys: [["Click"]], label: "A file's link in the conversation: open it in the editor, at its line" },
     {
-      keys: [["⌘", "K"]],
-      label: "Open in editor, or Open in viewer: the file in your editor command (Settings → Files) in a terminal, in the macOS app",
-    },
-    {
-      keys: [["⌘", "W"], ["⌘", "K"], ["⌘", "1…6"]],
-      label: "In the editor: close the tab (asking while it runs), the palette, the mode bar's tabs; ⌘`, ⌃`, ⇧⌘G and ⇧⌘E too. Every other key, Esc and ⌃ keys included, is the editor's",
-    },
-    {
-      keys: [["⇧", "⌘", "G"]],
-      label: "From anywhere: the selected workspace's (or agent's) Changes, its branch against main (Conquer keeps it for find previous while it has the keyboard)",
-    },
-    { keys: [["Click"]], label: "A changed file's dot in the tree: its changes; a file's Open in Files in the Changes: the file" },
-    { keys: [["J"], ["K"]], label: "In the Changes: the diff's next or previous file" },
-    { keys: [["T"]], label: "In the Changes: filter the diff's files by path" },
-    { keys: [["M"]], label: "In the Changes: all, committed or uncommitted" },
-    { keys: [["U"]], label: "In the Changes: unified or split diff" },
-    { keys: [["F"]], label: "In the Changes: show or hide the diff's file list" },
-    { keys: [["⇧", "C"]], label: "In the Changes: the diff's sidebar, its files or its pending comments" },
-    { keys: [["N"], ["⇧", "N"]], label: "In the Changes: the next or previous pending comment" },
-    { keys: [["⌘", "W"], ["⌃", "W"]], label: "Close the tab (with none open, nothing; in a browser ⌘W is the browser's: use ⌃W)" },
-    { keys: [["⇧", "⌘", "T"]], label: "Reopen the last closed tab" },
-    {
-      keys: [
-        ["⌃", "Tab"],
-        ["⌃", "⇧", "Tab"],
-      ],
-      label: "The next or previous tab",
-    },
-    {
-      keys: [
-        ["⌥", "⌘", "→"],
-        ["⌥", "⌘", "←"],
-      ],
-      label: "The next or previous tab, too",
+      keys: [["⌘", "K"], ["⌘", "1…5"], ["⌘", "`"]],
+      label: "In the editor: the palette, the mode bar's tabs; ⌃` and ⇧⌘G too. Every other key, Esc and ⌃ keys included, is the editor's",
     },
   ],
 };
@@ -349,7 +310,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           PAGES,
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           ...(integrations.github ? [GITHUB] : []),
-          FILES,
+          EDITOR,
           CONQUER,
         ]
       : [...GROUPS, { ...CREW, rows: CREW.rows.filter((r) => !/browser/i.test(r.label)) }]

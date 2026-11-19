@@ -3,7 +3,7 @@
  * work frames, running subagents' drones, the status sheet's state marks, glows and PR, Probe and auto-merge
  * medallions (`sheets.ts`, from the art in rendering/src/assets/dungeon), and the strip above the message box. */
 import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
-import { FolderTree, Globe } from "lucide-react";
+import { Globe, SquareTerminal } from "lucide-react";
 import robotsUrl from "../../../rendering/src/assets/dungeon/robots.png";
 import statusUrl from "../../../rendering/src/assets/dungeon/status.png";
 import { AUTO_MERGE } from "../model/prStatus";
@@ -195,11 +195,11 @@ export function Stage(props: {
             className="crew-chip crew-files-toggle"
             aria-pressed={props.files.shown}
             aria-keyshortcuts="F"
-            data-tip={props.files.shown ? "Hide the files (F)" : "Show its workspace’s files and your editor (F)"}
+            data-tip={props.files.shown ? "Hide the editor (F)" : "Show its workspace in your editor (F)"}
             onClick={props.files.toggle}
           >
-            <FolderTree size={13} aria-hidden="true" />
-            Files
+            <SquareTerminal size={13} aria-hidden="true" />
+            Editor
           </button>
         )}
         </div>

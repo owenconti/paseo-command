@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { DEFAULT_FILES_SETTINGS, editorCommandLine, editorCommandProblem, editorLaunch, filesSettings, shellQuote } from "./editorCommand";
+import { DEFAULT_FILES_SETTINGS, changesCommandProblem, editorCommandLine, editorCommandProblem, editorLaunch, exCommandKeys, filesSettings, openFileKeys, shellQuote } from "./editorCommand";
 
 test("an editor command: {file} required, {line} allowed, nothing else", () => {
   assert.equal(editorCommandProblem("nvim {file}"), null);
@@ -55,7 +55,18 @@ test("the launch: the login shell, interactive, given the command as an argument
 
 test("the settings file's files object, read leniently", () => {
   assert.deepEqual(filesSettings(undefined), DEFAULT_FILES_SETTINGS);
-  assert.deepEqual(filesSettings({ openIn: "editor", editorCommand: " hx {file} " }), { openIn: "editor", editorCommand: "hx {file}" });
+  assert.deepEqual(filesSettings({ openIn: "editor", editorCommand: " hx {file} " }), { ...DEFAULT_FILES_SETTINGS, openIn: "editor", editorCommand: "hx {file}" });
+  assert.equal(filesSettings({ changesCommand: " :Gdiffsplit main " }).changesCommand, ":Gdiffsplit main");
+  assert.equal(filesSettings({ changesCommand: "rm -rf /" }).changesCommand, DEFAULT_FILES_SETTINGS.changesCommand);
   assert.deepEqual(filesSettings({ openIn: "vim", editorCommand: "nvim" }), DEFAULT_FILES_SETTINGS);
   assert.deepEqual(filesSettings([]), DEFAULT_FILES_SETTINGS);
+});
+
+test("what the workspace's editor is sent: a file at its line, or the changes command, from Normal mode", () => {
+  assert.equal(openFileKeys("src/a b.ts", 12), "\x1c\x0e:e +12 src/a\\ b.ts\r");
+  assert.equal(openFileKeys("docs/#1 %x|y.md"), "\x1c\x0e:e +1 docs/\\#1\\ \\%x\\|y.md\r");
+  assert.equal(exCommandKeys(" :DiffviewOpen "), "\x1c\x0e:DiffviewOpen\r");
+  assert.equal(changesCommandProblem(":DiffviewOpen origin/main"), null);
+  assert.ok(changesCommandProblem("DiffviewOpen"));
+  assert.ok(changesCommandProblem(":a\n:b"));
 });

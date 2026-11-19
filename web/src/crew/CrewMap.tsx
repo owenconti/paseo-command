@@ -5,7 +5,7 @@
  * tabs); Back (or Esc) returns to the map. A workspace's head archives it, and a claimed pool box's host head releases
  * the box. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Archive, ArrowLeft, ChevronDown, FolderTree, Globe, GripVertical, RotateCcw, X } from "lucide-react";
+import { Archive, ArrowLeft, ChevronDown, Globe, GripVertical, RotateCcw, SquareTerminal, X } from "lucide-react";
 import { STATE_NAMES, STATE_PRIORITY, modelName, type State } from "../model/fleet";
 import { PoolClaims } from "../PoolClaims";
 import { PoolBoxes } from "./PoolBoxes";
@@ -287,8 +287,8 @@ export function CrewMap(props: Props) {
         <div className="crew-tool-tabs" role="tablist" aria-label="Tools">
           {props.files && (
             <button role="tab" aria-selected={props.files.shown} aria-keyshortcuts="F" onClick={() => !props.files!.shown && props.files!.toggle()}>
-              <FolderTree size={13} aria-hidden="true" />
-              Files
+              <SquareTerminal size={13} aria-hidden="true" />
+              Editor
             </button>
           )}
           {props.browser && (
@@ -301,7 +301,7 @@ export function CrewMap(props: Props) {
           <button
             className="crew-tool-tabs-close"
             aria-label="Hide the tools"
-            data-tip="Hide the tools: the conversation takes the width (F or B shows them again)"
+            data-tip="Hide the tools: the conversation takes the width (F or B shows them again; the editor keeps running)"
             onClick={() => (props.files?.shown ? props.files.toggle() : props.browser?.toggle())}
           >
             <X size={13} aria-hidden="true" />

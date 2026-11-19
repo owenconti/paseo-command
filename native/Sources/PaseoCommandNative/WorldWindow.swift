@@ -143,7 +143,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         conquer.onLink = { [weak self] url in self?.routeLink(url) ?? false }
         (window as? AppWindow)?.document = { [weak self] in self?.mode == .conquer ? self?.conquer.current?.url : nil }
         (window as? AppWindow)?.conquerHasKeys = { [weak self] in self?.mode == .conquer && self?.conquer.hasKeyFocus == true }
-        (window as? AppWindow)?.filesShows = { [weak self] in self?.mode == .files }
         (window as? AppWindow)?.pageRefreshes = { [weak self] in self?.pageRefreshes == true }
         (window as? AppWindow)?.terminalHasKeys = { [weak self] in
             self?.editors.hasKeyFocus == true || self?.drawer.hasKeyFocus == true || self?.boardBrowser.hasKeyFocus == true
@@ -293,7 +292,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "mode-next": show(nextMode)
             case "github": show(.github)
             case "activity": show(.activity)
-            case "files": show(.files)
             case "terminal-tab": show(.terminal)
             case "settings": show(.settings)
             case "settings-close": if mode == .settings { show(beforeSettings) }

@@ -367,8 +367,8 @@ test("the pages keep the Galaxy theme while Crew is the map style, whatever tab 
   await map(page).locator(".crew-node").first().waitFor();
   const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
   assert.equal(await theme(), "galaxy");
-  // Files (or GitHub, Activity): Crew gives way, the theme stays.
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "files" } })));
+  // The terminals (or GitHub, Activity): Crew gives way, the theme stays.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "terminal" } })));
   await page.locator(".crew-map").waitFor({ state: "detached" });
   await page.waitForTimeout(100);
   assert.equal(await theme(), "galaxy");
@@ -664,8 +664,8 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   const [chat2, browser2] = await Promise.all([".crew-drawer", ".board-browser.crew"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
   assert.ok(chat2.right > chat.right + 100, "wider");
   assert.ok(Math.abs(browser2.left - chat2.right) <= 2, `conversation to ${chat2.right}, browser from ${browser2.left}`);
-  // The tools' Files tab swaps the files in; × hides the tools, the conversation taking the width.
-  await page.locator(".crew-tool-tabs").getByRole("tab", { name: "Files" }).click();
+  // The tools' Editor tab swaps your editor in; × hides the tools, the conversation taking the width.
+  await page.locator(".crew-tool-tabs").getByRole("tab", { name: "Editor" }).click();
   await page.locator(".crew-files").waitFor();
   assert.equal(await page.locator(".board-browser").count(), 0);
   await page.locator(".crew-tool-tabs").getByRole("button", { name: "Hide the tools" }).click();

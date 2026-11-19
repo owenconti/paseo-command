@@ -82,12 +82,12 @@ test("in the macOS app, the mode bar's keys list its tabs in order, Settings bei
   await appEvent(page, "paseo:command", "show-shortcuts");
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await dialog.waitFor();
-  // No integrations here: the crew, Files, the terminals and the browser.
-  await dialog.getByText("Next in the map's place: the crew, Files, the terminals, the browser (Conquer)", { exact: true }).waitFor();
+  // No integrations here: the crew, the terminals and the browser.
+  await dialog.getByText("Next in the map's place: the crew, the terminals, the browser (Conquer)", { exact: true }).waitFor();
   const tabs = dialog.locator("li, tr, div").filter({
-    has: page.getByText("The mode bar's tab in that place: the crew, Files, the terminals, the browser (Conquer)", { exact: true }),
+    has: page.getByText("The mode bar's tab in that place: the crew, the terminals, the browser (Conquer)", { exact: true }),
   }).last();
-  assert.match(await tabs.innerText(), /1…4/);
+  assert.match(await tabs.innerText(), /1…3/);
   await dialog.getByText(/^From anywhere: the Terminal tab/).waitFor();
   // No terminal panel any more: ⌃` is the Terminal tab's.
   assert.equal(await dialog.getByText(/terminal panel/).count(), 0);

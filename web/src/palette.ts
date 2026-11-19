@@ -4,7 +4,6 @@ export const PAGES = [
   "Conquer",
   "Activity",
   "GitHub",
-  "Files",
   "Settings",
   "Terminal",
   "App",

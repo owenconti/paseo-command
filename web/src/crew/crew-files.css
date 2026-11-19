@@ -70,3 +70,38 @@
 .crew-files .fv-sidebar .fv-workspace {
   display: none;
 }
+/* The workspace's editor (WorkspaceEditor.tsx): its head, then the box the app lays the terminal over. */
+.crew-editor-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.crew-editor-head > svg {
+  color: var(--text-3);
+}
+.crew-editor-slot {
+  position: absolute;
+  inset: 0;
+  background: var(--terminal-bg, #0b0f14);
+}
+.crew-editor-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.crew-editor-note p {
+  margin: 0;
+}

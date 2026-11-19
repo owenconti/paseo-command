@@ -37,10 +37,9 @@ import {
 import { finishGame, gamesRecord, nextGame, saveGameState } from "../games";
 import { draftGet } from "./drafts";
 import { presets, savePresets } from "../presets";
-import { changeDiffComments, listDiffComments } from "../diffComments";
 import { appSettings, saveAppSettings } from "../settings";
 import { saveSecret, secretsStatus } from "../secrets";
-import { createEditorTerminal, createTerminal, killTerminal, listTerminals } from "./terminals";
+import { createEditorTerminal, createTerminal, createWorkspaceEditor, killTerminal, listTerminals, sendToEditor } from "./terminals";
 import {
   addProject,
   removeProject,
@@ -160,22 +159,6 @@ export async function handleApi(
       return reply(415, { error: "JSON required" });
     try {
       return reply(200, savePresets(await bodyOf(req, 2 * 1024 * 1024)));
-    } catch (error) {
-      return reply(400, { error: errorText(error) });
-    }
-  }
-  // Workspaces' pending diff comments: this app's own file, never the daemon, the worktree or GitHub.
-  if (url.pathname === "/api/diff-comments") {
-    try {
-      if (req.method === "GET") {
-        for (const k of url.searchParams.keys()) if (k !== "workspace" && k !== "host") throw new Error(`Unexpected parameter ${k}`);
-        return reply(200, { comments: listDiffComments(url.searchParams.get("host"), url.searchParams.get("workspace")) });
-      }
-      if (url.search) return reply(400, { error: "Unexpected parameters" });
-      if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
-      if (!req.headers["content-type"]?.startsWith("application/json"))
-        return reply(415, { error: "JSON required" });
-      return reply(200, changeDiffComments(await bodyOf(req, 1024 * 1024)));
     } catch (error) {
       return reply(400, { error: errorText(error) });
     }
@@ -465,6 +448,10 @@ export async function handleApi(
           result = await createEditorTerminal(body);
         else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "kill")
           result = await killTerminal(body);
+        else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "workspace-editor")
+          result = await createWorkspaceEditor(body);
+        else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "editor-send")
+          result = await sendToEditor(body);
         else if (parts[0] === "projects" && parts.length === 2) {
           if (parts[1] === "add") result = await addProject(body, mark);
           else if (parts[1] === "create-folder")

@@ -21,7 +21,7 @@ import {
   integrationSettings,
   type Integration,
 } from "../src/integrations";
-import { editorCommandProblem, filesSettings } from "../src/files/editorCommand";
+import { changesCommandProblem, editorCommandProblem, filesSettings } from "../src/files/editorCommand";
 import { poolDirProblem, poolSettings } from "../src/pool";
 
 export const settingsFile = () =>
@@ -109,12 +109,17 @@ export function saveAppSettings(body: Record<string, unknown>) {
     const input = body.files;
     if (!input || typeof input !== "object" || Array.isArray(input))
       throw new Error("Invalid Files settings");
-    const { openIn, editorCommand } = input as Record<string, unknown>;
+    const { openIn, editorCommand, changesCommand } = input as Record<string, unknown>;
     if (openIn !== undefined && openIn !== "viewer" && openIn !== "editor")
       throw new Error("Invalid Files settings");
     if (editorCommand !== undefined) {
       if (typeof editorCommand !== "string") throw new Error("Invalid editor command");
       const problem = editorCommandProblem(editorCommand);
+      if (problem) throw new Error(problem);
+    }
+    if (changesCommand !== undefined) {
+      if (typeof changesCommand !== "string") throw new Error("Invalid changes command");
+      const problem = changesCommandProblem(changesCommand);
       if (problem) throw new Error(problem);
     }
     const existing = readSettings()?.files;
@@ -126,6 +131,7 @@ export function saveAppSettings(body: Record<string, unknown>) {
       ...kept,
       ...(openIn !== undefined ? { openIn } : {}),
       ...(typeof editorCommand === "string" ? { editorCommand: editorCommand.trim() } : {}),
+      ...(typeof changesCommand === "string" ? { changesCommand: changesCommand.trim() } : {}),
     };
   }
   if ("pool" in body) {

@@ -25,8 +25,6 @@ export type AppCommand =
   | "agent-archive"
   | "agent-mode"
   | "agent-question-toggle"
-  | "diff-comments-apply"
-  | "diff-comments-show"
   | "page-text-bigger"
   | "page-text-smaller"
   | "page-text-actual"
@@ -72,38 +70,6 @@ export type AppCommand =
   | "github-filter"
   | "github-set-filter"
   | "branch-changes"
-  | "files-show"
-  | "files-quick-open"
-  | "files-filter"
-  | "files-sidebar"
-  | "files-ignored"
-  | "files-refresh"
-  | "files-find"
-  | "files-wrap"
-  | "files-markdown-source"
-  | "files-markdown-preview"
-  | "files-copy-path"
-  | "files-show-changes"
-  | "files-changes"
-  | "files-changes-mode"
-  | "files-diff-layout"
-  | "files-diff-list"
-  | "files-diff-filter"
-  | "files-diff-find"
-  | "files-diff-next"
-  | "files-diff-sidebar"
-  | "files-diff-next-comment"
-  | "files-diff-prev-comment"
-  | "files-diff-prev"
-  | "files-open"
-  | "files-open-at"
-  | "files-close-tab"
-  | "files-reopen-tab"
-  | "files-next-tab"
-  | "files-previous-tab"
-  | "files-close-other-tabs"
-  | "files-open-editor"
-  | "files-open-viewer"
   | "crew-glance"
   | "crew-glance-refresh";
 
@@ -141,15 +107,10 @@ export function onOwnedAppCommand(name: AppCommand, run: (arg?: unknown) => void
   };
 }
 
-/** ⇧⌘G: the selected workspace's branch changes in the Files tab's Changes. The macOS app takes it through its
+/** ⇧⌘G: the selected workspace's branch changes, Settings → Files' changes command run in your editor. The macOS app takes it through its
  * View menu (Show Branch Changes) and sends `branch-changes`; a browser's page takes it itself. */
 export const isBranchChangesShortcut = (event: ShortcutKey) =>
   event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "g";
-
-/** ⇧⌘E: the selected workspace's files in the Files tab. The macOS app takes it through its View menu
- * (Show Files) and shows the tab itself; a browser's page takes it itself (and says the tab is the app's). */
-export const isFilesShortcut = (event: ShortcutKey) =>
-  event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "e";
 
 /** Cmd+K opens the command palette from anywhere, typing included, as Cmd+N
  * opens a new agent (Ctrl+K, which deletes to the line's end in macOS text

@@ -3,10 +3,10 @@ import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
 import { clearAgentMode, publishAgentMode } from "./agentModeStore";
+import { askWorkspaceEditor } from "./crew/workspaceEditorAsks";
 import { onOwnedAppCommand } from "./appCommands";
 import { macApp, postAppMenu, postAppReveal } from "./worldBridge";
 import { openChatLink } from "./chatLinks";
-import { openFilesFile } from "./files/open";
 import { usePeers } from "./peers";
 import { Robot } from "./crew/parts";
 import { robotColorOf } from "./crew/sheets";
@@ -49,7 +49,6 @@ import {
   Wrench,
 } from "lucide-react";
 import { Composer } from "./Composer";
-import { PendingComments } from "./composer/PendingComments";
 import {
   useAgentSession,
   type AgentSession,
@@ -131,20 +130,17 @@ export function openFileLink(e: React.MouseEvent, workspace: Workspace | undefin
     return true;
   }
   if (!macApp()) {
-    onNotice("The Files tab, where files open, is in the macOS app.");
+    onNotice("Your editor, where files open, is the macOS app’s.");
     return true;
   }
   if (!workspace) return true;
+  // In the workspace's own editor (crew/WorkspaceEditor.tsx), at its line, beside the agent's conversation.
   const line = Number(link.dataset.fileLine) || undefined;
-  const endLine = Number(link.dataset.fileEnd) || undefined;
-  openFilesFile({
+  askWorkspaceEditor({
     workspace: workspace.workspaceId,
     ...(workspace.host ? { host: workspace.host } : {}),
-    path,
-    ...(line ? { line } : {}),
-    ...(endLine ? { endLine } : {}),
+    open: { path, ...(line ? { line } : {}) },
   });
-  postAppMenu("files");
   return true;
 }
 
@@ -697,25 +693,6 @@ export function SessionView({
                       Ask about these
                     </button>
                   }
-                />
-              )}
-              {agent.workspaceId && (
-                <PendingComments
-                  host={agent.host}
-                  workspace={agent.workspaceId}
-                  agentId={agent.id}
-                  disabled={!online || archived}
-                  onSend={async (text) => {
-                    if (!running) return send(toOutgoing(text, []));
-                    try {
-                      await enqueue(agent.id, text, []);
-                      return true;
-                    } catch (e) {
-                      onNotice(errorMessage(e) || "Couldn't queue the comments.");
-                      return false;
-                    }
-                  }}
-                  onNotice={onNotice}
                 />
               )}
               {chatFooter}

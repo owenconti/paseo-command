@@ -35,7 +35,7 @@ export type WorkspaceFiles = {
 /** A workspace file, or an absolute path to reveal in Finder, with any line range. */
 export type FileTarget = { path: string; line?: number; endLine?: number; reveal?: true };
 
-export const fileTitle = (file: FileTarget) => file.reveal ? "Show in Finder" : "Open in Files";
+export const fileTitle = (file: FileTarget) => file.reveal ? "Show in Finder" : "Open in your editor";
 
 export type Autolink = { start: number; end: number; href: string; file?: FileTarget };
 

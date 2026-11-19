@@ -1,7 +1,5 @@
 import { readStore, writeStore } from "../api";
 import { runAppCommand } from "../appCommands";
-import { openFilesChanges } from "../files/open";
-import { postAppMenu } from "../worldBridge";
 import { checkFilters, DEFAULT_FILTERS, type RepoFilters } from "./filters";
 import { PR_SCOPES, REPO, type PrScope } from "./types";
 
@@ -13,8 +11,8 @@ export const PR_TABS: PrTab[] = ["conversation", "files", "commits", "checks"];
  * Where the user is in the GitHub tab: a list of pull requests, a repository's
  * pull requests (its filters kept for it, `readRepoFilters`), or one pull
  * request (on one of its tabs, perhaps at a file). A workspace's changes, once
- * a place here (`{kind: "changes", path?}`), are the Files page's Changes now:
- * `redirectChanges` sends such a place there.
+ * a place here (`{kind: "changes", path?}`), are your editor's now (Show changes):
+ * `redirectChanges` drops such a place.
  */
 export type GithubPlace =
   | { kind: "prs"; scope: PrScope }
@@ -60,16 +58,9 @@ export const placeLink = (place: GithubPlace): string | undefined =>
 
 export const samePlace = (a: GithubPlace, b: GithubPlace) => JSON.stringify(a) === JSON.stringify(b);
 
-/**
- * A workspace's changes (an old remembered place, or one asked for by name) open
- * in the Files page's Changes instead, the app switching to it: true when `raw` was one.
- */
+/** A workspace's changes (an old remembered place): true when `raw` was one, which the tab leaves for its default place. */
 export function redirectChanges(raw: unknown): boolean {
-  if (!raw || typeof raw !== "object" || (raw as { kind?: unknown }).kind !== "changes") return false;
-  const path = (raw as { path?: unknown }).path;
-  openFilesChanges(typeof path === "string" && path && path.length <= 1000 ? path : undefined);
-  postAppMenu("files");
-  return true;
+  return !!raw && typeof raw === "object" && (raw as { kind?: unknown }).kind === "changes";
 }
 
 /** The remembered place (localStorage). */

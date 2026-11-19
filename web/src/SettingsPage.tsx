@@ -19,7 +19,7 @@ import { usePool } from "./poolStore";
 import { closeSettings, useSettingsRequest } from "./settingsStore";
 import { macApp } from "./worldBridge";
 import { plainText } from "./ui";
-import { DEFAULT_EDITOR_COMMAND, editorCommandProblem } from "./files/editorCommand";
+import { DEFAULT_CHANGES_COMMAND, DEFAULT_EDITOR_COMMAND, changesCommandProblem, editorCommandProblem } from "./files/editorCommand";
 import { saveFilesSettings, useFilesSettings } from "./files/filesSettings";
 import { Picker } from "./Picker";
 import { familyCss, familyLabel, parseLineHeight, setTerminalFont, useTerminalFont, type TerminalFontValues } from "./terminalFont";
@@ -42,10 +42,10 @@ const SIDEBAR = { default: 220, min: 180, max: 360 };
  * The app's settings, a page in the map's place (`settingsStore.ts`; in the
  * macOS app its mode bar's Settings tab): interface sounds and the lofi radio,
  * desktop notifications, the optional integrations with their keys, and New
- * agent's preset prompts and agent profiles, where the Files page opens
- * files (its viewer, or your editor in a terminal), and the macOS app's terminal font. Sounds, radio and notifications
+ * agent's preset prompts and agent profiles, your editor's command (and its changes
+ * command), and the macOS app's terminal font. Sounds, radio and notifications
  * are kept in this browser (or the app); integrations, the Linear workspace and
- * the presets and Files' editor in the data directory's settings.json, keys beside it in
+ * the presets and your editor in the data directory's settings.json, keys beside it in
  * secrets.json; the terminal font in the app's preferences. Laid out as the other pages are: a sidebar of its sections
  * (Sound and music, Notifications, Integrations, New agent, Files, Terminal), and the chosen one
  * beside it under its own heading.
@@ -253,7 +253,7 @@ export function SettingsPage({
             </SettingsGroup>
           )}
           {shown.id === "files" && (
-            <SettingsGroup note="Where the Files page opens a file from the tree, ⌘P, a tab or the Changes.">
+            <SettingsGroup note="Your editor, beside an agent’s conversation, where its workspace’s files and changes open.">
               <FilesSettings />
             </SettingsGroup>
           )}
@@ -266,8 +266,8 @@ export function SettingsPage({
             <SettingsGroup
               note={
                 macApp()
-                  ? "For the Terminal tab and the Files page’s editor, applied as you change them. Nerd Font icons draw whatever the font."
-                  : "The Terminal tab and the Files page’s editor are the macOS app’s: their font, size, line height and letter spacing are set there, in Settings → Terminal."
+                  ? "For the Terminal tab and your editor, applied as you change them. Nerd Font icons draw whatever the font."
+                  : "The Terminal tab and your editor are the macOS app’s: their font, size, line height and letter spacing are set there, in Settings → Terminal."
               }
             >
               {macApp() ? <TerminalSettings /> : null}
@@ -550,9 +550,9 @@ function BoardBrowserSettings() {
   );
 }
 
-/** Settings → Files: open files in the built-in viewer, or in an editor command run in a terminal on the workspace's host. */
+/** Settings → Files: your editor's command, run in a terminal on the workspace's host, beside an agent's conversation. */
 function FilesSettings() {
-  const { settings, loaded, saving, error } = useFilesSettings();
+  const { settings, saving, error } = useFilesSettings();
   const [command, setCommand] = useState(settings.editorCommand);
   const [saveError, setSaveError] = useState<string | null>(null);
   const id = useId();
@@ -563,43 +563,25 @@ function FilesSettings() {
     if (problem || !dirty) return;
     setSaveError(await saveFilesSettings({ editorCommand: command }));
   };
-  // The choice shows at once, as it saves.
-  const [choosing, setChoosing] = useState<"viewer" | "editor" | null>(null);
-  const openIn = choosing ?? settings.openIn;
-  const choose = async (next: "viewer" | "editor") => {
-    if (next === openIn) return;
-    setChoosing(next);
-    // A changed, usable command is saved with the choice.
-    setSaveError(await saveFilesSettings({ openIn: next, ...(next === "editor" && dirty && !problem ? { editorCommand: command } : {}) }));
-    setChoosing(null);
-  };
   return (
-    <div className="files-settings" role="radiogroup" aria-label="Open files in">
-      <label className="settings-row">
+    <div className="files-settings">
+      <div className="settings-row">
         <span className="settings-row-text">
-          <b>Built-in viewer</b>
-          <small>Highlighted and read only, with find (⌘F)</small>
-        </span>
-        <input type="radio" name={`${id}-open-in`} checked={openIn === "viewer"} disabled={!loaded} onChange={() => void choose("viewer")} />
-      </label>
-      <label className="settings-row">
-        <span className="settings-row-text">
-          <b>Editor command</b>
+          <b>Your editor</b>
           <small>
-            Your editor in a terminal on the workspace’s host, in its folder, with its own config and language servers
-            {macApp() ? "" : " (in the macOS app; a browser shows the viewer)"}
+            Every file, edit and diff opens in it: a terminal on the workspace’s host, in its folder, with its own config and
+            language servers, beside an agent’s conversation (F){macApp() ? "" : " in the macOS app"}
           </small>
         </span>
-        <input type="radio" name={`${id}-open-in`} checked={openIn === "editor"} disabled={!loaded} onChange={() => void choose("editor")} />
-      </label>
-      {openIn === "editor" && (
+      </div>
         <div className="integration-fields">
           <div className="linear-setting files-command-setting">
             <label htmlFor={id}>
               <b>Command</b>
               <small>
-                <code>{"{file}"}</code> is the file’s path in the workspace (quoted for you), <code>{"{line}"}</code> its line. It runs
-                under your login shell; the tab’s terminal ends when the editor quits.
+                <code>{"{file}"}</code> is the path it opens (the workspace’s folder, <code>.</code>), <code>{"{line}"}</code> its line. It
+                runs under your login shell; its terminal ends when the editor quits. A conversation’s file links open in it with{" "}
+                <code>:e</code>, so it should be Vim or Neovim.
               </small>
             </label>
             <div className="files-command-field">
@@ -634,11 +616,67 @@ function FilesSettings() {
             )}
           </div>
         </div>
-      )}
+      <ChangesCommandSetting />
       {error && !saveError && (
         <p className="integration-error" role="alert">
           {error}
         </p>
+      )}
+    </div>
+  );
+}
+
+/** Settings → Files: the Ex command the workspace's editor runs to show its changes (Show changes, ⇧⌘G). */
+function ChangesCommandSetting() {
+  const { settings, saving } = useFilesSettings();
+  const [command, setCommand] = useState(settings.changesCommand);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const id = useId();
+  useEffect(() => setCommand(settings.changesCommand), [settings.changesCommand]);
+  const problem = changesCommandProblem(command);
+  const dirty = command.trim() !== settings.changesCommand;
+  const save = async () => {
+    if (problem || !dirty) return;
+    setSaveError(await saveFilesSettings({ changesCommand: command }));
+  };
+  return (
+    <div className="linear-setting files-command-setting">
+      <label htmlFor={id}>
+        <b>Show changes with</b>
+        <small>
+          The command your editor runs when you ask for the workspace’s changes (Show changes, ⇧⌘G), as you’d type it there:
+          <code>:DiffviewOpen</code> (diffview.nvim), <code>:Git difftool</code> (fugitive)…
+        </small>
+      </label>
+      <div className="files-command-field">
+        <input
+          id={id}
+          value={command}
+          placeholder={DEFAULT_CHANGES_COMMAND}
+          spellCheck={false}
+          {...plainText}
+          aria-invalid={!!problem}
+          aria-describedby={problem || saveError ? `${id}-problem` : undefined}
+          onChange={(e) => {
+            setCommand(e.target.value);
+            setSaveError(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void save();
+            if (e.key === "Escape" && dirty) {
+              e.preventDefault();
+              setCommand(settings.changesCommand);
+            }
+          }}
+        />
+        <button className="secondary" disabled={!dirty || !!problem || saving} onClick={() => void save()}>
+          Save
+        </button>
+      </div>
+      {(problem || saveError) && (
+        <small id={`${id}-problem`} className="files-command-problem" role="alert">
+          {problem ?? saveError}
+        </small>
       )}
     </div>
   );
