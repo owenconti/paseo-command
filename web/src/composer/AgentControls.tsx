@@ -15,9 +15,10 @@ const thinkingLabel = (t: string) =>
 /**
  * Model, thinking, mode and provider features. Before an agent's first turn
  * they are controls, changed on the daemon. Once its conversation has
- * started (`readOnly`) they are one muted line instead: Paseo would still
- * accept changes, but keeping them fixed is a deliberate UI choice
- * (README, "Agent settings").
+ * started (`readOnly`) the model, thinking and features are one muted line
+ * (Paseo would still accept changes, but keeping them fixed is a deliberate
+ * UI choice), and the permission mode stays a control: it can change for
+ * the rest of the conversation (the user's ask).
  */
 export function AgentControls({
   agent,
@@ -82,17 +83,38 @@ export function AgentControls({
   const model = models.find((m) => m.id === config?.model);
   const thinkingOptions =
     model?.thinkingOptionIds || (config?.thinking ? [config.thinking] : []);
-  if (readOnly)
+  const modeControl = modes.length > 0 && (
+    <label className={`control ${disabled ? "disabled" : ""}`} aria-description="Change the permission mode">
+      <span>{modes.find((m) => m.id === mode)?.label || mode || "Mode"}</span>
+      <ChevronDown size={11} />
+      <select value={mode || ""} disabled={disabled} aria-label="Permission mode" onChange={(e) => onSetMode(e.target.value)}>
+        {!mode && <option value="">Mode…</option>}
+        {mode && !modes.some((m) => m.id === mode) && <option value={mode}>{mode}</option>}
+        {modes.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  if (readOnly) {
+    const fixed = settingParts({
+      model: config ? model?.model || config.model : null,
+      thinking: config?.thinking ? thinkingLabel(config.thinking) : null,
+      mode: null,
+      features: [],
+    });
+    const features = settingParts({ model: null, thinking: null, mode: null, features: config?.features ?? [] });
     return (
-      <SettingsLine
-        parts={settingParts({
-          model: config ? model?.model || config.model : null,
-          thinking: config?.thinking ? thinkingLabel(config.thinking) : null,
-          mode: modes.find((m) => m.id === mode)?.label || mode || null,
-          features: config?.features ?? [],
-        })}
-      />
+      <div className="agent-controls">
+        <SettingsSummary parts={fixed} />
+        {/* Without the modes (an older daemon), the mode is said like the rest. */}
+        {modeControl || <SettingsSummary parts={settingParts({ model: null, thinking: null, mode: mode || null, features: [] })} />}
+        <SettingsSummary parts={features} />
+      </div>
     );
+  }
   return (
     <div className="agent-controls">
       {models.length > 0 && config && (
@@ -150,27 +172,7 @@ export function AgentControls({
           </select>
         </label>
       )}
-      {modes.length > 0 && (
-        <label
-          className={`control ${disabled ? "disabled" : ""}`}
-          aria-description="Change mode"
-        >
-          <span>{modes.find((m) => m.id === mode)?.label || "Mode"}</span>
-          <ChevronDown size={11} />
-          <select
-            value={mode || ""}
-            disabled={disabled}
-            onChange={(e) => onSetMode(e.target.value)}
-          >
-            {!mode && <option value="">Mode…</option>}
-            {modes.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      {modeControl}
       {config?.features
         .filter((f) => f.type === "toggle")
         .map((f) => (
@@ -268,22 +270,15 @@ export function settingParts({
   return parts;
 }
 
-/** The started conversation's settings: one muted row, nothing to press. */
-function SettingsLine({ parts }: { parts: Part[] }) {
+/** A started conversation's fixed settings: muted text, nothing to press. */
+function SettingsSummary({ parts }: { parts: Part[] }) {
   const shown = parts.filter((p) => p.shown);
-  if (!shown.length) return <div className="agent-controls" />;
+  if (!shown.length) return null;
   const full = parts.map((p) => `${p.name}: ${p.value}`).join(" · ");
   return (
-    <div className="agent-controls">
-      {/* A summary, not a control: its tooltip spells out what it shortens. */}
-      <span
-        className="agent-settings"
-        data-summary
-        data-tip={full}
-        tabIndex={0}
-      >
-        {shown.map((p) => (p.value === "on" ? p.name : p.value)).join(" · ")}
-      </span>
-    </div>
+    /* A summary, not a control: its tooltip spells out what it shortens. */
+    <span className="agent-settings" data-summary data-tip={full} tabIndex={0}>
+      {shown.map((p) => (p.value === "on" ? p.name : p.value)).join(" · ")}
+    </span>
   );
 }

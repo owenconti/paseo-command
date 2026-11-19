@@ -2,6 +2,7 @@ import { PublishedPage } from "./visual/PublishedPage";
 import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
+import { clearAgentMode, publishAgentMode } from "./agentModeStore";
 import { onOwnedAppCommand } from "./appCommands";
 import { macApp, postAppMenu, postAppReveal } from "./worldBridge";
 import { openChatLink } from "./chatLinks";
@@ -274,12 +275,29 @@ export function SessionView({
   useEffect(() => {
     setConfirm(null);
   }, [agent.id]);
-  // The command palette's Interrupt, Open in Paseo and Archive for this agent.
+  const modes: Mode[] =
+    detail?.AvailableModes ||
+    readStore<Mode[]>(`modes:${providerName(agent.provider)}`, []);
+  // The command palette's Interrupt, Open in Paseo, Archive and permission modes for this agent.
   // Shown twice (the panel and the board's overlay), the copy mounted last answers.
-  const palette = useRef({ command, running, archived, busy, online, askConfirm });
-  palette.current = { command, running, archived, busy, online, askConfirm };
+  const palette = useRef({ command, running, archived, busy, online, askConfirm, modes });
+  palette.current = { command, running, archived, busy, online, askConfirm, modes };
+  // ⌘K offers the modes other than this one while the conversation can change it.
+  const modeNow = detail?.Mode;
+  const modesKey = JSON.stringify(modes);
+  useEffect(() => {
+    if (!online || archived || !modes.length) clearAgentMode(agent.id);
+    else publishAgentMode({ agentId: agent.id, ...(modeNow ? { mode: modeNow } : {}), modes });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent.id, modeNow, modesKey, online, archived]);
+  useEffect(() => () => clearAgentMode(agent.id), [agent.id]);
   useEffect(() => {
     const offs = [
+      onOwnedAppCommand("agent-mode", (arg) => {
+        const { command, archived, online, modes } = palette.current;
+        const chosen = modes.find((m) => m.id === arg);
+        if (chosen && online && !archived) void command("mode", { mode: chosen.id }, `Mode set to ${chosen.label}`);
+      }),
       onOwnedAppCommand("agent-interrupt", () => {
         const { command, running } = palette.current;
         if (running) void command("cancel", {}, "Agent interrupted");
@@ -380,9 +398,6 @@ export function SessionView({
     pending.length > 0 ||
     earlier.more ||
     Boolean(agent.lastUserMessageAt || detail?.LastUserMessageAt);
-  const modes: Mode[] =
-    detail?.AvailableModes ||
-    readStore<Mode[]>(`modes:${providerName(agent.provider)}`, []);
   const usage = detail?.LastUsage;
   // The title renames what it shows: the agent's own title, or its
   // workspace's when the agent is named by it.

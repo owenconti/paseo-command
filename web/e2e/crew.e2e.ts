@@ -24,7 +24,7 @@ after(async () => {
 });
 
 type Sent = { type: string; [field: string]: any };
-async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeon; usage?: Record<string, number>; lists?: Record<string, unknown> } = {}): Promise<Page> {
+async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeon; usage?: Record<string, number>; lists?: Record<string, unknown>; detail?: Record<string, unknown>; accept?: (path: string, body: unknown) => unknown } = {}): Promise<Page> {
   const fleet = opts.fleet ?? dungeon;
   const context = await newContext(browser);
   const page = await context.newPage();
@@ -57,10 +57,10 @@ async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeo
     workspaces: () => fleet.workspaces,
     detail: (id: string) => {
       const row = (dungeon.agents as unknown as { id: string; status: string }[]).find((a) => a.id === id);
-      return detailOf(id, row?.status ?? "idle", opts.usage ? { LastUsage: opts.usage } : {});
+      return detailOf(id, row?.status ?? "idle", { ...(opts.usage ? { LastUsage: opts.usage } : {}), ...opts.detail });
     },
     timeline: () => ({ items: [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done. Shall I open the pull request?", messageId: "r1" }] }),
-    accept: () => true,
+    accept: opts.accept ?? (() => true),
     ...(opts.lists ? { lists: opts.lists } : {}),
   } as any);
   await page.goto(app.url);
@@ -227,6 +227,39 @@ test("picking a robot opens its conversation beside the map, its robot above the
   assert.equal(await page.locator(".crew-stage").count(), 0);
   await page.keyboard.press("Escape");
   await page.locator(".crew-drawer").waitFor({ state: "detached" });
+  await page.context().close();
+});
+
+test("a started conversation's permission mode still changes, from its message box and from ⌘K", async () => {
+  const posts: { path: string; body: any }[] = [];
+  const page = await open({
+    detail: { Mode: "default", AvailableModes: [{ id: "default", label: "Always Ask" }, { id: "acceptEdits", label: "Accept Edits" }, { id: "plan", label: "Plan" }] },
+    accept: (path, body) => (posts.push({ path, body }), true),
+  });
+  await page.locator('.crew-node[data-state="idle"]').first().click();
+  await page.locator(".crew-drawer .session .msg.user").first().waitFor();
+  // Started: the mode is a picker in the settings line, set to the conversation's mode.
+  const picker = page.locator(".crew-drawer .session-footer").getByLabel("Permission mode");
+  await picker.waitFor({ state: "attached" });
+  assert.equal(await picker.inputValue(), "default");
+  assert.equal(await picker.isDisabled(), false);
+  assert.equal((await page.locator(".crew-drawer .session-footer .agent-controls .control > span").allInnerTexts()).join(" "), "Always Ask");
+  await picker.selectOption("plan");
+  await waitFor(() => posts.find((p) => p.path.endsWith("/mode")), Boolean, "the mode to be set");
+  assert.equal(posts.find((p) => p.path.endsWith("/mode"))!.body.mode, "plan");
+  // ⌘K offers the other modes.
+  await page.keyboard.press("Meta+k");
+  await palette(page).getByRole("combobox").fill("permission mode");
+  const options = palette(page).getByRole("option", { name: /^Set the permission mode/ });
+  await options.first().waitFor();
+  assert.deepEqual(
+    (await options.allTextContents()).map((t) => t.replace(/Command.*$/, "").trim()),
+    ["Set the permission mode: Accept Edits", "Set the permission mode: Plan"],
+    "every mode but the one it's in",
+  );
+  await palette(page).getByRole("option", { name: /Set the permission mode: Accept Edits/ }).click();
+  await waitFor(() => posts.filter((p) => p.path.endsWith("/mode")).length, (n) => n === 2, "the second mode change");
+  assert.equal(posts.filter((p) => p.path.endsWith("/mode"))[1]!.body.mode, "acceptEdits");
   await page.context().close();
 });
 

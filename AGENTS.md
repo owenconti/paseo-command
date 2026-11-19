@@ -764,6 +764,11 @@ and GitHub publication; report the published version and release link.
   feed pushes the record); its tooltip (`data-summary`) gives the exact tokens and the last turn's in, cached, out and cost.
   Where the daemon doesn't report the window, the last turn's cost and output, as before. Tests: `src/contextUsage.test.ts`,
   `e2e/crew.e2e.ts`.
+- A conversation's settings (`web/src/composer/AgentControls.tsx`, beside the composer's +): before its first turn the model,
+  thinking, mode and features are controls; once it has started the model, thinking and features are a muted line (kept fixed,
+  a deliberate choice), but the permission mode stays a picker (the user's ask), `POST /api/agents/:id/mode` (`setAgentMode`).
+  ⌘K (the open agent's, page Command): "Set the permission mode: <mode>" for each mode but the one it's in (`agent-mode`, from
+  what the open `Session` publishes in `web/src/agentModeStore.ts`), while it's online and not archived. Tests: `e2e/crew.e2e.ts`.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 - Main commits: in the GitHub page, choose a repository and Main commits (`web/src/github/MainHistory.tsx`,

@@ -122,6 +122,7 @@ import { FloatingPanel } from "./FloatingPanel";
 import { AppPanel } from "./AppPanel";
 import { CrewDetail } from "./crew/CrewDetail";
 import { useGlanceData } from "./crew/Glance";
+import { useOpenAgentMode } from "./agentModeStore";
 import { CrewMap } from "./crew/CrewMap";
 import { Session } from "./Session";
 import { SubagentSession } from "./Subagents";
@@ -1382,6 +1383,7 @@ function App() {
       ? linkWorkspace
       : undefined;
   /** The open agent's own buttons and row actions, for the palette. */
+  const openMode = useOpenAgentMode();
   const agentCommands = (a: Agent): Command[] => {
     const name = agentName(a, workspaceOf(a)?.branch);
     const running = isRunning(a.status);
@@ -1421,6 +1423,19 @@ function App() {
               run: () => markRead([a.id]),
             },
           ]
+        : []),
+      // The permission mode, changeable for the rest of the conversation: each mode but the one it's in.
+      ...(live && openMode?.agentId === a.id
+        ? openMode.modes
+            .filter((m) => m.id !== openMode.mode)
+            .map((m) => ({
+              id: `agent-mode-${m.id}`,
+              group: "Actions",
+              page: "Command" as const,
+              label: `Set the permission mode: ${m.label}`,
+              keywords: "mode permissions plan accept edits bypass always ask approve auto",
+              run: () => runAppCommand("agent-mode", m.id),
+            }))
         : []),
       ...(live && running
         ? [
