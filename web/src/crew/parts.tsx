@@ -167,39 +167,43 @@ export function Stage(props: {
         )}
         {!running && props.sentence && <div className="crew-stage-work">{props.sentence}</div>}
       </div>
-      {workspace && (
-        <div className="crew-stage-place">
-          <button className="crew-chip" data-tip="Show the workspace" onClick={() => props.onWorkspace(workspace.key)}>
-            {workspace.name}
+      {/* The workspace and the place's buttons: beside the state while there's room, else wrapped beneath it. */}
+      {(workspace || props.browser || props.files) && (
+        <div className="crew-stage-tools">
+        {workspace && (
+          <div className="crew-stage-place">
+            <button className="crew-chip" data-tip="Show the workspace" onClick={() => props.onWorkspace(workspace.key)}>
+              {workspace.name}
+            </button>
+            {props.medals(workspace, 26)}
+          </div>
+        )}
+        {props.browser && (
+          <button
+            className="crew-chip crew-browser-toggle"
+            aria-pressed={props.browser.shown}
+            aria-keyshortcuts="B"
+            data-tip={props.browser.shown ? "Hide the browser (B, ⇧⌘W)" : "Show its browser (B)"}
+            onClick={props.browser.toggle}
+          >
+            <Globe size={13} aria-hidden="true" />
+            Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}
           </button>
-          {props.medals(workspace, 26)}
+        )}
+        {props.files && (
+          <button
+            className="crew-chip crew-files-toggle"
+            aria-pressed={props.files.shown}
+            aria-keyshortcuts="F"
+            data-tip={props.files.shown ? "Hide the files (F)" : "Show its workspace’s files and your editor (F)"}
+            onClick={props.files.toggle}
+          >
+            <FolderTree size={13} aria-hidden="true" />
+            Files
+          </button>
+        )}
         </div>
       )}
-      {props.browser && (
-        <button
-          className="crew-chip crew-browser-toggle"
-          aria-pressed={props.browser.shown}
-          aria-keyshortcuts="B"
-          data-tip={props.browser.shown ? "Hide the browser (B, ⇧⌘W)" : "Show its browser (B)"}
-          onClick={props.browser.toggle}
-        >
-          <Globe size={13} aria-hidden="true" />
-          Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}
-        </button>
-      )}
-      {props.files && (
-        <button
-          className="crew-chip crew-files-toggle"
-          aria-pressed={props.files.shown}
-          aria-keyshortcuts="F"
-          data-tip={props.files.shown ? "Hide the files (F)" : "Show its workspace’s files and your editor (F)"}
-          onClick={props.files.toggle}
-        >
-          <FolderTree size={13} aria-hidden="true" />
-          Files
-        </button>
-      )}
-
     </div>
   );
 }

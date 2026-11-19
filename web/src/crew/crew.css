@@ -688,25 +688,38 @@
 /* Above the message box (the conversation's ChatFooterContext): the robot, its state and progress. */
 .crew-stage {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 6px 12px;
   margin-bottom: 6px;
   padding: 6px 12px 6px 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: linear-gradient(90deg, color-mix(in srgb, var(--crew-state) 10%, var(--surface)), var(--surface) 60%);
 }
+/* The state keeps room to read on one line; the tools beside it wrap beneath it first. */
 .crew-stage-text {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  flex: 1;
+  flex: 1 1 200px;
+  min-width: min(200px, 100%);
+}
+.crew-stage-tools {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px 10px;
   min-width: 0;
+  margin-left: auto;
 }
 .crew-stage-state {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  white-space: nowrap;
   gap: 4px 10px;
   font-size: var(--fs-sm);
   color: var(--text-3);
@@ -754,8 +767,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: none;
+  flex: 0 1 auto;
   min-width: 0;
+}
+.crew-stage-place .crew-chip {
+  flex: 0 1 auto;
+  min-width: 48px;
 }
 .crew-chip {
   max-width: 220px;
