@@ -319,7 +319,7 @@ test("an agent's files beside its conversation on Crew (F): its workspace's tree
     await pane.locator(".files-view").waitFor();
     assert.equal(await toggle.getAttribute("aria-pressed"), "true");
     const [box, drawer] = await Promise.all([pane, page.locator(".crew-drawer")].map((l) => l.evaluate((e) => e.getBoundingClientRect().toJSON())));
-    assert.ok(box.right <= drawer.left + 1 && box.width > 500, `beside the conversation: ${JSON.stringify({ box, drawer })}`);
+    assert.ok(box.left >= drawer.right - 1 && box.width > 500, `right of the conversation (focus): ${JSON.stringify({ box, drawer })}`);
     // A file opens in the editor from Settings (nvim here), laid over the pane's viewer for the Command tab.
     assert.equal(await page.locator(".board-browser").count(), 0, "one of the two shows");
     await pane.getByRole("treeitem", { name: /^src/ }).click();

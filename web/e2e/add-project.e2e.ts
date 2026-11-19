@@ -69,7 +69,7 @@ async function open(page: Page, accept: (path: string, body: any) => any) {
   await folders(page);
   await page.goto(`${app.url}?tab=Projects`);
   // ⌘K's Add project (the map has no button for it).
-  await page.locator(".crew-board").waitFor();
+  await page.locator(".crew-board").waitFor({ state: "attached" });
   await page.keyboard.press("Meta+k");
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await palette.getByRole("combobox").fill("Add project");

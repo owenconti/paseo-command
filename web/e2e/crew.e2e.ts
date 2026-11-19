@@ -220,7 +220,7 @@ test("at a glance shows nothing while Linear, GitHub and Diagonal health are off
   await page.context().close();
 });
 
-test("picking a robot opens its conversation beside the map, its robot above the message box and beside its replies; Esc leaves the message box, then closes it", async () => {
+test("picking a robot opens it in focus (the map steps aside, a strip back to the crew), its robot above the message box and beside its replies; Esc leaves the message box, then closes it", async () => {
   const page = await open();
   const node = page.locator('.crew-node[data-state="idle"]').first();
   const name = (await node.locator(".crew-node-name").textContent())!;
@@ -228,10 +228,21 @@ test("picking a robot opens its conversation beside the map, its robot above the
   await node.click();
   await page.locator(".crew-drawer .crew-detail .session").waitFor();
   assert.equal(await page.locator(".session").count(), 1, "one copy of the conversation");
-  assert.equal(await page.locator(".crew-board").count(), 1, "the map stays beside it");
+  assert.equal(await page.locator(".crew-board").count(), 1, "the map is kept");
   assert.equal(await node.getAttribute("aria-current"), "true");
-  const [map, drawer] = await Promise.all([".crew-board", ".crew-drawer"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
-  assert.ok(drawer.left >= map.right - 1, "on the map's right");
+  // Focus: the map steps aside, the conversation takes the window under a strip back to the crew and the other robots.
+  assert.equal(await page.locator(".crew-board").evaluate((el) => getComputedStyle(el).visibility), "hidden", "the map steps aside");
+  const focusStrip = page.getByRole("navigation", { name: "The crew" });
+  await focusStrip.waitFor();
+  const [stripBox, drawer] = await Promise.all([focusStrip, page.locator(".crew-drawer")].map((l) => l.evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(drawer.top >= stripBox.bottom - 1 && drawer.left <= 1 && drawer.width >= stripBox.width - 2, `the conversation under the strip, the window wide: ${JSON.stringify({ stripBox, drawer })}`);
+  // The strip lists the other robots, those needing you first; the conversation's own "← Fleet" gives way to its Crew.
+  const others = await focusStrip.locator(".crew-focus-agent").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
+  assert.ok(others.length > 0 && !others.includes(null));
+  const urgent = ["failed", "approval", "question", "asking"];
+  const firstCalm = others.findIndex((st) => !urgent.includes(st!));
+  assert.ok(others.slice(firstCalm).every((st) => !urgent.includes(st!)), `needing you first: ${others}`);
+  assert.equal(await page.locator(".crew-drawer .session-back").isVisible(), false);
   // The robot, its state and progress sit at the foot, above the message box.
   const stage = page.locator(".crew-detail .session-footer .crew-stage");
   assert.equal(await stage.getAttribute("data-state"), "idle");
@@ -252,10 +263,12 @@ test("picking a robot opens its conversation beside the map, its robot above the
   // The arrow keys move through the map.
   await page.keyboard.press("ArrowRight");
   assert.notEqual(await page.evaluate(() => document.activeElement?.getAttribute("data-key")), key);
-  // A workspace's head opens the workspace beside it; Esc closes that too.
+  // A workspace's head opens the workspace beside the map (no focus); Esc closes that too.
   await page.locator(".crew-head.workspace").first().click();
   await page.locator(".crew-drawer .place").first().waitFor();
   assert.equal(await page.locator(".crew-stage").count(), 0);
+  assert.equal(await page.locator(".crew-board").evaluate((el) => getComputedStyle(el).visibility), "visible", "the map stays beside a workspace");
+  assert.equal(await page.getByRole("navigation", { name: "The crew" }).count(), 0);
   await page.keyboard.press("Escape");
   await page.locator(".crew-drawer").waitFor({ state: "detached" });
   await page.context().close();
@@ -316,10 +329,11 @@ test("a row's workspace panels are one height, and so are their robots", async (
   await page.context().close();
 });
 
-test("the conversation panel resizes from its left edge, and keeps its width", async () => {
+test("the panel beside the map (a workspace) resizes from its left edge, and keeps its width", async () => {
   const page = await open();
-  await page.locator('.crew-node[data-state="idle"]').first().click();
-  await page.locator(".crew-drawer .session").waitFor();
+  await map(page).locator(".crew-node").first().waitFor();
+  await page.locator(".crew-head.workspace").first().click();
+  await page.locator(".crew-drawer .place").first().waitFor();
   const width = () => page.locator(".crew-drawer").evaluate((el) => Math.round(el.getBoundingClientRect().width));
   const before = await width();
   const edge = page.getByRole("separator", { name: "Resize the conversation" });
@@ -340,7 +354,7 @@ test("the conversation panel resizes from its left edge, and keeps its width", a
   assert.ok(mapLeft >= 318, `the map keeps ${mapLeft}px`);
   // Kept across a reload; a double-click puts the default back.
   await page.reload();
-  await page.locator(".crew-drawer .session").waitFor();
+  await page.locator(".crew-drawer .place").first().waitFor();
   assert.equal(await width(), widest);
   await page.getByRole("separator", { name: "Resize the conversation" }).dblclick();
   assert.equal(await width(), before);
@@ -390,7 +404,7 @@ test("the conversation's header shows how full its context window is", async () 
   await page.context().close();
 });
 
-test("tiles lie on their side, shorter, when the map is narrowed by the conversation beside it", async () => {
+test("tiles lie on their side, shorter, when the map is narrowed by what opens beside it", async () => {
   const page = await open();
   const node = page.locator('.crew-node[data-state="idle"]').first();
   await node.waitFor();
@@ -401,8 +415,9 @@ test("tiles lie on their side, shorter, when the map is narrowed by the conversa
     });
   const tall = await shape();
   assert.equal(tall.beside, false, "standing: the name under the robot");
-  await node.click();
-  await page.locator(".crew-drawer .session").waitFor();
+  // A workspace opens beside the map (an agent opens in focus, the map stepping aside).
+  await page.locator(".crew-head.workspace").first().click();
+  await page.locator(".crew-drawer .place").first().waitFor();
   const side = await shape();
   assert.equal(side.beside, true, "on its side: the name beside the robot");
   assert.ok(side.height < tall.height * 0.6 && side.width > tall.width, `${JSON.stringify(tall)} → ${JSON.stringify(side)}`);
@@ -425,8 +440,8 @@ test("the map's header keeps its title readable when the conversation narrows th
   await page.reload();
   const node = page.locator(".crew-node").first();
   await node.waitFor();
-  await node.click();
-  await page.locator(".crew-drawer .session").waitFor();
+  await page.locator(".crew-head.workspace").first().click();
+  await page.locator(".crew-drawer .place").first().waitFor();
   for (const width of [1260, 1100, 1000, 920]) {
     await page.setViewportSize({ width, height: 800 });
     const head = await page.locator(".crew-board-head").evaluate((el) => {
@@ -503,11 +518,12 @@ test("cards keep to one grid of equal columns, each spanning its robots, no row 
   const wide = await check();
   assert.ok(wide.cols >= 3, `columns: ${wide.cols}`);
   assert.deepEqual(wide.bad, []);
-  await page.locator(".crew-node").first().click();
-  await page.locator(".crew-drawer .session").waitFor();
+  // A workspace opens beside the map (an agent opens in focus, the map stepping aside).
+  await page.locator(".crew-head.workspace").first().click();
+  await page.locator(".crew-drawer .place").first().waitFor();
   await page.waitForTimeout(100);
   const narrow = await check();
-  assert.ok(narrow.cols < wide.cols, `fewer columns beside the conversation: ${narrow.cols}`);
+  assert.ok(narrow.cols < wide.cols, `fewer columns beside the workspace: ${narrow.cols}`);
   assert.deepEqual(narrow.bad, []);
   await page.context().close();
 });
@@ -635,17 +651,28 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   await toggle.click();
   await page.locator(".board-browser.crew").waitFor();
   assert.equal(await page.locator(".crew-map[data-browser]").count(), 1);
-  // Over the map, beside the conversation, not over it.
-  const [chat, browser] = await Promise.all([".crew-drawer", ".board-browser.crew"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
-  assert.ok(browser.right <= chat.left + 2, `browser to ${browser.right}, conversation from ${chat.left}`);
+  // Focus: right of the conversation, under the tools' tabs (Files · Browser), not over it.
+  const [chat, browser, tabs] = await Promise.all([".crew-drawer", ".board-browser.crew", ".crew-tool-tabs"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(browser.left >= chat.right - 2 && browser.right >= tabs.right - 2, `conversation to ${chat.right}, browser from ${browser.left}`);
+  assert.ok(browser.top >= tabs.bottom - 1, "under its tabs");
+  assert.equal(await page.locator(".crew-tool-tabs").getByRole("tab", { name: /Browser/ }).getAttribute("aria-selected"), "true");
   const placed = await waitFor(() => sent(page, "browser"), (m) => (m.at(-1)?.width ?? 0) > 0, "the web page's box told");
-  assert.ok(placed.at(-1).x + placed.at(-1).width <= chat.left + 2);
-  // It follows the conversation's edge as that is resized.
-  await page.getByRole("separator", { name: "Resize the conversation" }).focus();
-  for (let i = 0; i < 4; i++) await page.keyboard.press("Shift+ArrowLeft");
+  assert.ok(placed.at(-1).x >= chat.right - 2);
+  // It follows the conversation's edge as that is resized (from its right, in focus).
+  await page.getByRole("separator", { name: "Resize the conversation beside its tools" }).focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press("Shift+ArrowRight");
   const [chat2, browser2] = await Promise.all([".crew-drawer", ".board-browser.crew"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
-  assert.ok(chat2.left < chat.left - 100, "wider");
-  assert.ok(Math.abs(browser2.right - chat2.left) <= 2, `browser to ${browser2.right}, conversation from ${chat2.left}`);
+  assert.ok(chat2.right > chat.right + 100, "wider");
+  assert.ok(Math.abs(browser2.left - chat2.right) <= 2, `conversation to ${chat2.right}, browser from ${browser2.left}`);
+  // The tools' Files tab swaps the files in; × hides the tools, the conversation taking the width.
+  await page.locator(".crew-tool-tabs").getByRole("tab", { name: "Files" }).click();
+  await page.locator(".crew-files").waitFor();
+  assert.equal(await page.locator(".board-browser").count(), 0);
+  await page.locator(".crew-tool-tabs").getByRole("button", { name: "Hide the tools" }).click();
+  await page.locator(".crew-files").waitFor({ state: "detached" });
+  assert.equal(await page.locator(".crew-tool-tabs").count(), 0);
+  await toggle.click();
+  await page.locator(".board-browser.crew").waitFor();
   // B hides it (outside a field), and ⌘K shows it again.
   await page.locator(".crew-stage-state").click();
   await page.keyboard.press("b");

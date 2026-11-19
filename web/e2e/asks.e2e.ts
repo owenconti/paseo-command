@@ -115,7 +115,10 @@ test("dismissed questions stay dismissed for that reply", async () => {
 test("an agent whose reply waits on you shows so in the crew", async () => {
   const w = world([{ text: V1, kind: "yes_no" }]);
   const { page, close } = await open(w);
+  // Its conversation is open in focus (the map aside): back on the map, its robot says so.
   const node = page.locator('.crew-node[data-state="asking"]');
+  await node.waitFor({ state: "attached" });
+  await page.locator(".crew-focus-back").click();
   await node.waitFor();
   assert.match((await node.textContent()) ?? "", /Reply waits on you/);
   await close();

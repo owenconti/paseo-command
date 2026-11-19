@@ -1130,3 +1130,216 @@ button.crew-pool-name:hover {
   background: var(--fill);
 }
 
+
+/* Focus (CrewMap's `focus`: an agent open): the map steps aside (kept, with its scroll), the conversation stands on the
+   left and its tools (the files, CrewFiles.tsx; the browser, BoardBrowser.tsx) fill the right under their tabs, below a
+   strip back to the crew and to the other robots. The chat column's width, `--crew-chat`, is set on the map's frame,
+   where the tools (its siblings) read it too. */
+.crew-map[data-focus] {
+  padding-top: 40px;
+}
+.crew-map[data-focus] > .crew-board {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.crew-map[data-focus] > .crew-drawer {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  border-left: 0;
+  box-shadow: none;
+  animation: none;
+}
+.crew-map[data-focus][data-tools] > .crew-drawer {
+  width: clamp(380px, var(--crew-chat, 42%), calc(100% - 360px));
+  border-right: 1px solid var(--line-strong);
+}
+.crew-map[data-focus] > .crew-drawer > .resize-edge {
+  left: auto;
+  right: -5px;
+}
+.crew-focus-strip {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.crew-focus-back {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px 0 7px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.crew-focus-back:hover {
+  background: var(--row-hover);
+  color: var(--text-strong);
+}
+.crew-focus-others {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
+}
+.crew-focus-agent {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  max-width: 190px;
+  height: 24px;
+  padding: 0 9px 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.crew-focus-agent span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-focus-agent i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--crew-state);
+}
+.crew-focus-agent:hover {
+  background: var(--row-hover);
+  color: var(--text);
+}
+/* Those that need you read first and stand out. */
+.crew-focus-agent:is([data-state="approval"], [data-state="question"], [data-state="asking"], [data-state="failed"]) {
+  border-color: color-mix(in srgb, var(--crew-state) 45%, transparent);
+  background: color-mix(in srgb, var(--crew-state) 10%, transparent);
+  color: var(--text-strong);
+}
+.crew-focus-agent:is([data-state="approval"], [data-state="question"], [data-state="asking"], [data-state="failed"]) i {
+  animation: crew-pulse 1.4s ease-in-out infinite;
+}
+.crew-focus-agent[data-state="done"] {
+  color: var(--text-2);
+}
+/* The tools' tabs, over the right of the conversation. */
+.crew-tool-tabs {
+  position: absolute;
+  z-index: 3;
+  top: 40px;
+  left: calc(clamp(380px, var(--crew-chat, 42%), calc(100% - 360px)) + 1px);
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 32px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.crew-tool-tabs > button[role="tab"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.crew-tool-tabs > button[role="tab"]:hover {
+  color: var(--text);
+}
+.crew-tool-tabs > button[aria-selected="true"] {
+  border-color: var(--line);
+  background: var(--surface, var(--panel-2));
+  color: var(--text-strong);
+  margin-bottom: -1px;
+  height: 28px;
+}
+.crew-tool-tabs-spacer {
+  flex: 1;
+}
+.crew-tool-tabs-close {
+  align-self: center;
+  display: inline-flex;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.crew-tool-tabs-close:hover {
+  background: var(--row-hover);
+  color: var(--text-strong);
+}
+/* The tools themselves: right of the conversation, under their tabs; filled, over all of it, under the strip. */
+.crew-map[data-focus] ~ .crew-files.beside,
+.crew-map[data-focus] ~ .board-browser.crew.beside {
+  top: 72px;
+  left: calc(clamp(380px, var(--crew-chat, 42%), calc(100% - 360px)) + 1px);
+  right: 0;
+  border-right: 0;
+}
+.crew-map[data-focus] ~ .crew-files.filled,
+.crew-map[data-focus] ~ .board-browser.crew.filled {
+  top: 40px;
+  left: 0;
+  right: 0;
+}
+@media (max-width: 900px) {
+  /* Narrow: the conversation takes the width; the tools, when shown, lie over it. */
+  .crew-map[data-focus] > .crew-drawer,
+  .crew-map[data-focus][data-tools] > .crew-drawer {
+    position: relative;
+    inset: auto;
+    width: 100%;
+  }
+  .crew-tool-tabs,
+  .crew-map[data-focus] ~ .crew-files.beside,
+  .crew-map[data-focus] ~ .board-browser.crew.beside {
+    left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crew-focus-agent i {
+    animation: none !important;
+  }
+}
+/* In focus the tools' tabs are their one head: the panes' own close, fill and title go, as does the conversation's
+   "← Fleet" (the strip's Crew goes back). */
+.crew-map[data-focus] ~ .crew-files .crew-files-head,
+.crew-map[data-focus] ~ .board-browser.crew .bb-fill,
+.crew-map[data-focus] ~ .board-browser.crew .bb-hide,
+.crew-map[data-focus] .crew-drawer .session-back {
+  display: none;
+}

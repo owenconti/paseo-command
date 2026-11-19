@@ -157,7 +157,7 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   `);
   await mockApi(page, { agents: () => [] });
   await page.goto(app.url);
-  await page.locator(".crew-board").waitFor();
+  await page.locator(".crew-board").waitFor({ state: "attached" });
   // The app's top bar is native: the page draws none, and tells the app what its tools show.
   assert.equal(await page.locator(".app-bar").count(), 0);
   await page.waitForFunction(() =>

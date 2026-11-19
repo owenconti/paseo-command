@@ -108,7 +108,7 @@ test("Activity gathers GitHub and Linear, filters them, and marks them read and 
   });
   try {
     await page.goto(app.url);
-    await page.locator(".crew-board").waitFor();
+    await page.locator(".crew-board").waitFor({ state: "attached" });
     await showActivity(page);
     const view = page.locator(".activity-view");
     await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "every source's notifications");
@@ -207,7 +207,7 @@ test("a done item stays gone across polls, even one begun before the write; a re
   };
   try {
     await page.goto(app.url);
-    await page.locator(".crew-board").waitFor();
+    await page.locator(".crew-board").waitFor({ state: "attached" });
     await showActivity(page);
     const view = page.locator(".activity-view");
     await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "the feed");
@@ -268,7 +268,7 @@ test("in the macOS app, a Linear pull request notification opens its issue's add
   );
   try {
     await page.goto(app.url);
-    await page.locator(".crew-board").waitFor();
+    await page.locator(".crew-board").waitFor({ state: "attached" });
     await showActivity(page);
     const view = page.locator(".activity-view");
     await view.locator(`.activity-row[data-key="${item.key}"]`).click();
@@ -294,7 +294,7 @@ test("Activity's sidebar and preview resize from their edges, kept across a relo
   await page.route("**/api/activity**", (route) => route.fulfill({ json: feedOf(ITEMS) }));
   try {
     await page.goto(app.url);
-    await page.locator(".crew-board").waitFor();
+    await page.locator(".crew-board").waitFor({ state: "attached" });
     await showActivity(page);
     const view = page.locator(".activity-view");
     await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "the feed");
@@ -320,7 +320,7 @@ test("Activity's sidebar and preview resize from their edges, kept across a relo
 
     // Kept; the arrow keys step them; double-click restores the default.
     await page.reload();
-    await page.locator(".crew-board").waitFor();
+    await page.locator(".crew-board").waitFor({ state: "attached" });
     await showActivity(page);
     await view.locator(".activity-row").first().click();
     await preview.waitFor();
@@ -350,7 +350,7 @@ test("Activity's head never overlaps, its tools going to icons and wrapping only
   await page.route("**/api/activity**", (route) => route.fulfill({ json: feedOf(ITEMS.map((i) => ({ ...i, unread: true }))) }));
   try {
     await page.goto(`${app.url}?agent=${small.agents[0].id}`);
-    await page.locator(".crew-board").waitFor();
+    await page.locator(".crew-board").waitFor({ state: "attached" });
     await showActivity(page);
     const view = page.locator(".activity-view");
     await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "the feed");
@@ -418,7 +418,7 @@ test("⌘R refreshes Activity past the server's cache, spinning its button, with
   });
   try {
     await page.goto(app.url);
-    await page.locator(".crew-board").waitFor();
+    await page.locator(".crew-board").waitFor({ state: "attached" });
     await showActivity(page);
     const view = page.locator(".activity-view");
     await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "the feed");

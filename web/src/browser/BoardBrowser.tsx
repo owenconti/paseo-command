@@ -242,7 +242,7 @@ export function BoardBrowser(props: {
         </div>
         <button
           type="button"
-          className="bb-tool"
+          className="bb-tool bb-fill"
           aria-label={filled ? "Show the conversation again" : "Fill the view with the browser"}
           data-tip={filled ? "Show the conversation again" : "Fill the view"}
           aria-pressed={filled}

@@ -448,7 +448,7 @@ export function SessionView({
         <div className="session-nav">
           {onBack && (
             <button
-              className="ghost-btn"
+              className="ghost-btn session-back"
               onClick={onBack}
               aria-description="Back to fleet (Esc)"
             >

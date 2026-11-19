@@ -877,6 +877,18 @@ the component Crew's drawer is.
   node or head marked and kept in view. Esc in a field (its message box, the filter, New agent's form) only leaves
   the field; Esc then closes it from anywhere on Crew (main's key handler: after menus, pickers, previews and
   confirmations; a subagent goes back to its agent first), as does Back (Fleet).
+- Focus (the user's pick of three layouts, "map home, focus mode": the first stage of a new layout; next the Terminal and
+  PR tabs, then Inbox (Activity and the GitHub tab together), dropping Conquer, and a slimmer top bar): opening an agent
+  (CrewMap's `focus`: an agent selected, not a workspace, project or New agent, which still open in the drawer beside the
+  map) puts the map aside (kept mounted, its scroll too, `visibility: hidden`) and gives the agent the window: a strip
+  across the top (`FocusStrip`, `.crew-focus-strip`: ← Crew, which with Esc goes back, then every other robot, those
+  needing you first, tinted and pulsing, then working, then the rest; a click opens one), the conversation on the left
+  and its tools on the right (the files, `CrewFiles`, and the browser, `BoardBrowser`, main's, the map's siblings) under
+  one tab bar (`.crew-tool-tabs`: Files, Browser, × hides them and the conversation takes the width; F and B still
+  toggle). The conversation's width beside its tools is dragged on its right edge (`crew:focusChatWidth`, `--crew-chat`
+  on the map's frame, which the tools read; at least 380 px, the tools 360). In focus the panes' own close, fill and title
+  rows and the conversation's "← Fleet" are hidden (the tab bar and the strip have them). Under 900 px the tools lie over
+  the conversation. Tests: `e2e/crew.e2e.ts`, `e2e/files-editor.e2e.ts`.
 - Beside the other tabs (GitHub, Files, Terminal, Conquer, Activity) the session panel (`FloatingPanel`, one column) shows
   what is open as the same `CrewDetail`, only while something is (main's `panelAbsent` = `crewShown || detailEmpty`: the
   panel takes no width and the bar's panel buttons go). It keeps its side, width and ⌘B; choosing something (J/K, ⌘K, a

@@ -129,7 +129,7 @@ function world(
   return { fleet, posts, forks };
 }
 
-async function open(w: ReturnType<typeof world>, panelWidth?: number) {
+async function open(w: ReturnType<typeof world>, panelWidth?: number, windowWidth?: number) {
   const context = await newContext(browser);
   if (panelWidth)
     await context.addInitScript((width) => {
@@ -141,6 +141,8 @@ async function open(w: ReturnType<typeof world>, panelWidth?: number) {
       localStorage.setItem("paseo-command:crew:drawerWidth", JSON.stringify(width));
     }, panelWidth);
   const page = await context.newPage();
+  // An agent opens in focus, the conversation the window's width: a narrow conversation is a narrow window.
+  if (windowWidth) await page.setViewportSize({ width: windowWidth, height: 900 });
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await mockApi(page, w.fleet as never);
@@ -259,7 +261,7 @@ test("no pill on a live reply", async () => {
 
 test("narrow panel: the fork takes over; Back to main returns to the same place", async () => {
   const w = world();
-  const { page, close } = await open(w);
+  const { page, close } = await open(w, undefined, 680);
   const reply = page.locator(".msg.assistant", { hasText: "Earlier answer 12." });
   // Where the reply stands in the conversation's view.
   const place = () =>

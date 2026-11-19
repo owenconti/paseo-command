@@ -5,8 +5,8 @@
  * tabs); Back (or Esc) returns to the map. A workspace's head archives it, and a claimed pool box's host head releases
  * the box. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Archive, ChevronDown, GripVertical, RotateCcw } from "lucide-react";
-import { STATE_NAMES, modelName, type State } from "../model/fleet";
+import { Archive, ArrowLeft, ChevronDown, FolderTree, Globe, GripVertical, RotateCcw, X } from "lucide-react";
+import { STATE_NAMES, STATE_PRIORITY, modelName, type State } from "../model/fleet";
 import { PoolClaims } from "../PoolClaims";
 import { PoolBoxes } from "./PoolBoxes";
 import { selectionKey } from "../atlasData";
@@ -53,6 +53,11 @@ const POOL_FOLD = "pool:boxes";
 /** The conversation panel's width (CSS px), once resized; else its default (crew.css). */
 const DRAWER_WIDTH = "crew:drawerWidth";
 const DRAWER_MIN = 360;
+/** In focus (an agent open: the map steps aside), the conversation's width beside its tools, once resized. */
+const CHAT_WIDTH = "crew:focusChatWidth";
+const CHAT_MIN = 380;
+/** The tools (files, browser) keep at least this much beside the conversation. */
+const TOOLS_KEEP = 360;
 /** How much of the map stays beside the panel on a wide window (under 900 px the panel lies over the map). */
 const MAP_KEEP = 320;
 const CARD_GAP = 14;
@@ -156,6 +161,27 @@ export function CrewMap(props: Props) {
       frame.style.removeProperty("--crew-drawer");
     };
   }, [drawerWidth]);
+  // Focus: an agent open. The map steps aside (kept, with its scroll), the conversation stands on the left and its tools
+  // (files, browser: main's CrewFiles and BoardBrowser, beside it) fill the right; a strip across the top goes back to
+  // the crew and to the other robots, those needing you first.
+  const focus = !props.empty && props.selection?.type === "agent";
+  const toolsShown = focus && !!(props.browser?.shown || props.files?.shown);
+  const [chatWidth, setChatWidth] = useState<number | null>(() => readStore<number | null>(CHAT_WIDTH, null));
+  const chatMax = () => Math.max(CHAT_MIN, (root.current?.clientWidth ?? window.innerWidth) - TOOLS_KEEP);
+  const resizeChat = (w: number | null) => {
+    const next = w === null ? null : Math.round(Math.max(CHAT_MIN, Math.min(chatMax(), w)));
+    setChatWidth(next);
+    writeStore(CHAT_WIDTH, next);
+  };
+  useLayoutEffect(() => {
+    const frame = root.current?.parentElement;
+    if (!frame) return;
+    if (chatWidth === null) frame.style.removeProperty("--crew-chat");
+    else frame.style.setProperty("--crew-chat", `${chatWidth}px`);
+    return () => {
+      frame.style.removeProperty("--crew-chat");
+    };
+  }, [chatWidth]);
   // What was last opened from the map: coming back, the map shows it and gives it the keyboard.
   const opened = useRef<string | null>(null);
 
@@ -247,7 +273,41 @@ export function CrewMap(props: Props) {
 
   const open = !props.empty;
   return (
-    <div ref={root} className="crew-map" data-world="crew" data-open={open || undefined} data-browser={(open && props.selection?.type === "agent" && (props.browser?.shown || props.files?.shown)) || undefined}>
+    <div
+      ref={root}
+      className="crew-map"
+      data-world="crew"
+      data-open={open || undefined}
+      data-focus={focus || undefined}
+      data-tools={toolsShown || undefined}
+      data-browser={(open && props.selection?.type === "agent" && (props.browser?.shown || props.files?.shown)) || undefined}
+    >
+      {focus && <FocusStrip agents={data.agents} current={selected} pick={(key) => pick("agent", key)} back={() => props.select(null)} />}
+      {toolsShown && (
+        <div className="crew-tool-tabs" role="tablist" aria-label="Tools">
+          {props.files && (
+            <button role="tab" aria-selected={props.files.shown} aria-keyshortcuts="F" onClick={() => !props.files!.shown && props.files!.toggle()}>
+              <FolderTree size={13} aria-hidden="true" />
+              Files
+            </button>
+          )}
+          {props.browser && (
+            <button role="tab" aria-selected={props.browser.shown} aria-keyshortcuts="B" onClick={() => !props.browser!.shown && props.browser!.toggle()}>
+              <Globe size={13} aria-hidden="true" />
+              Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}
+            </button>
+          )}
+          <span className="crew-tool-tabs-spacer" />
+          <button
+            className="crew-tool-tabs-close"
+            aria-label="Hide the tools"
+            data-tip="Hide the tools: the conversation takes the width (F or B shows them again)"
+            onClick={() => (props.files?.shown ? props.files.toggle() : props.browser?.toggle())}
+          >
+            <X size={13} aria-hidden="true" />
+          </button>
+        </div>
+      )}
       <div className="crew-board" ref={board} onKeyDown={boardKeys} role="region" aria-label="Crew" style={{ "--crew-cols": cols } as CSSProperties}>
         <header className="crew-board-head">
           <div className="crew-board-title">
@@ -438,16 +498,31 @@ export function CrewMap(props: Props) {
       </div>
       {open && (
         <aside ref={drawer} className="crew-drawer" id="crew-drawer" aria-label="Conversation">
-          <ResizeEdge
-            label="Resize the conversation"
-            controls="crew-drawer"
-            value={drawerWidth ?? drawer.current?.getBoundingClientRect().width ?? 560}
-            min={DRAWER_MIN}
-            max={drawerMax()}
-            grows="left"
-            onResize={resizeDrawer}
-            onReset={() => resizeDrawer(null)}
-          />
+          {focus ? (
+            toolsShown && (
+              <ResizeEdge
+                label="Resize the conversation beside its tools"
+                controls="crew-drawer"
+                value={chatWidth ?? drawer.current?.getBoundingClientRect().width ?? 560}
+                min={CHAT_MIN}
+                max={chatMax()}
+                grows="right"
+                onResize={resizeChat}
+                onReset={() => resizeChat(null)}
+              />
+            )
+          ) : (
+            <ResizeEdge
+              label="Resize the conversation"
+              controls="crew-drawer"
+              value={drawerWidth ?? drawer.current?.getBoundingClientRect().width ?? 560}
+              min={DRAWER_MIN}
+              max={drawerMax()}
+              grows="left"
+              onResize={resizeDrawer}
+              onReset={() => resizeDrawer(null)}
+            />
+          )}
           <CrewDetail
             hosts={props.hosts}
             projects={props.projects}
@@ -492,5 +567,31 @@ function Tally({ agents }: { agents: readonly { state: State }[] }) {
         </span>
       ))}
     </span>
+  );
+}
+
+/** Focus's strip across the top: back to the crew, then the other robots, those that need you first (then working, then
+ *  the rest, oldest first), each a dot in its state's colour and its name; a click opens it. */
+function FocusStrip({ agents, current, pick, back }: { agents: readonly RosterAgent[]; current: string | null; pick: (key: string) => void; back: () => void }) {
+  const rank = (s: State) => {
+    const i = STATE_PRIORITY.indexOf(s);
+    return i < 0 ? STATE_PRIORITY.length : i;
+  };
+  const others = agents.filter((a) => a.key !== current).sort((a, b) => rank(a.state) - rank(b.state));
+  return (
+    <nav className="crew-focus-strip" aria-label="The crew">
+      <button className="crew-focus-back" onClick={back} aria-keyshortcuts="Escape" data-tip="Back to the crew (Esc)">
+        <ArrowLeft size={14} aria-hidden="true" />
+        Crew
+      </button>
+      <span className="crew-focus-others">
+        {others.map((a) => (
+          <button key={a.key} className="crew-focus-agent" data-state={a.state} onClick={() => pick(a.key)} data-tip={`${a.name} · ${STATE_NAMES[a.state]}`}>
+            <i aria-hidden="true" />
+            <span>{a.name}</span>
+          </button>
+        ))}
+      </span>
+    </nav>
   );
 }
