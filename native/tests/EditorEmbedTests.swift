@@ -8,13 +8,17 @@ let sent = EditorPlacement(["type": "editor", "terminal": "term-7", "host": "srv
 assert(sent.terminal == "term-7" && sent.host == "srv_far" && sent.rect == CGRect(x: 300, y: 80.5, width: 600, height: 400) && !sent.covered)
 assert(EditorPlacement(["terminal": "", "width": 600, "height": 400]).terminal == nil, "an empty terminal is none")
 assert(EditorPlacement(["terminal": "t", "width": -5]).rect.width == 0)
-assert(sent.visible(filesShows: true))
-assert(!sent.visible(filesShows: false), "only while Files shows")
+assert(sent.visible(showing: "files"))
+assert(!sent.visible(showing: "command"), "only while Files shows")
 var covered = sent; covered.covered = true
-assert(!covered.visible(filesShows: true), "a dialog over it: it steps aside")
+assert(!covered.visible(showing: "files"), "a dialog over it: it steps aside")
 var tiny = sent; tiny.rect.size = CGSize(width: 20, height: 400)
-assert(!tiny.visible(filesShows: true))
-assert(!EditorPlacement.nothing.visible(filesShows: true))
+assert(!tiny.visible(showing: "files"))
+assert(!EditorPlacement.nothing.visible(showing: "files"))
+// The files beside a conversation on Crew: their editor shows only while Command does.
+let beside = EditorPlacement(["terminal": "term-8", "x": 0, "y": 40, "width": 600, "height": 400, "mode": "command"])
+assert(beside.mode == "command" && beside.visible(showing: "command") && !beside.visible(showing: "files"))
+assert(EditorPlacement(["terminal": "t", "width": 600, "height": 400, "mode": "conquer"]).mode == "files", "an unknown mode is Files'")
 
 // ── Frame following, in a window laid out as the app's: the page (flipped, as WKWebView) under the bar, the stage in the page side ──
 final class FlippedView: NSView { override var isFlipped: Bool { true } }
@@ -32,7 +36,7 @@ let stage = EditorStage(frame: .zero)
 stage.isHidden = true
 content.addSubview(stage)
 // The viewer at (300, 80) in the page, 600 × 400: the same place in the window, y running up.
-assert(stage.follow(sent, filesShows: true, web: web))
+assert(stage.follow(sent, showing: "files", web: web))
 assert(!stage.isHidden)
 assert(stage.frame == CGRect(x: 300, y: 762 - 80.5 - 400, width: 600, height: 400).integral, "\(stage.frame)")
 // The sidebar hides: the viewer widens leftwards.
@@ -55,8 +59,8 @@ let plain = NSView(frame: CGRect(x: 0, y: 0, width: 1200, height: 500))
 command.addSubview(plain)
 assert(EditorStage.frame(of: CGRect(x: 10, y: 0, width: 100, height: 50), in: plain, to: content) == CGRect(x: 10, y: 450, width: 100, height: 50))
 // Another mode: hidden, where it was; back to Files: shown again.
-assert(!stage.follow(filesShows: false, web: web) && stage.isHidden)
-assert(stage.follow(filesShows: true, web: web) && !stage.isHidden)
+assert(!stage.follow(showing: "command", web: web) && stage.isHidden)
+assert(stage.follow(showing: "files", web: web) && !stage.isHidden)
 // A dialog over it, then gone; no editor (the tab shows the viewer); then another tab's.
 var over = short; over.covered = true
 assert(!stage.follow(over, web: web) && stage.isHidden)

@@ -883,6 +883,7 @@
 .board-browser.crew .bb-address:focus-visible {
   outline: 2px solid var(--focus);
 }
+.crew-files-toggle,
 .crew-browser-toggle {
   display: inline-flex;
   align-items: center;
@@ -890,6 +891,7 @@
   flex: none;
   font-family: var(--font-sans);
 }
+.crew-files-toggle[aria-pressed="true"],
 .crew-browser-toggle[aria-pressed="true"] {
   border-color: var(--accent-line);
   color: var(--text-strong);

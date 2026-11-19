@@ -3,7 +3,7 @@
  * work frames, running subagents' drones, the status sheet's state marks, glows and PR, Probe and auto-merge
  * medallions (`sheets.ts`, from the art in rendering/src/assets/dungeon), and the strip above the message box. */
 import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
-import { Globe } from "lucide-react";
+import { FolderTree, Globe } from "lucide-react";
 import robotsUrl from "../../../rendering/src/assets/dungeon/robots.png";
 import statusUrl from "../../../rendering/src/assets/dungeon/status.png";
 import { AUTO_MERGE } from "../model/prStatus";
@@ -141,6 +141,8 @@ export function Stage(props: {
   medals: (w: CrewWorkspace, size: number) => ReactNode;
   onWorkspace: (key: string) => void;
   browser?: { shown: boolean; tabs: number; toggle: () => void };
+  /** Its workspace's files beside the conversation (F): shown or hidden. */
+  files?: { shown: boolean; toggle: () => void };
 }) {
   const { agent, workspace } = props;
   const running = agent.state === "running";
@@ -183,6 +185,18 @@ export function Stage(props: {
         >
           <Globe size={13} aria-hidden="true" />
           Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}
+        </button>
+      )}
+      {props.files && (
+        <button
+          className="crew-chip crew-files-toggle"
+          aria-pressed={props.files.shown}
+          aria-keyshortcuts="F"
+          data-tip={props.files.shown ? "Hide the files (F)" : "Show its workspace’s files and your editor (F)"}
+          onClick={props.files.toggle}
+        >
+          <FolderTree size={13} aria-hidden="true" />
+          Files
         </button>
       )}
 

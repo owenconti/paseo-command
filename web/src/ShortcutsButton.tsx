@@ -114,6 +114,7 @@ const CREW: Group = {
     { keys: [["Esc"]], label: "Close the conversation beside the map, once out of its message box (the robot you left keeps the keyboard)" },
     { keys: [["←"], ["→"]], label: "On the conversation's left edge: make it wider or narrower (⇧ for bigger steps; drag it, double-click for the default)" },
     { keys: [["B"]], label: "Show or hide the open robot's browser beside its conversation (the macOS app's)" },
+    { keys: [["F"]], label: "Show or hide its workspace's files beside the conversation, in your editor from Settings → Files (the macOS app's)" },
     { keys: [["⇧", "⌘", "W"]], label: "Hide the browser, from its page or a field too" },
   ],
 };

@@ -299,3 +299,64 @@ test("Files in a browser: the viewer stays, with a note; Settings → Files edit
     await context.close();
   }
 });
+
+test("an agent's files beside its conversation on Crew (F): its workspace's tree and tabs, in the editor, placed for Command", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await page.addInitScript(() => localStorage.setItem("paseo-command:atlas:style", JSON.stringify("crew")));
+  await asMacApp(page);
+  const { created } = await setUp(page);
+  try {
+    await page.goto(`${app.url}?agent=a-idle`);
+    await page.locator(".crew-drawer .crew-detail").waitFor();
+    const toggle = page.locator(".crew-files-toggle");
+    assert.equal(await toggle.getAttribute("aria-pressed"), "false");
+    // F, outside a field: the files take the browser's place, left of the conversation.
+    await page.locator(".crew-drawer h1, .crew-drawer h2").first().click();
+    await page.keyboard.press("f");
+    const pane = page.getByRole("region", { name: /’s files$/ });
+    await pane.locator(".files-view").waitFor();
+    assert.equal(await toggle.getAttribute("aria-pressed"), "true");
+    const [box, drawer] = await Promise.all([pane, page.locator(".crew-drawer")].map((l) => l.evaluate((e) => e.getBoundingClientRect().toJSON())));
+    assert.ok(box.right <= drawer.left + 1 && box.width > 500, `beside the conversation: ${JSON.stringify({ box, drawer })}`);
+    // A file opens in the editor from Settings (nvim here), laid over the pane's viewer for the Command tab.
+    assert.equal(await page.locator(".board-browser").count(), 0, "one of the two shows");
+    await pane.getByRole("treeitem", { name: /^src/ }).click();
+    await pane.getByRole("treeitem", { name: /app\.ts/ }).click();
+    await waitFor(() => Promise.resolve(created.length), (c) => c === 1, "the editor's terminal");
+    assert.deepEqual(created[0], { workspace: "wks_a", path: "src/app.ts" });
+    const slot = pane.locator(".fv-editor[data-terminal=term-1]");
+    await slot.waitFor();
+    const frame = await slot.evaluate((e) => e.getBoundingClientRect().toJSON());
+    await waitFor(() => lastPlacement(page), (p) => p?.terminal === "term-1" && p.mode === "command" && p.x === frame.x && p.width === frame.width, "placed for Command");
+    assert.ok((frame.x as number) >= box.left && (frame.right as number) <= box.right + 1);
+    // The conversation keeps its own keys: B, from outside the pane, swaps in the browser, and the editor is put away.
+    const blur = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await blur();
+    await page.keyboard.press("b");
+    await page.locator(".board-browser").waitFor();
+    await pane.waitFor({ state: "detached" });
+    await waitFor(() => lastPlacement(page), (p) => !p?.terminal, "the editor hidden with the pane");
+    // F again: the browser goes, and the same tab and terminal come back (kept per workspace), not another.
+    await blur();
+    await page.keyboard.press("f");
+    await page.locator(".board-browser").waitFor({ state: "detached" });
+    await pane.locator(".fv-editor[data-terminal=term-1]").waitFor();
+    assert.equal(created.length, 1, "no second editor");
+    await waitFor(() => lastPlacement(page), (p) => p?.terminal === "term-1" && p.mode === "command", "placed again");
+    // F inside the files is theirs (the tree's keys), not the toggle; ⌘K hides it.
+    await blur();
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox").fill("Hide the files");
+    await palette.getByRole("option", { name: /Hide the files beside the conversation/ }).click();
+    await pane.waitFor({ state: "detached" });
+    // The Files tab's own view places its editor for Files.
+    await appEvent(page, "paseo:mode", { mode: "files" });
+    await page.locator(".files-view .fv-editor[data-terminal=term-1]").waitFor();
+    await waitFor(() => lastPlacement(page), (p) => p?.terminal === "term-1" && p.mode === "files", "placed for Files");
+  } finally {
+    await context.close();
+  }
+});

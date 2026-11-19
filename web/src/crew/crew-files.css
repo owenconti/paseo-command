@@ -1,0 +1,72 @@
+/* The open agent's files beside its conversation on Crew (CrewFiles.tsx), in its browser's place: the map's side,
+   left of the drawer, or over the conversation too when filled. The Files tab's own view fills its body. */
+.crew-files {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: calc(min(var(--crew-drawer, clamp(440px, 46%, 760px)), 100% - 320px) + 1px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface, var(--panel));
+}
+.crew-files.filled {
+  right: 0;
+  z-index: 5;
+  border-right: 0;
+}
+@media (max-width: 900px) {
+  .crew-files.beside {
+    right: min(100%, var(--crew-drawer, 560px));
+  }
+}
+.crew-files-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.crew-files-head > svg {
+  color: var(--text-3);
+}
+.crew-files-head b {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+.crew-files-where {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-files-tools {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+}
+.crew-files-tool[aria-pressed="true"] {
+  background: var(--row-hover);
+  color: var(--text-strong);
+}
+.crew-files-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+/* The pane's head names the files and the workspace: the view's own sidebar keeps only its tools. */
+.crew-files .fv-sidebar .gh-sidebar-head h2 {
+  font-size: 0;
+}
+.crew-files .fv-sidebar .fv-workspace {
+  display: none;
+}

@@ -20,6 +20,8 @@ export type CrewDetailProps = CrewFleet & {
   detail: ReactNode;
   /** The open agent's browser (the macOS app's, on Crew): shown beside its conversation, its tabs, B's toggle. */
   browser?: { shown: boolean; tabs: number; toggle: () => void };
+  /** Its workspace's files beside the conversation (on Crew): shown or hidden, F's toggle. */
+  files?: { shown: boolean; toggle: () => void };
 };
 
 export function CrewDetail(props: CrewDetailProps) {
@@ -49,6 +51,7 @@ export function CrewDetail(props: CrewDetailProps) {
             shownAgent && (
               <Stage
                 browser={props.browser}
+                files={props.files}
                 agent={shownAgent}
                 sentence={sentence}
                 workspace={shownAgent.workspace ? data.workspaces.find((w) => w.key === shownAgent.workspace) : undefined}

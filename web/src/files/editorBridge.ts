@@ -12,13 +12,20 @@ const channel = () =>
     ?.paseoWorld;
 
 export type EditorPlacement = { terminal?: string; host?: string; x: number; y: number; width: number; height: number; covered: boolean };
+/** Which tab of the app the editor shows in: the Files tab's, or Command's (the files beside a conversation on Crew).
+ *  One files view is mounted at a time, so it says (FilesView's `embedded`). */
+let mode: "files" | "command" = "files";
+export const setEditorMode = (next: "files" | "command") => {
+  mode = next;
+};
 let last = "";
 /** Where the shown tab's editor goes (no terminal: none shows). Sent only when it changes, unless `force`. */
 export function postEditorPlacement(p: EditorPlacement, force = false) {
-  const key = JSON.stringify(p);
+  const message = { ...p, mode };
+  const key = JSON.stringify(message);
   if (key === last && !force) return;
   last = key;
-  channel()?.postMessage({ type: "editor", ...p });
+  channel()?.postMessage({ type: "editor", ...message });
 }
 export const hideEditor = () => postEditorPlacement({ x: 0, y: 0, width: 0, height: 0, covered: false });
 export const focusEditor = () => channel()?.postMessage({ type: "editorFocus" });

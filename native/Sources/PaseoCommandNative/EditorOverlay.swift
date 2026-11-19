@@ -62,10 +62,10 @@ final class EditorOverlay: EditorStage {
     }
 
     /// The page's placement (or the mode, or the page side's layout, changed): show the named terminal over the viewer.
-    func place(_ asked: EditorPlacement?, filesShows: Bool, web: NSView) {
+    func place(_ asked: EditorPlacement?, showing: String, web: NSView) {
         let wasCovered = placement.covered
         let hadKeys = hasKeyFocus
-        let shows = follow(asked, filesShows: filesShows, web: web)
+        let shows = follow(asked, showing: showing, web: web)
         let next = shows ? placement.terminal : nil
         if next != shown {
             if let old = shown { sessions[old]?.view.removeFromSuperview() }

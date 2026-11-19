@@ -12,14 +12,18 @@ struct EditorPlacement: Equatable {
     var rect: CGRect
     /// A dialog (⌘K, ⌘P, a confirmation) is open over it: the page's, so the terminal steps aside.
     var covered: Bool
+    /// The app's mode it shows in: "files" (the Files tab's viewer) or "command" (the files beside an agent's
+    /// conversation on Crew, `web/src/crew/CrewFiles.tsx`).
+    var mode: String
 
     static let nothing = EditorPlacement(terminal: nil, host: "", rect: .zero, covered: false)
 
-    init(terminal: String?, host: String, rect: CGRect, covered: Bool) {
+    init(terminal: String?, host: String, rect: CGRect, covered: Bool, mode: String = "files") {
         self.terminal = terminal
         self.host = host
         self.rect = rect
         self.covered = covered
+        self.mode = mode
     }
 
     /// From the page's message (`postEditorPlacement` in `web/src/files/editorBridge.ts`).
@@ -28,12 +32,14 @@ struct EditorPlacement: Equatable {
         let id = (body["terminal"] as? String).flatMap { $0.isEmpty || $0.count > 200 ? nil : $0 }
         self.init(terminal: id, host: body["host"] as? String ?? "",
                   rect: CGRect(x: number("x"), y: number("y"), width: max(0, number("width")), height: max(0, number("height"))),
-                  covered: body["covered"] as? Bool ?? false)
+                  covered: body["covered"] as? Bool ?? false,
+                  mode: body["mode"] as? String == "command" ? "command" : "files")
     }
 
-    /// Whether a terminal shows at all: one is named, the page shows Files, nothing covers it, it has room.
-    func visible(filesShows: Bool) -> Bool {
-        terminal != nil && filesShows && !covered && rect.width >= 40 && rect.height >= 40
+    /// Whether a terminal shows at all: one is named, the app shows its mode (`showing`, a `Mode`'s raw value),
+    /// nothing covers it, it has room.
+    func visible(showing: String) -> Bool {
+        terminal != nil && mode == showing && !covered && rect.width >= 40 && rect.height >= 40
     }
 }
 
@@ -43,7 +49,8 @@ struct EditorPlacement: Equatable {
 /// another tab, another mode.
 class EditorStage: NSView {
     private(set) var placement = EditorPlacement.nothing
-    private(set) var filesShows = false
+    /// The app's mode now (a `Mode`'s raw value): the editor shows only in its placement's.
+    private(set) var showing = ""
     /// The system went dark or light.
     var onAppearance: ((NSAppearance) -> Void)?
 
@@ -58,12 +65,12 @@ class EditorStage: NSView {
         return parent.convert(web.convert(inWeb, to: nil), from: nil)
     }
 
-    /// Follow the page: its last placement, and whether Files shows. Returns whether the stage shows.
+    /// Follow the page: its last placement, and the app's mode. Returns whether the stage shows.
     @discardableResult
-    func follow(_ next: EditorPlacement? = nil, filesShows: Bool? = nil, web: NSView) -> Bool {
+    func follow(_ next: EditorPlacement? = nil, showing: String? = nil, web: NSView) -> Bool {
         if let next { placement = next }
-        if let filesShows { self.filesShows = filesShows }
-        let shows = placement.visible(filesShows: self.filesShows)
+        if let showing { self.showing = showing }
+        let shows = placement.visible(showing: self.showing)
         if shows, let parent = superview {
             let frame = Self.frame(of: placement.rect, in: web, to: parent).integral
             if frame != self.frame { self.frame = frame }

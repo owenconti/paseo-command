@@ -13,6 +13,9 @@ import {
   useBrowserFollows,
   useBrowserOpen,
   useBrowserTools,
+  useFilesOpen,
+  setFilesOpen,
+  filesOpenSetting,
 } from "./browser/settings";
 import { browserDo, browserKey, onBrowserEvent, postBrowserHost, tabLabel, useBoardBrowsers } from "./browser/browserBridge";
 import { useAsks } from "./useAsks";
@@ -200,6 +203,7 @@ const GitHubView = React.lazy(() =>
   import("./github/GitHubView").then((module) => ({ default: module.GitHubView })),
 );
 // The Files tab (the selected workspace's files, read only), likewise.
+const CrewFiles = React.lazy(() => import("./crew/CrewFiles").then((module) => ({ default: module.CrewFiles })));
 const FilesView = React.lazy(() =>
   import("./files/FilesView").then((module) => ({ default: module.FilesView })),
 );
@@ -675,6 +679,8 @@ function App() {
   // The open agent's browser, beside its conversation on Crew (src/browser/BoardBrowser.tsx): B, kept as you step
   // from agent to agent.
   const browserOpen = useBrowserOpen();
+  // Its workspace's files beside its conversation (src/crew/CrewFiles.tsx): F; the files and the browser share the place.
+  const filesOpen = useFilesOpen();
   // Agents' own browser tools open and drive its tabs (Settings → Browser): the macOS app is told, and registers
   // with the daemons as their browser while it is on.
   const browserTools = useBrowserTools();
@@ -830,20 +836,33 @@ function App() {
   const agentComments = useLocalComments(agent?.host, agent?.workspaceId);
   // On Crew (the macOS app's: it draws the pages) the open agent's browser stands beside its conversation.
   const crewBrowsing = crewShown && macApp() && !!agent && !selection?.subagent;
-  const browserShown = crewBrowsing && browserOpen;
+  const filesShown = crewBrowsing && filesOpen;
+  const browserShown = crewBrowsing && browserOpen && !filesShown;
   const agentBrowser = agent ? boardBrowsers.browsers[browserKey(agent.host, daemonAgentId(agent))] : undefined;
   const browserTab = agentBrowser?.tabs.find((t) => t.id === agentBrowser.current) ?? agentBrowser?.tabs[0];
-  const toggleBrowser = () => setBrowserOpen(!browserShown);
-  // B, outside a text field: the open agent's browser, shown or hidden.
-  const boardKeys = useRef({ crew: crewBrowsing, browserShown, toggleBrowser });
-  Object.assign(boardKeys.current, { crew: crewBrowsing, browserShown, toggleBrowser });
+  // One of the two shows in the place beside the conversation: opening either closes the other.
+  const toggleBrowser = () => {
+    if (!browserShown) setFilesOpen(false);
+    setBrowserOpen(!browserShown);
+  };
+  const toggleFiles = () => {
+    if (!filesShown) setBrowserOpen(false);
+    setFilesOpen(!filesShown);
+  };
+  // B and F, outside a text field: the open agent's browser, or its workspace's files, shown or hidden.
+  const boardKeys = useRef({ crew: crewBrowsing, browserShown, toggleBrowser, toggleFiles });
+  Object.assign(boardKeys.current, { crew: crewBrowsing, browserShown, toggleBrowser, toggleFiles });
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const now = boardKeys.current;
-      if (e.key.toLowerCase() !== "b" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.repeat || e.defaultPrevented) return;
+      const k = e.key.toLowerCase();
+      if ((k !== "b" && k !== "f") || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.repeat || e.defaultPrevented) return;
       if (!now.crew || modalOpen() || isTyping(e.target as HTMLElement | null)) return;
+      // The files' own keys (the tree's, T…) stay theirs while they have the keyboard.
+      if ((e.target as HTMLElement | null)?.closest?.(".crew-files")) return;
       e.preventDefault();
-      now.toggleBrowser();
+      if (k === "b") now.toggleBrowser();
+      else now.toggleFiles();
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
@@ -860,7 +879,8 @@ function App() {
         const opener = now.agents.find((a) => (a.host || "local") === event.host && daemonAgentId(a) === event.agent);
         if (!opener) return;
         if (now.open?.id === opener.id) {
-          if (!browserFollowsSetting()) return;
+          // While its files show, the Browser button counts the tab instead of taking their place.
+          if (!browserFollowsSetting() || filesOpenSetting()) return;
           browserDo("select", { tab: event.tab });
           setBrowserOpen(true);
           return;
@@ -1584,6 +1604,15 @@ function App() {
   })();
   const browserEntries = agent && crewBrowsing
     ? [
+        {
+          id: "crew-files",
+          group: "Actions",
+          page: "Command" as const,
+          label: filesShown ? "Hide the files beside the conversation" : `Show ${agentName(agent, workspaceOf(agent)?.branch)}’s files beside the conversation`,
+          keys: [["F"]],
+          keywords: "crew files editor nvim vim tree workspace code open file changes diff beside conversation",
+          run: toggleFiles,
+        },
         {
           id: "world-talk-browser",
           group: "Actions",
@@ -2907,8 +2936,19 @@ function App() {
                 onArchive={(w) => openArchive(w, true)}
                 archiving={archiving}
                 {...(poolBoxes.length ? { pool: { boxes: poolBoxes, running: poolRunning, release: openReleasePool } } : {})}
-                {...(crewBrowsing ? { browser: { shown: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser } } : {})}
+                {...(crewBrowsing ? { browser: { shown: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser }, files: { shown: filesShown, toggle: toggleFiles } } : {})}
               />
+            )}
+            {filesShown && agent && (
+              <React.Suspense fallback={null}>
+                <CrewFiles
+                  workspace={githubWorkspace}
+                  name={agentName(agent, workspaceOf(agent)?.branch)}
+                  onClose={() => setFilesOpen(false)}
+                  onNotice={setNotice}
+                  {...(integrations.github ? { onOpenPr: openChangesPr, onExternal: openInConquer } : {})}
+                />
+              </React.Suspense>
             )}
             {browserShown && agent && (
               <React.Suspense fallback={null}>

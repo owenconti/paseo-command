@@ -66,7 +66,7 @@ import {
   type FileTab,
   type TabsState,
 } from "./tabs";
-import { closeEditors, focusEditor, forgetEditors, hideEditor, onEditorEvent, postEditorPlacement } from "./editorBridge";
+import { closeEditors, focusEditor, forgetEditors, hideEditor, onEditorEvent, postEditorPlacement, setEditorMode } from "./editorBridge";
 import { useFilesSettings } from "./filesSettings";
 import { markdownType, MARKDOWN_TYPES, type MarkdownType } from "./markdown";
 import { MarkdownPreview, type PreviewHandle, type WorkspaceLink } from "./MarkdownPreview";
@@ -151,6 +151,7 @@ export function FilesView({
   onViewState,
   onOpenPr,
   onExternal,
+  embedded = false,
 }: {
   workspace?: FilesWorkspaceInfo;
   onNotice: (message: string) => void;
@@ -158,8 +159,16 @@ export function FilesView({
   /** The Changes' Review #N (its PR in the GitHub tab) and Compare on GitHub: absent while GitHub is off. */
   onOpenPr?: (repo: string, number: number) => void;
   onExternal?: (url: string) => void;
+  /** Beside an agent's conversation on Crew (`crew/CrewFiles.tsx`), not the Files tab: its keys only while it has the
+   *  keyboard, no ⌘R of its own, and its editor placed for the Command tab (`setEditorMode`). */
+  embedded?: boolean;
 }) {
   useFilesVersion();
+  // Before any effect of its editor's (layout effects run first), so its first placement names its tab.
+  useLayoutEffect(() => {
+    setEditorMode(embedded ? "command" : "files");
+    return () => setEditorMode("files");
+  }, [embedded]);
   const wsKey = workspace ? keyOf(workspace) : "";
   const [kept, setKeptState] = useState<Kept>(() => (workspace ? readKeptOf(workspace) : NO_KEPT));
   // Another workspace: its own folders and file.
@@ -624,9 +633,14 @@ export function FilesView({
   // `files-close-tab`; a browser keeps ⌘W, so ⌃W too), ⇧⌘T reopens, ⌃Tab / ⌃⇧Tab and ⌥⌘→ / ⌥⌘← step.
   const tabKeys = useRef({ closeActive, reopen, step });
   tabKeys.current = { closeActive, reopen, step };
+  const embeddedRoot = useRef<{ embedded: boolean; view: HTMLElement | null }>({ embedded, view: null });
+  embeddedRoot.current = { embedded, view };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (modalOpen()) return;
+      // Beside a conversation, the conversation keeps its keys: these are the files' only while they have the keyboard.
+      const r = embeddedRoot.current;
+      if (r.embedded && !(r.view && r.view.contains(document.activeElement))) return;
       const k = e.key.toLowerCase();
       const t = tabKeys.current;
       const cmd = e.metaKey && !e.ctrlKey;
@@ -655,7 +669,7 @@ export function FilesView({
       ...(showingChanges ? [invalidate("changes?")] : []),
     ]);
   };
-  usePageRefresh(workspace && !showingChanges ? refresh : undefined);
+  usePageRefresh(workspace && !showingChanges && !embedded ? refresh : undefined);
   const copyPath = (path: string) =>
     void copyText(path).then(
       () => onNotice(`Copied ${path}`),

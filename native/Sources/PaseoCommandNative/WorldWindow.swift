@@ -249,8 +249,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             drawer.show(selected)
         case "editor":
             // The Files page's shown tab's editor terminal and its viewer's frame (or none).
-            editors.place(EditorPlacement(body), filesShows: mode == .files, web: web)
-        case "editorFocus": if mode == .files { editors.focus() }
+            editors.place(EditorPlacement(body), showing: mode.rawValue, web: web)
+        case "editorFocus": if editors.placement.mode == mode.rawValue { editors.focus() }
         case "editorClose": if let request = EditorCloseRequest(body) { editors.close(request, window: window) }
         case "editorForget": editors.forget(body["terminals"] as? [String] ?? [])
         case "browser":
@@ -365,7 +365,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private func layoutContent() {
         if mode == .conquer { conquer.frame = mapInContent }
         placeTerminalTab()
-        editors.place(nil, filesShows: mode == .files, web: web)
+        editors.place(nil, showing: mode.rawValue, web: web)
         boardBrowser.place()
     }
 
@@ -715,8 +715,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         placeConquer()
         if leftTerminal { leaveTerminalTab() }
         if next == .terminal { enterTerminalTab() }
-        // A file's editor shows only with Files (the page says where once it draws it again).
-        editors.place(nil, filesShows: next == .files, web: web)
+        // A file's editor shows only in its mode: Files, or Command for the files beside a conversation
+        // (the page says where once it draws it again).
+        editors.place(nil, showing: next.rawValue, web: web)
         // An agent's browser shows only over the map.
         boardBrowser.place(commandShows: next == .command)
         sendMode()

@@ -883,6 +883,22 @@ the component Crew's drawer is.
 - Tests: `web/src/crew/roster.test.ts`, `web/e2e/crew.e2e.ts`, `web/e2e/pool.e2e.ts` (Release and Archive on the heads).
   `npm run native:mock -- --dungeon --probe --pr-flags` serves a fleet for it (the `dungeon` fleet is a test fixture).
 
+### The agent's files beside its conversation
+
+The open agent's workspace files stand in its browser's place, left of its conversation on Crew (the user's pick, "A"
+of three mockups; `web/src/crew/CrewFiles.tsx`, `crew-files.css`): the Files tab's own view, `FilesView` with `embedded`
+(the tree, file tabs, Changes, ⌘P, the viewer), whose files open in the editor from Settings → Files (nvim for the
+user). Main's `filesShown` (`crewBrowsing` and `world:filesOpen`, `useFilesOpen` in `browser/settings.ts`, kept across
+agents and launches): F outside a field (not inside the pane), the strip's Files button (`Stage`'s `files`, beside
+Browser) and ⌘K "Show …’s files beside the conversation" / "Hide the files…" (`crew-files`, page Command). The files and
+the browser share the place: opening either closes the other, and an agent's opened tab only counts on the Browser button
+while the files show. Its head names the workspace and branch, with Open in the Files tab (the same tabs and editors,
+kept per workspace in `files:workspaces`), Fill the view and ×. Embedded, the view takes its keys (⌘S, ⌘P, the tab keys)
+only while it has the keyboard, registers no ⌘R, and places its editor with `mode: "command"` (`setEditorMode` in
+`files/editorBridge.ts`, set in a layout effect so the first placement names it); the macOS app shows an editor only
+while its placement's mode shows (`EditorPlacement.mode`, `visible(showing:)`, `EditorOverlay.place(_:showing:web:)`;
+Files' placements default to `files`). Tests: `e2e/files-editor.e2e.ts`, `native/tests/EditorEmbedTests.swift`.
+
 ### The agent's browser
 
 Each agent has a browser of its own, tracked to it (host and daemon id): its tabs, shown on Crew in the map's place left

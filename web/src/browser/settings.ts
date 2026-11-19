@@ -68,3 +68,10 @@ const browserOpen = setting("world:browserOpen", false);
 export const browserOpenSetting = browserOpen.get;
 export const setBrowserOpen = browserOpen.set;
 export const useBrowserOpen = browserOpen.use;
+
+/** Whether the open agent's workspace files show beside its conversation on Crew (F, the strip's Files button, ⌘K;
+ * kept as you step from agent to agent and across launches). The files and the browser share the place: one shows. */
+const filesOpen = setting("world:filesOpen", false);
+export const filesOpenSetting = filesOpen.get;
+export const setFilesOpen = filesOpen.set;
+export const useFilesOpen = filesOpen.use;

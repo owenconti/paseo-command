@@ -38,6 +38,8 @@ type Props = CrewFleet & {
   onDispatch: () => void;
   /** The open agent's browser (the macOS app's): shown beside its conversation, its tabs, B's toggle. */
   browser?: { shown: boolean; tabs: number; toggle: () => void };
+  /** Its workspace's files beside the conversation (`CrewFiles.tsx`): shown or hidden, F's toggle. */
+  files?: { shown: boolean; toggle: () => void };
   /** Archive a workspace (its confirmation), and those being archived (by `workspaceKey`). */
   onArchive?: (w: Workspace) => void;
   archiving?: Set<string>;
@@ -245,7 +247,7 @@ export function CrewMap(props: Props) {
 
   const open = !props.empty;
   return (
-    <div ref={root} className="crew-map" data-world="crew" data-open={open || undefined} data-browser={(open && props.selection?.type === "agent" && props.browser?.shown) || undefined}>
+    <div ref={root} className="crew-map" data-world="crew" data-open={open || undefined} data-browser={(open && props.selection?.type === "agent" && (props.browser?.shown || props.files?.shown)) || undefined}>
       <div className="crew-board" ref={board} onKeyDown={boardKeys} role="region" aria-label="Crew" style={{ "--crew-cols": cols } as CSSProperties}>
         <header className="crew-board-head">
           <div className="crew-board-title">
@@ -460,6 +462,7 @@ export function CrewMap(props: Props) {
             workingOn={props.workingOn}
             detail={props.detail}
             {...(props.browser ? { browser: props.browser } : {})}
+            {...(props.files ? { files: props.files } : {})}
           />
         </aside>
       )}
