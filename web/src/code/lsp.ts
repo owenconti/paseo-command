@@ -159,6 +159,8 @@ export class LspConnection {
   private nextRead = 1;
   private progress = new Map<string, string>();
   private onReady: (() => void)[] = [];
+  /** A connection that hasn't said ready (or why not) in this long has failed: the relay's own start takes at most 45 s. */
+  private startTimer: ReturnType<typeof setTimeout>;
 
   constructor(
     ws: LspWorkspace,
@@ -170,6 +172,11 @@ export class LspConnection {
     this.socket.onmessage = (event) => this.take(String(event.data));
     this.socket.onclose = () => this.end("The language server's connection closed.");
     this.socket.onerror = () => this.end("The language server's connection failed.");
+    this.startTimer = setTimeout(() => {
+      if (this.state.phase !== "connecting") return;
+      this.end("The workspace's host didn't start its language server within a minute.");
+      this.socket.close();
+    }, 60_000);
   }
 
   private set(state: LspState) {
@@ -177,6 +184,7 @@ export class LspConnection {
     this.hooks.changed();
   }
   private end(reason: string) {
+    clearTimeout(this.startTimer);
     if (this.state.phase === "ended") return;
     for (const r of this.reads.values()) r.reject(new Error(reason));
     this.reads.clear();
@@ -193,6 +201,7 @@ export class LspConnection {
     }
     if (frame.type === "ready" && typeof frame.root === "string") {
       const root = frame.root;
+      clearTimeout(this.startTimer);
       this.root = root;
       this.transport = new SocketTransport(this.socket, root);
       this.client = new LSPClient({
@@ -252,6 +261,7 @@ export class LspConnection {
   }
 
   close() {
+    clearTimeout(this.startTimer);
     this.state = { phase: "ended", reason: "Closed." };
     this.client?.disconnect();
     if (this.socket.readyState <= WebSocket.OPEN) this.socket.close();

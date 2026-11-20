@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import WebSocket from "ws";
 import { fleet, install, register, serve } from "./fake-daemon";
 import { LSP, LSP_DEPS, lspFailure } from "./lsp";
+import { UPGRADE_PATHS } from "./api/server";
 
 // Only fake daemons; the language-servers plugin is faked too (LSP_DEPS.invoke).
 const { network, local } = fleet();
@@ -150,4 +151,8 @@ test("the relay refuses another origin", async () => {
 test("plugin failures read plainly", () => {
   assert.match(lspFailure(new Error("Plugin language-servers is not running")), /no language-servers plugin/);
   assert.equal(lspFailure(new Error("boom")), "boom");
+});
+
+test("the app's real server takes the socket's upgrades (not only the test server)", () => {
+  assert.ok(UPGRADE_PATHS.includes(LSP.path), "an /api/lsp upgrade the app's server ignores hangs the Files tab at starting…");
 });

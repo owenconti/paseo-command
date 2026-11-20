@@ -16,6 +16,7 @@ import { unfollow } from "./hosts";
 import { shuttingDown } from "./http";
 import { handleApi } from "./routes";
 import { handleUpgrade } from "./stream";
+import { LSP } from "../lsp";
 import { startPrLabels, stopPrLabels } from "../prLabels";
 import { BROWSER_HOST, stopBrowserHost } from "../browserHost";
 
@@ -38,6 +39,10 @@ type ApiServer = {
     ): unknown;
   };
 };
+/** The sockets the app's server takes upgrades for (`handleUpgrade`): every one it serves must be here, or its socket
+ *  hangs unanswered (Vite's own HMR socket uses another path). */
+export const UPGRADE_PATHS = ["/api/ws", "/api/terminal", BROWSER_HOST.path, LSP.path];
+
 export function attachApiServer(server: ApiServer) {
   // A server that is closing admits no new API work (503), so nothing can
   // start a CLI call after its cleanup has begun. Push streams and daemon
@@ -82,11 +87,11 @@ export function attachApiServer(server: ApiServer) {
       () => releaseCleanup(server),
     );
   });
-  // The tab's WebSocket, the terminal relay and the app's browser host share the server (Vite's own
-  // HMR socket uses a different path and protocol).
+  // The tab's WebSocket, the terminal relay, the app's browser host and the Files tab's language servers share the
+  // server (Vite's own HMR socket uses a different path and protocol).
   server.httpServer?.on?.("upgrade", (req, socket, head) => {
     const path = (req.url || "").split("?")[0];
-    if (path !== "/api/ws" && path !== "/api/terminal" && path !== BROWSER_HOST.path) return;
+    if (!UPGRADE_PATHS.includes(path)) return;
     if (closing || admissionClosed()) {
       socket.write(
         "HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
