@@ -3,7 +3,8 @@
  * GitHub token (`githubApi.ts`: `GET /notifications`), only while
  * `integrations.github` is on, and only those that need you (`needsYou.ts`). Unread ones and those read in the last 14 days, at most 100, kept
  * for `GITHUB_ACTIVITY.ttlMs`; each pull request's or issue's state is asked
- * for in one GraphQL query alongside, and left out when GitHub can't answer it.
+ * for in one GraphQL query alongside, and left out when GitHub can't answer it;
+ * so is what notified you, and who said it (`said.ts`).
  * Writes: read (`PATCH /notifications/threads/:id`) and done (`DELETE`).
  * GitHub can't mark a notification unread. GitHub's list (`all=true`) still
  * has threads marked done, as read ones, and moves their `updated_at` for
@@ -20,6 +21,7 @@ import type { ActivityItem, ActivityWriteName } from "../../src/activity/types";
 import { githubGraphql, githubRest } from "../githubApi";
 import { dataDir } from "../subagentArchive";
 import { githubNeedsYou } from "./needsYou";
+import { addSaid, resetSaid, type ThreadRefs } from "./said";
 import { ACTIVITY_MARKS, applyMarks, newMarks, type DoneMark } from "./marks";
 
 export const GITHUB_ACTIVITY = {
@@ -204,6 +206,7 @@ function saveDone(): void {
 /** Forgets what was kept (tests); `relaunch` keeps the file, as a new launch would find it. */
 export function resetGithubActivity({ relaunch = false } = {}): void {
   cache = undefined;
+  resetSaid();
   done.clear();
   marks.read.clear();
   doneLoaded = false;
@@ -242,6 +245,19 @@ async function gather(): Promise<Gathered> {
     // Only what needs you (`needsYou.ts`): review requests and assignments are the pull request lists'.
     .filter((i) => githubNeedsYou(i.kind))
     .slice(0, GITHUB_ACTIVITY.max);
+  // What notified you on each thread, and who said it: nice to have, read beside the states.
+  const threads = new Map<string, ThreadRefs>();
+  for (const n of raw) {
+    const { id, subject, last_read_at } = rec(n);
+    const s = rec(subject);
+    if (typeof id !== "string") continue;
+    threads.set(id, {
+      latestCommentUrl: str(s.latest_comment_url) || undefined,
+      subjectUrl: str(s.url) || undefined,
+      lastReadAt: str(last_read_at) || undefined,
+    });
+  }
+  const said = addSaid(items, threads).catch(() => undefined);
   // Each pull request's and issue's state: nice to have, so a failure leaves them without.
   const refs = items.map(repoOf).filter((r) => r !== null);
   const query = stateQuery(refs);
@@ -262,6 +278,7 @@ async function gather(): Promise<Gathered> {
       }
     }
   }
+  await said;
   return { items, lastRead };
 }
 

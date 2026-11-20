@@ -37,7 +37,9 @@ test("one item per issue or project, as the Inbox, without the snoozed", async (
   const [eng1, eng3, launch] = items;
   assert.equal(eng1!.unread, true);
   assert.equal(eng1!.title, "Ship the Linear tab");
-  assert.match(eng1!.subtitle!, /^ENG-1 · Sam Rivera commented/);
+  assert.equal(eng1!.subtitle, "ENG-1");
+  assert.equal(eng1!.what, "Sam Rivera commented");
+  assert.deepEqual(eng1!.said, { what: "comment", text: "Can we start with the list?" });
   assert.equal(eng1!.subject, "issue");
   assert.equal(eng1!.kind, "issueNewComment");
   assert.equal(eng1!.url, "https://linear.app/fake/issue/ENG-1#comment");
@@ -116,7 +118,8 @@ test("a pull request notification opens the issue its branch or title names", as
   assert.equal(checks.url, "https://linear.app/fake/issue/DE-1");
   assert.equal(checks.subject, "pull");
   assert.equal(checks.kind, "pullRequestChecksFailed");
-  assert.match(checks.subtitle!, /^DE-1 · merge-gate/);
+  assert.equal(checks.subtitle, "DE-1");
+  assert.equal(checks.what, "merge-gate / pass check failed");
   assert.equal(of("90000001-0000-4000-8000-000000000002").url, "https://linear.app/fake/issue/ENG-2");
   // No team of the workspace's: its address, as before.
   const release = of("90000001-0000-4000-8000-000000000003");

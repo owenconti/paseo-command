@@ -71,7 +71,7 @@ export function notificationOf(raw: Raw): LinearNotification | null {
     issueId: str(issue.id) || undefined,
     issueKey: key || undefined,
     commentId: str(comment.id) || undefined,
-    commentBody: clip(str(comment.body), 300) || undefined,
+    commentBody: clip(str(comment.body), 1000) || undefined,
     projectId: optId(raw.project),
     pullRequestId: optId(raw.pullRequest),
     ...(prKeys.length ? { pullRequestIssueKeys: prKeys } : {}),

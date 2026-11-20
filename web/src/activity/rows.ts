@@ -90,6 +90,38 @@ export function whatHappened(item: Pick<ActivityItem, "source" | "kind">): strin
   return words ? words[0]!.toUpperCase() + words.slice(1) : "Notification";
 }
 
+const lastPart = (path: string) => path.split("/").filter(Boolean).at(-1) ?? path;
+
+/**
+ * Who did what, in a sentence: Linear's own ("Sam Rivera mentioned you"), a
+ * GitHub thread's from what was said and its author ("sam mentioned you in a
+ * review", "ada requested changes", "sam commented on undo.ts"), else what
+ * happened.
+ */
+export function headline(item: Pick<ActivityItem, "source" | "kind" | "actor" | "said" | "what">): string {
+  if (item.what) return item.what;
+  const who = item.actor?.name;
+  const said = item.said;
+  if (item.source !== "github" || !who || !said) return whatHappened(item);
+  const where =
+    said.what === "review"
+      ? " in a review"
+      : said.what === "line comment"
+        ? said.path
+          ? ` on ${lastPart(said.path)}`
+          : " on a line"
+        : said.what === "description"
+          ? " in the description"
+          : "";
+  if (item.kind === "mention") return `${who} mentioned you${where}`;
+  if (item.kind === "team_mention") return `${who} mentioned your team${where}`;
+  if (said.verdict === "approved") return `${who} approved`;
+  if (said.verdict === "changes requested") return `${who} requested changes`;
+  if (said.what === "review") return `${who} reviewed`;
+  if (said.what === "description") return `${who} wrote`;
+  return `${who} commented${where}`;
+}
+
 /** Short relative time: "now", "5m", "3h", "2d", then the date. */
 export function shortAgo(at: string, now = Date.now()): string {
   const t = Date.parse(at);

@@ -47,6 +47,7 @@ const ITEMS: ActivityItem[] = [
     subtitle: "acme/atlas #13",
     subject: "issue",
     actor: { name: "Sam" },
+    said: { what: "comment", text: "@owen the deploy fails on main since the cache change, can you look?", url: "https://github.com/acme/atlas/issues/13#issuecomment-5" },
     at: ago(15),
     unread: true,
     url: "https://github.com/acme/atlas/issues/13",
@@ -61,6 +62,8 @@ const ITEMS: ActivityItem[] = [
     subtitle: "ENG-1",
     subject: "issue",
     actor: { name: "Owen" },
+    what: "Ada mentioned you in a comment",
+    said: { what: "comment", text: "Can we start with the list?" },
     at: ago(60),
     unread: false,
     url: "https://linear.app/acme/issue/ENG-1",
@@ -118,6 +121,14 @@ test("Activity gathers GitHub and Linear, filters them, and marks them read and 
     const nav = (await view.locator(".activity-sidebar").textContent()) ?? "";
     for (const label of ["All", "Unread", "GitHub", "Linear"]) assert.ok(nav.includes(label), `the sidebar has ${label}`);
     assert.ok(!nav.includes("Slack"), "the sidebar has no Slack");
+    // Who did what, and what they said.
+    const mention = view.locator(`.activity-row[data-key="${ITEMS[1].key}"]`);
+    assert.equal(await mention.locator(".activity-what").textContent(), "Sam mentioned you");
+    assert.match((await mention.locator(".activity-said").textContent()) ?? "", /the deploy fails on main since the cache change/);
+    const linear = view.locator(`.activity-row[data-key="${ITEMS[2].key}"]`);
+    assert.equal(await linear.locator(".activity-what").textContent(), "Ada mentioned you in a comment");
+    assert.equal(await linear.locator(".activity-said").textContent(), "Can we start with the list?");
+    assert.equal(await view.locator(`.activity-row[data-key="github:101"] .activity-said`).count(), 0);
 
     // Filter by source from the keyboard: 2 is GitHub, 3 Linear, 1 all again.
     await view.locator(".activity-row").first().focus();

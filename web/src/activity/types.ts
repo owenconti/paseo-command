@@ -6,6 +6,19 @@
 
 export type ActivitySource = "github" | "linear";
 
+/** What was said: the comment, review, line comment or description that notified you. */
+export type ActivitySaid = {
+  what: "comment" | "review" | "line comment" | "description";
+  /** As one plain line (Markdown's marks, quoted replies and code blocks left out), clipped to 1,000 characters. */
+  text: string;
+  /** A review's, when it approved or asked for changes. */
+  verdict?: "approved" | "changes requested";
+  /** A line comment's file. */
+  path?: string;
+  /** Its own page (a comment's anchor). */
+  url?: string;
+};
+
 export type ActivityItem = {
   /** Unique across sources: `<source>:<source's own id>`. */
   key: string;
@@ -31,6 +44,10 @@ export type ActivityItem = {
   unread: boolean;
   /** Where it opens: a web address (GitHub's; Linear's, the issue's when it names one). */
   url?: string;
+  /** What happened, as the source says it in a sentence (Linear's "Sam Rivera mentioned you"). */
+  what?: string;
+  /** What was said, when known (GitHub: read from the thread; Linear: the comment). */
+  said?: ActivitySaid;
   /** GitHub: the PR's or issue's state, when known (open, closed, merged, draft). */
   state?: string;
 };

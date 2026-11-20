@@ -18,6 +18,7 @@ import { readNotifications, readWorkspace } from "../linear/reads";
 import { appSettings } from "../settings";
 import { linearWrite } from "../linear/writes";
 import { linearNeedsYou } from "./needsYou";
+import { plainText } from "./said";
 import { ACTIVITY_MARKS, applyMarks, newMarks } from "./marks";
 
 export const LINEAR_ACTIVITY = { ttlMs: 20_000 };
@@ -55,7 +56,10 @@ export function linearItem(group: InboxGroup, users: LinearUser[] = [], workspac
     id: group.key,
     kind: n.type || "notification",
     title: text.title || n.title || "Linear notification",
-    ...(text.what || text.key ? { subtitle: [text.key, text.what].filter(Boolean).join(" · ").slice(0, 300) } : {}),
+    ...(text.key ? { subtitle: text.key } : {}),
+    // Linear's own sentence for it ("Sam Rivera mentioned you"), and the comment's words.
+    ...(n.subtitle ? { what: n.subtitle } : {}),
+    ...(n.commentBody && plainText(n.commentBody) ? { said: { what: "comment" as const, text: plainText(n.commentBody) } } : {}),
     subject: group.issueId ? "issue" : group.projectId ? "project" : n.pullRequestId ? "pull" : "notification",
     ...(actor
       ? {

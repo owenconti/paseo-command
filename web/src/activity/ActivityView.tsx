@@ -33,7 +33,7 @@ import { modalOpen } from "../focus";
 import { isTyping } from "../worldShortcut";
 import { prPlaceOf } from "../github/place";
 import { canOpen, openActivityItem } from "./open";
-import { filterItems, groupByDay, isFilter, shortAgo, SOURCE_LABEL, whatHappened, type ActivityFilter } from "./rows";
+import { filterItems, groupByDay, headline, isFilter, shortAgo, SOURCE_LABEL, whatHappened, type ActivityFilter } from "./rows";
 import { canUnread, loadActivity, setActivityNotice, useActivity, useActivityPoll, writeItems } from "./store";
 import type { ActivityItem, ActivitySource } from "./types";
 import { usePageTitleTip } from "../pageHead";
@@ -118,7 +118,10 @@ function Actor({ actor }: { actor?: ActivityItem["actor"] }) {
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join("");
-  const src = actor.avatarUrl?.startsWith("/api/") ? actor.avatarUrl : undefined;
+  const src =
+    actor.avatarUrl?.startsWith("/api/") || actor.avatarUrl?.startsWith("https://avatars.githubusercontent.com/")
+      ? actor.avatarUrl
+      : undefined;
   return (
     <span className="activity-actor" data-tip={actor.name} aria-label={actor.name}>
       {src && !broken && !noAvatar.has(src) ? (
@@ -452,9 +455,10 @@ export function ActivityView({
                   <span className="activity-text">
                     <span className="activity-title">{item.title}</span>
                     <span className="activity-sub">
-                      <span className="activity-what">{whatHappened(item)}</span>
+                      <span className="activity-what">{headline(item)}</span>
                       {item.subtitle && <span className="activity-subtitle">{item.subtitle}</span>}
                     </span>
+                    {item.said?.text && <span className="activity-said">{item.said.text}</span>}
                   </span>
                   <Actor actor={item.actor} />
                   <time className="activity-time" dateTime={item.at} title={new Date(item.at).toLocaleString()}>
@@ -619,16 +623,17 @@ export function ActivityView({
             <span>{selected.title}</span>
           </h2>
           {selected.subtitle && <p className="activity-preview-subtitle">{selected.subtitle}</p>}
+          <p className="activity-preview-what">
+            <Actor actor={selected.actor} />
+            <span>{headline(selected)}</span>
+          </p>
+          {selected.said?.text && (
+            <blockquote className="activity-preview-said">
+              {selected.said.path && <code className="activity-preview-path">{selected.said.path}</code>}
+              {selected.said.text}
+            </blockquote>
+          )}
           <dl className="activity-preview-facts">
-            {selected.actor && (
-              <>
-                <dt>By</dt>
-                <dd>
-                  <Actor actor={selected.actor} />
-                  {selected.actor.name}
-                </dd>
-              </>
-            )}
             {selected.state && (
               <>
                 <dt>State</dt>

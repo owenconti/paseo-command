@@ -124,9 +124,11 @@ test("reads notifications, pages to 100, adds states and caches a minute", async
   assert.match(first.authorization, /^Bearer ghp_/);
   assert.equal(items.find((i) => i.id === "1")!.state, "open");
   await readGithubActivity();
-  assert.equal(calls().length, 3, "cached");
+  // The list and states (what was said is kept per thread, below).
+  const core = () => calls().filter((r) => isList(r) || r.path === "graphql").length;
+  assert.equal(core(), 3, "cached");
   await readGithubActivity(true);
-  assert.equal(calls().length, 6, "fresh asks again");
+  assert.equal(core(), 6, "fresh asks again");
 });
 
 test("a failing state query leaves items without states", async () => {
