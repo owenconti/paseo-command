@@ -5,6 +5,7 @@ import type { ShortcutKey } from "./shortcutKey";
  * keys and buttons do. */
 export type AppCommand =
   | "tools-files"
+  | "files-sidebar"
   | "tools-editor"
   | "tools-terminal"
   | "tools-browser"

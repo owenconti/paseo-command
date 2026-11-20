@@ -830,7 +830,8 @@ uncommitted changes and the full source, going straight to any file, a language 
 editing with vim keys), drawn by the page (`web/src/code/`), unlike your editor's terminal. Main's `codeShown`
 (`crewBrowsing` and `world:codeOpen`): its tab, ⇧⌘F (View → Show Files; the web view takes the keyboard first), ⌘K "Show
 …’s files and changes" (`crew-code-files`, page Command; while it shows, "Go to file…" and the sidebar's three views).
-`FilesPane.tsx`: a sidebar (resizable, `files:sidebarWidth`) of Uncommitted (`GET /api/changes?mode=uncommitted`), Branch
+`FilesPane.tsx`: a sidebar (resizable, `files:sidebarWidth`; ⌘B hides or shows it, the file bar's button and ⌘K "Show or
+hide the Files sidebar" too, `files-sidebar`, kept as `files:sidebarHidden`; ⌃B stays vim's) of Uncommitted (`GET /api/changes?mode=uncommitted`), Branch
 (`mode=all`: everything the branch changes against its base, committed or not; the default, `files:side`) or All files
 (`files/tree`, folder by folder, `files:tree:<host>|<workspace>`); a changed file opens with its diff against that base.
 Open files are tabs (`store.ts`, per workspace for the page's life: stepping away keeps unsaved edits; at most 24, the

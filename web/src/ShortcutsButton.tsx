@@ -154,6 +154,7 @@ const FILES: Group = {
   title: "Files",
   note: "The Files tab beside an agent's conversation (⇧⌘F), in the macOS app",
   rows: [
+    { keys: [["⌘", "B"]], label: "Hide or show the sidebar (its changes and files)" },
     { keys: [["⌘", "P"]], label: "Go to any file in the workspace (name:line goes to a line; :e path and ⌃P in vim too)" },
     { keys: [["⌘", "S"]], label: "Save (:w; :wa saves every file): only over the version read, so an agent's edit is never overwritten" },
     { keys: [["gd"], ["F12"], ["⌘", "Click"]], label: "Go to the definition (another file opens in its tab)" },

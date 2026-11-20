@@ -196,6 +196,12 @@ test("the Files tab: first of the four tools, the branch's changes with a file's
     await page.locator(".files-tree").getByText("src").click();
     await page.locator(".files-tree").getByText("util.ts").click();
     await page.locator(".files-tab[aria-selected=true]").getByText("util.ts").waitFor();
+    // ⌘B, in the editor too: the sidebar hides and shows again.
+    await editor(page).click();
+    await page.keyboard.press("Meta+b");
+    await page.locator(".files-side").waitFor({ state: "detached" });
+    await page.keyboard.press("Meta+b");
+    await page.locator(".files-side").waitFor();
     // ⌘P: any file, fuzzy.
     await page.keyboard.press("Meta+p");
     await page.getByRole("dialog", { name: "Go to file" }).waitFor();

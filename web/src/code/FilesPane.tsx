@@ -9,7 +9,8 @@
  * the editor), hover (K), completion, signatures, errors, rename (F2, <space>rn) and format (⇧⌥F).
  */
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { ChevronDown, ChevronRight, FileDiff, FileText, Folder, FolderOpen, RefreshCw, Save, X } from "lucide-react";
+import { ChevronDown, ChevronRight, FileDiff, FileText, Folder, FolderOpen, PanelLeftClose, PanelLeftOpen, RefreshCw, Save, X } from "lucide-react";
+import { onAppCommand } from "../appCommands";
 import { readStore, writeStore } from "../api";
 import { allPath, ensure, treePath, useFilesData } from "../files/api";
 import type { FileList, FileTree } from "../files/types";
@@ -58,6 +59,7 @@ const SIDE_TIP: Record<SideView, string> = {
   tree: "Every file in the workspace",
 };
 const WIDTH_KEY = "files:sidebarWidth";
+const HIDDEN_KEY = "files:sidebarHidden";
 const name = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 const dir = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
 
@@ -76,6 +78,14 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
   const host = useRef<HTMLDivElement>(null);
   const [quick, setQuick] = useState(false);
   const [width, setWidth] = useState(() => readStore<number>(WIDTH_KEY, 260));
+  // ⌘B (and ⌘K) hides or shows the sidebar, kept for every workspace; ⌃B stays vim's.
+  const [sideHidden, setSideHidden] = useState(() => readStore<boolean>(HIDDEN_KEY, false));
+  const toggleSide = () =>
+    setSideHidden((h) => {
+      writeStore(HIDDEN_KEY, !h);
+      return !h;
+    });
+  useEffect(() => onAppCommand("files-sidebar", toggleSide), []);
   const b = activeBuffer(f);
   const mode = diffModeOf(f.side);
 
@@ -130,6 +140,9 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
       if (k === "p") {
         e.preventDefault();
         setQuick(true);
+      } else if (k === "b" && !e.repeat) {
+        e.preventDefault();
+        toggleSide();
       } else if (k === "s" && ((e.target as HTMLElement | null)?.closest?.(".files-view") || e.target === document.body)) {
         e.preventDefault();
         const now = activeBuffer(f);
@@ -156,29 +169,34 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
 
   return (
     <section className="crew-files files-view beside" data-tool="files" aria-label={`${workspace.name}: files`} style={{ "--files-side": `${width}px` } as CSSProperties}>
-      <aside className="files-side" aria-label="Files">
-        <div className="files-side-modes" role="radiogroup" aria-label="Show">
-          {(["uncommitted", "branch", "tree"] as const).map((s) => (
-            <button key={s} role="radio" aria-checked={f.side === s} data-tip={SIDE_TIP[s]} onClick={() => setSide(f, s)}>
-              {SIDE_LABEL[s]}
-            </button>
-          ))}
-        </div>
-        {f.side === "tree" ? <Tree f={f} /> : <ChangeList f={f} />}
-        <ResizeEdge
-          label="Resize the file list"
-          value={width}
-          min={180}
-          max={520}
-          grows="right"
-          onResize={(w) => (setWidth(w), writeStore(WIDTH_KEY, w))}
-          onReset={() => (setWidth(260), writeStore(WIDTH_KEY, 260))}
-        />
-      </aside>
+      {!sideHidden && (
+        <aside className="files-side" aria-label="Files">
+          <div className="files-side-modes" role="radiogroup" aria-label="Show">
+            {(["uncommitted", "branch", "tree"] as const).map((s) => (
+              <button key={s} role="radio" aria-checked={f.side === s} data-tip={SIDE_TIP[s]} onClick={() => setSide(f, s)}>
+                {SIDE_LABEL[s]}
+              </button>
+            ))}
+          </div>
+          {f.side === "tree" ? <Tree f={f} /> : <ChangeList f={f} />}
+          <ResizeEdge
+            label="Resize the file list"
+            value={width}
+            min={180}
+            max={520}
+            grows="right"
+            onResize={(w) => (setWidth(w), writeStore(WIDTH_KEY, w))}
+            onReset={() => (setWidth(260), writeStore(WIDTH_KEY, 260))}
+          />
+        </aside>
+      )}
       <div className="files-main">
         <Tabs f={f} />
         {b && (
           <div className="files-bar">
+            <button className="files-icon-btn" aria-label={sideHidden ? "Show the sidebar" : "Hide the sidebar"} aria-pressed={!sideHidden} data-tip={`${sideHidden ? "Show" : "Hide"} the sidebar (⌘B)`} onClick={toggleSide}>
+              {sideHidden ? <PanelLeftOpen size={13} aria-hidden="true" /> : <PanelLeftClose size={13} aria-hidden="true" />}
+            </button>
             <span className="files-path" title={b.path}>
               {b.outside && <span className="files-badge">Outside the workspace · read only</span>}
               {dir(b.path) && <span className="files-dir">{dir(b.path)}/</span>}
@@ -211,7 +229,7 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
         <div className="files-editor" ref={host} data-empty={!b || undefined} />
         {!b && (
           <div className="files-empty">
-            <p>Open a file: pick one on the left, or go to any file with ⌘P.</p>
+            <p>{sideHidden ? "Open a file: go to any file with ⌘P, or show the sidebar with ⌘B." : "Open a file: pick one on the left, or go to any file with ⌘P."}</p>
             <p className="files-empty-keys">
               In the editor: <kbd>gd</kbd> definition · <kbd>gr</kbd> usages · <kbd>K</kbd> hover · <kbd>:w</kbd> save · <kbd>⌃O</kbd> back
             </p>
