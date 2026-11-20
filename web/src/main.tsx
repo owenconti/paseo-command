@@ -1683,6 +1683,8 @@ function App() {
         ...(codeShown
           ? [
               { id: "files-sidebar", group: "Navigate", page: "Command" as const, label: "Show or hide the Files sidebar", keys: [["⌘", "B"]], keywords: "files sidebar list tree changes collapse expand panel hide show", run: () => runAppCommand("files-sidebar") },
+              { id: "files-diff-split", group: "Navigate", page: "Command" as const, label: "Show diffs side by side in Files", keywords: "files diff split side by side two columns layout base", run: () => void import("./code/store").then((m) => m.setDiffLayout("split")) },
+              { id: "files-diff-stacked", group: "Navigate", page: "Command" as const, label: "Show diffs stacked in Files", keywords: "files diff stacked unified inline one column layout", run: () => void import("./code/store").then((m) => m.setDiffLayout("stacked")) },
               { id: "files-go-to-file", group: "Navigate", page: "Command" as const, label: "Go to file…", keys: [["⌘", "P"]], keywords: "files quick open find file path fuzzy jump", run: () => window.dispatchEvent(new CustomEvent("paseo:files-quick-open")) },
               { id: "files-side-uncommitted", group: "Navigate", page: "Command" as const, label: "Show the uncommitted changes in Files", keywords: "files diff changes uncommitted working tree head sidebar", run: filesSide("uncommitted") },
               { id: "files-side-branch", group: "Navigate", page: "Command" as const, label: "Show the branch’s changes in Files", keywords: "files diff changes branch base main committed sidebar", run: filesSide("branch") },

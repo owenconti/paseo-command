@@ -9,7 +9,7 @@
  * the editor), hover (K), completion, signatures, errors, rename (F2, <space>rn) and format (⇧⌥F).
  */
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { ChevronDown, ChevronRight, FileDiff, FileText, Folder, FolderOpen, PanelLeftClose, PanelLeftOpen, RefreshCw, Save, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Columns2, FileDiff, FileText, Folder, FolderOpen, PanelLeftClose, PanelLeftOpen, RefreshCw, Rows2, Save, X } from "lucide-react";
 import { onAppCommand } from "../appCommands";
 import { readStore, writeStore } from "../api";
 import { allPath, ensure, treePath, useFilesData } from "../files/api";
@@ -25,6 +25,7 @@ import {
   checkDisk,
   closeBuffer,
   closeUsages,
+  diffLayout,
   diffModeOf,
   filesOf,
   followTheme,
@@ -40,6 +41,7 @@ import {
   save,
   say,
   setDiff,
+  setDiffLayout,
   setSide,
   showUsage,
   useFilesStore,
@@ -205,6 +207,16 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
             </span>
             <span className="files-bar-tools">
               {lang && <LspChip f={f} b={b} state={lsp} />}
+              {b.diff && (
+                <span className="files-layout" role="radiogroup" aria-label="Diff layout">
+                  <button role="radio" aria-checked={diffLayout() === "stacked"} aria-label="Stacked" data-tip="Stacked: what was removed shown above what replaced it" onClick={() => setDiffLayout("stacked")}>
+                    <Rows2 size={13} aria-hidden="true" />
+                  </button>
+                  <button role="radio" aria-checked={diffLayout() === "split"} aria-label="Split" data-tip="Split: the base beside the file" onClick={() => setDiffLayout("split")}>
+                    <Columns2 size={13} aria-hidden="true" />
+                  </button>
+                </span>
+              )}
               {!b.outside && (changedHere || b.diff) && (
                 <button
                   className={`page-btn${b.diff ? " on" : ""}`}

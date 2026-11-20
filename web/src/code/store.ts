@@ -22,6 +22,7 @@ import {
   bufferState,
   clientExtensions,
   diffExtension,
+  languageFor,
   loadLanguage,
   lspExtensions,
   newParts,
@@ -29,11 +30,13 @@ import {
   reconfigureVim,
   setActions,
   setHover,
+  themeOf,
   type Parts,
 } from "./editor";
 import { LspConnection, type LspState } from "./lsp";
 import { languageOf, placeOf, workspaceUri, type ServerGroup } from "./paths";
 import { onVimSetting, vimSetting } from "./vimSetting";
+import { SplitDiff } from "./split";
 
 export type FilesWorkspace = { id: string; host?: string; name: string; branch?: string };
 /** What the sidebar lists: uncommitted changes, the branch's changes against its base, or every file. */
@@ -56,6 +59,8 @@ export type Buffer = {
   saving: boolean;
   /** The diff shown, and the base it's against. */
   diff: { mode: DiffMode; base: string } | null;
+  /** The diff side by side, while the layout is split (`split.ts`). */
+  split: SplitDiff | null;
   /** Changed on disk while it had unsaved edits (or gone), and the version there then (Keep mine saves over it). */
   disk: "changed" | "missing" | null;
   diskVersion: { modifiedAt: string; revision?: string } | null;
@@ -87,6 +92,11 @@ export type Files = {
 const MAX_BUFFERS = 24;
 const MAX_HISTORY = 100;
 const SIDE_KEY = "files:side";
+const LAYOUT_KEY = "files:diffLayout";
+/** How diffs show: stacked (deletions inline above their replacement) or split (the base beside the file). */
+export type DiffLayout = "stacked" | "split";
+let layout: DiffLayout = readStore<DiffLayout>(LAYOUT_KEY, "stacked") === "split" ? "split" : "stacked";
+export const diffLayout = () => layout;
 
 // ── The store ────────────────────────────────────────────────────────────────
 const all = new Map<string, Files>();
@@ -143,8 +153,10 @@ function place(f: Files, focus = false) {
     f.host.replaceChildren();
     return;
   }
-  if (f.host.firstChild !== b.view.dom) f.host.replaceChildren(b.view.dom);
+  const root = b.split ? b.split.mount(b.view) : b.view.dom;
+  if (f.host.firstChild !== root) f.host.replaceChildren(root);
   b.view.requestMeasure();
+  b.split?.base.requestMeasure();
   // At once (keys typed next are its), and again once laid out.
   if (focus) b.view.focus();
   requestAnimationFrame(() => {
@@ -224,6 +236,7 @@ function makeBuffer(f: Files, key: string, path: string, text: string, saved: Sa
     dirty: false,
     saving: false,
     diff: null,
+    split: null,
     disk: null,
     diskVersion: null,
     note: null,
@@ -313,6 +326,7 @@ function dropBuffer(f: Files, b: Buffer) {
   f.buffers = f.buffers.filter((x) => x !== b);
   f.back = f.back.filter((p) => p.key !== b.key);
   f.forward = f.forward.filter((p) => p.key !== b.key);
+  b.split?.destroy();
   b.view.destroy();
   // Its language server goes with the workspace's last open file of its group (the relay stops it on the host);
   // the next such file starts another.
@@ -486,8 +500,7 @@ export async function setDiff(f: Files, b: Buffer, mode: DiffMode | null) {
   if (!mode || b.outside) {
     b.diff = null;
     b.note = null;
-    b.view.dispatch({ effects: b.parts.diff.reconfigure([]) });
-    changed();
+    applyDiff(f, b);
     return;
   }
   // The diff and the text it's of, both fresh: the base is rebuilt from them.
@@ -512,13 +525,44 @@ export async function setDiff(f: Files, b: Buffer, mode: DiffMode | null) {
   if (base === null) {
     b.note = file?.status === "too_large" ? "This file's diff is too large to show here." : file?.status === "binary" ? "The diff is of a binary file." : "Its diff no longer matches the file: save or reload it, then try again.";
     b.diff = null;
-    b.view.dispatch({ effects: b.parts.diff.reconfigure([]) });
-    changed();
+    applyDiff(f, b);
     return;
   }
   b.diff = { mode, base };
   b.note = file ? null : `No changes in this file against ${mode === "uncommitted" ? "the last commit" : data.baseRef ?? "the base"}.`;
-  b.view.dispatch({ effects: b.parts.diff.reconfigure(diffExtension(base)) });
+  applyDiff(f, b);
+}
+
+/** Shows a buffer's diff (or none) in the layout chosen: stacked in its own editor, or split beside the base. */
+function applyDiff(f: Files, b: Buffer) {
+  const split = !!b.diff && layout === "split";
+  if (!split && b.split) {
+    b.split.destroy();
+    b.split = null;
+  }
+  if (!b.diff) b.view.dispatch({ effects: b.parts.diff.reconfigure([]) });
+  else if (!split) b.view.dispatch({ effects: b.parts.diff.reconfigure(diffExtension(b.diff.base)) });
+  else {
+    if (!b.split) {
+      const made = new SplitDiff(b.diff.base, {
+        theme: themeOf,
+        onRevert: (from, to, insert) => b.view.dispatch({ changes: { from, to, insert }, userEvent: "revert" }),
+      });
+      b.split = made;
+      void languageFor(b.path).then((support) => support && b.split === made && made.setLanguage(support));
+    } else b.split.setBase(b.diff.base);
+    b.view.dispatch({ effects: b.parts.diff.reconfigure(b.split.bufferExtension) });
+  }
+  if (f.active === b.key) place(f);
+  changed();
+}
+
+/** Stacked or split, for every diff shown (kept across launches). */
+export function setDiffLayout(next: DiffLayout) {
+  if (next === layout) return;
+  layout = next;
+  writeStore(LAYOUT_KEY, next);
+  for (const f of all.values()) for (const b of f.buffers) if (b.diff) applyDiff(f, b);
   changed();
 }
 export async function toggleDiff(f: Files, b: Buffer) {
@@ -741,7 +785,11 @@ let themeWatch: MutationObserver | null = null;
 export function followTheme() {
   if (themeWatch) return;
   themeWatch = new MutationObserver(() => {
-    for (const f of all.values()) for (const b of f.buffers) reconfigureTheme(b.view, b.parts);
+    for (const f of all.values())
+      for (const b of f.buffers) {
+        reconfigureTheme(b.view, b.parts);
+        b.split?.retheme();
+      }
   });
   themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 }

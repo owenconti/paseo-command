@@ -122,9 +122,16 @@ const look = EditorView.theme({
   ".cm-changedLineGutter": { background: "var(--green, #25ae7e)" },
   ".cm-deletedLineGutter": { background: "var(--red, #e5484d)" },
   ".cm-collapsedLines": { color: "var(--text-3)", background: "var(--fill-soft, var(--fill))", fontFamily: "var(--font-sans, inherit)", fontSize: "var(--fs-xs)" },
+  // The split diff (split.ts): the base's removed lines and words red, spacers hatched, Revert at a changed line's end.
+  ".cm-splitDeletedLine": { backgroundColor: "color-mix(in srgb, var(--red, #e5484d) 10%, transparent)" },
+  ".cm-splitDeletedText": { background: "color-mix(in srgb, var(--red, #e5484d) 30%, transparent)" },
+  ".cm-splitSpacer": { background: "repeating-linear-gradient(-45deg, transparent 0 6px, color-mix(in srgb, var(--line) 55%, transparent) 6px 7px)" },
+  ".cm-splitRevertGutter": { width: "18px" },
+  ".cm-splitRevert": { width: "16px", height: "16px", padding: "0", font: "inherit", fontSize: "12px", lineHeight: "1", cursor: "pointer", border: "1px solid var(--line-mid)", background: "var(--panel)", color: "var(--text-2)", borderRadius: "var(--radius-sm)", verticalAlign: "middle" },
+  ".cm-splitRevert:hover": { color: "var(--text-strong)", borderColor: "var(--line-strong)" },
   ".cm-chunkButtons button": { font: "inherit", fontSize: "var(--fs-2xs, 11px)", cursor: "pointer", border: "1px solid var(--line-mid)", background: "var(--panel)", color: "var(--text-2)", borderRadius: "var(--radius-sm)", padding: "0 6px" },
 });
-const themeOf = () => [look, syntaxHighlighting(dark() ? oneDarkHighlightStyle : defaultHighlightStyle, { fallback: true })];
+export const themeOf = () => [look, syntaxHighlighting(dark() ? oneDarkHighlightStyle : defaultHighlightStyle, { fallback: true })];
 
 /** Vim: once, its own commands for the Files tab (each finds its buffer by view). */
 let vimReady = false;
@@ -284,12 +291,15 @@ export function bufferState(text: string, parts: Parts, options: { vim: boolean;
   });
 }
 
-/** Loads the file's language (highlighting, indentation, folding) and puts it in. */
-export async function loadLanguage(view: EditorView, parts: Parts, path: string) {
+/** The file's language (highlighting, indentation, folding), loaded once its kind is known. */
+export async function languageFor(path: string): Promise<Extension | null> {
   const name = path.slice(path.lastIndexOf("/") + 1);
   const desc = LanguageDescription.matchFilename(languages, name) ?? (/\.blade\.php$/.test(name) ? LanguageDescription.matchLanguageName(languages, "PHP") : null);
-  if (!desc) return;
-  const support = await desc.load().catch(() => null);
+  return desc ? desc.load().catch(() => null) : null;
+}
+/** Loads the file's language and puts it in. */
+export async function loadLanguage(view: EditorView, parts: Parts, path: string) {
+  const support = await languageFor(path);
   if (support) view.dispatch({ effects: parts.language.reconfigure(support) });
 }
 

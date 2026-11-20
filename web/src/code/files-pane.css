@@ -390,8 +390,52 @@
   position: absolute;
   inset: 0;
 }
-.files-editor > .cm-editor.cm-focused {
+.files-editor > .cm-editor.cm-focused,
+.files-split-side > .cm-editor.cm-focused {
   outline: none;
+}
+/* The split diff (split.ts): the base, read only, beside the file. */
+.files-split {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.files-split-side {
+  position: relative;
+  min-width: 0;
+}
+.files-split-side.base {
+  border-right: 1px solid var(--line);
+}
+.files-split-side > .cm-editor {
+  position: absolute;
+  inset: 0;
+}
+.files-split-base .cm-content {
+  opacity: 0.92;
+}
+.files-layout {
+  display: inline-flex;
+  padding: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.files-layout button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 20px;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 1px);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.files-layout button[aria-checked="true"] {
+  background: var(--fill-strong);
+  color: var(--text-strong);
 }
 .files-empty {
   display: flex;

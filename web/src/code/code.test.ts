@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { baseText } from "./baseText";
 import { fileUri, languageOf, placeOf, uriPath, workspaceUri } from "./paths";
+import { Chunk } from "@codemirror/merge";
+import { Text } from "@codemirror/state";
+import { linesOf } from "./split";
 
 type L = { type: "context" | "add" | "remove" | "header"; content: string };
 const hunk = (oldStart: number, oldCount: number, newStart: number, newCount: number, lines: L[]) => ({ oldStart, oldCount, newStart, newCount, lines });
@@ -62,4 +65,19 @@ test("URIs and where they are", () => {
   assert.deepEqual(placeOf("/w/app", "file:///w/application/x.ts"), { outside: "/w/application/x.ts" });
   assert.deepEqual(placeOf("/w/app", "file:///w/app/../etc/passwd"), { outside: "/w/app/../etc/passwd" });
   assert.deepEqual(placeOf("/w/app", "file:///usr/lib/node/lib.dom.d.ts"), { outside: "/usr/lib/node/lib.dom.d.ts" });
+});
+
+test("a split diff's chunks: lines on each side, which its spacers level", () => {
+  const a = Text.of(["one", "two", "three", "four"]);
+  const b = Text.of(["one", "TWO", "TWO and a half", "four"]);
+  const [c] = Chunk.build(a, b);
+  assert.equal(linesOf(a, c.fromA, c.toA), 2);
+  assert.equal(linesOf(b, c.fromB, c.toB), 2);
+  // Lines added: none on the base's side, so the base gets a spacer of two lines.
+  const [added] = Chunk.build(Text.of(["x", "y"]), Text.of(["x", "new 1", "new 2", "y"]));
+  assert.equal(linesOf(Text.of(["x", "y"]), added.fromA, added.toA), 0);
+  assert.equal(linesOf(Text.of(["x", "new 1", "new 2", "y"]), added.fromB, added.toB), 2);
+  // A chunk at the end, reaching past the document's last character.
+  const [end] = Chunk.build(Text.of(["x", "old"]), Text.of(["x", "new", "more"]));
+  assert.equal(linesOf(Text.of(["x", "new", "more"]), end.fromB, end.toB), 2);
 });

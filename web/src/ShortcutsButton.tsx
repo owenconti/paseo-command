@@ -164,7 +164,7 @@ const FILES: Group = {
     { keys: [["F2"], ["Space", "rn"]], label: "Rename everywhere: each file edited, left unsaved" },
     { keys: [["]d"], ["[d"]], label: "Next or previous error or warning" },
     { keys: [["⇧", "⌥", "F"]], label: "Format the file (its language server's)" },
-    { keys: [[":diff"]], label: "Show or hide the file's diff against the sidebar's base (or its Diff button)" },
+    { keys: [[":diff"]], label: "Show or hide the file's diff against the sidebar's base (or its Diff button); stacked or split beside it, as the file bar or ⌘K chooses" },
   ],
 };
 

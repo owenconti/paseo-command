@@ -188,6 +188,23 @@ test("the Files tab: first of the four tools, the branch's changes with a file's
     await page.locator(".cm-deletedChunk").getByText("helper(1)").waitFor();
     assert.equal(await page.getByRole("button", { name: "Diff" }).getAttribute("aria-pressed"), "true");
     assert.equal(await page.locator(".files-path").textContent(), "src/app.ts");
+    // Split: the base beside the file, its removed line on the left, the new one on the right; then stacked again.
+    await page.getByRole("radio", { name: "Split" }).click();
+    await page.locator(".files-split-side.base .cm-splitDeletedLine").getByText("helper(1)").waitFor();
+    await page.locator(".files-split-side.mine .cm-changedLine").getByText("helper(2)").waitFor();
+    assert.equal(await page.locator(".files-split .cm-splitRevert").count(), 1);
+    // Revert puts the base's line back in the file (left unsaved).
+    await page.locator(".files-split .cm-splitRevert").dispatchEvent("mousedown");
+    await page.locator(".files-split-side.mine .cm-line").getByText("helper(1)").waitFor();
+    await page.locator(".files-split .cm-splitRevert").waitFor({ state: "detached" });
+    // …and it's an edit like any other: undone with u.
+    await page.locator(".files-split-side.mine .cm-content").click();
+    await page.keyboard.press("Escape");
+    await page.keyboard.type("u");
+    await page.locator(".files-split-side.mine .cm-changedLine").getByText("helper(2)").waitFor();
+    await page.getByRole("radio", { name: "Stacked" }).click();
+    await page.locator(".files-split").waitFor({ state: "detached" });
+    await page.locator(".cm-deletedChunk").getByText("helper(1)").waitFor();
     // Uncommitted: nothing.
     await page.getByRole("radio", { name: "Uncommitted" }).click();
     await page.getByText("Nothing uncommitted.").waitFor();

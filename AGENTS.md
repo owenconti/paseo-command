@@ -844,8 +844,11 @@ editor's keydowns without ⌘ stop at it, so Esc is vim's, never the page's. Sav
 (`filesWrite`: the daemon's `writeFile` with the read's `modifiedAt`/`revision`, never over another version: `conflict`);
 the shown file's version (`GET /api/files/version`, one daemon `subscribeFile` per file held while asked,
 `FILES.watchMs`, else its folder's listing) is asked every 2 s: a clean buffer reloads an agent's edit, one with unsaved
-edits says so (Reload theirs / Keep mine, which saves over the version noticed). The diff is `@codemirror/merge`'s
-unified view (deletions inline, unchanged stretches folded, Revert per change); its base is rebuilt from the file and the
+edits says so (Reload theirs / Keep mine, which saves over the version noticed). The diff is stacked (`@codemirror/merge`'s
+unified view: deletions inline, unchanged stretches folded, Revert per change) or split (`split.ts`: the base, read only,
+beside the buffer's own editor, not `MergeView`, which makes editors of its own: both sides marked from `Chunk.build`,
+spacers keeping chunks level, scrolling shared, Revert per change), chosen on the file bar or ⌘K ("Show diffs side by
+side / stacked in Files"), kept as `files:diffLayout`; its base is rebuilt from the file and the
 daemon's diff (`baseText.ts`: the diff applied backwards, checked line by line; a diff of another version is asked again).
 Language servers (`lsp.ts`, `@codemirror/lsp-client`): one `LspConnection` per workspace and server group, started with
 its first open file of the group and stopped with its last (`dropBuffer`; closing the socket stops the process) (`paths.ts`
