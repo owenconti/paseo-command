@@ -27,7 +27,6 @@ const GROUPS: Group[] = [
       { keys: [["N"]], label: "Next agent that needs you" },
       { keys: [["Esc"]], label: "Close the open layer, or go back (not from an agent)" },
       { keys: [["?"]], label: "Show these shortcuts" },
-      { keys: [["⌘", "⇧", "B"]], label: "Open or close the mini games" },
       { keys: [["⌘", "K"]], label: "Command palette" },
     ],
   },
@@ -36,7 +35,7 @@ const GROUPS: Group[] = [
     rows: [
       { keys: [["⌘", "N"], ["D"]], label: "New agent" },
       { keys: [["⌘", "B"]], label: "Show or hide the session panel beside the other tabs (Crew's drawer is on Command)" },
-      { keys: [["⌘", "L"], ["Enter"]], label: "Focus the message box" },
+      { keys: [["⇧", "⌘", "D"], ["Enter"]], label: "Focus the message box (⇧⌘D from anywhere, your editor and the agent's browser too)" },
       { keys: [["R"]], label: "Reply to the selected agent" },
       {
         keys: [["G"]],
@@ -59,7 +58,8 @@ const GROUPS: Group[] = [
   },
 ];
 const TAB_NAMES: Record<AppMode, string> = {
-  command: "the crew",
+  crew: "the crew",
+  command: "the conversation",
   activity: "Activity",
   github: "GitHub",
   settings: "Settings",
@@ -69,12 +69,14 @@ const NATIVE: Group = {
   rows: [
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the crew, GitHub, Activity",
+      label: "Next in the map's place: the crew, the conversation, GitHub, Activity",
     },
     {
-      keys: [["⌘", "1…3"]],
-      label: "The mode bar's tab in that place: the crew, GitHub, Activity",
+      keys: [["⌘", "1…4"]],
+      label: "The mode bar's tab in that place: the crew, the conversation, GitHub, Activity",
     },
+    { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the open agent's editor beside its conversation, with the keyboard" },
+    { keys: [["⇧", "⌘", "B"]], label: "From anywhere: the open agent's browser beside its conversation, with the keyboard" },
     { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },
   ],
 };
@@ -92,13 +94,13 @@ const PAGES: Group = {
 /** The Crew map (src/crew/CrewMap.tsx): the map of robots, and an open agent's browser beside its conversation. */
 const CREW: Group = {
   title: "The crew",
-  note: "The Command tab: the map of robots while nothing is open, the conversation beside it once one is",
+  note: "The Crew tab: the map of robots; the Command tab: the open conversation (in a browser, both)",
   rows: [
     { keys: [["←"], ["→"], ["↑"], ["↓"]], label: "On the map: move through its robots, workspaces and projects" },
     { keys: [["Home"], ["End"]], label: "On the map: the first or last" },
     { keys: [["⌥", "↑"], ["⌥", "↓"]], label: "On a host's head: move the host earlier or later (or drag its head)" },
     { keys: [["Enter"]], label: "Open the robot, workspace or project" },
-    { keys: [["Esc"]], label: "Close the conversation beside the map, once out of its message box (the robot you left keeps the keyboard)" },
+    { keys: [["Esc"]], label: "Back to the crew from the conversation, once out of its message box (the robot you left keeps the keyboard)" },
     { keys: [["←"], ["→"]], label: "On the conversation's left edge: make it wider or narrower (⇧ for bigger steps; drag it, double-click for the default)" },
     { keys: [["B"]], label: "Show or hide the open robot's browser beside its conversation (the macOS app's)" },
     { keys: [["F"]], label: "Show or hide its workspace in your editor (Settings → Files), beside the conversation (the macOS app's)" },

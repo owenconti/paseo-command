@@ -20,13 +20,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let content: NSView
     /// Covers the window until the page has its fleet (its `loaded` message).
     let splash: SplashView
-    /// The strip across the top that switches between Command, GitHub, Activity and Settings.
+    /// The strip across the top that switches between Crew, Command, GitHub, Activity and Settings.
     let modeBar: ModeBar
     /// Command: the page, under `content`, the splash and the mode bar.
     let command: NSView
     /// The mode bar's height: the page's own top bar, whose tools show at its right end.
     let barHeight: CGFloat
-    private(set) var mode: Mode = .command
+    private(set) var mode: Mode = .crew
     /// Keep drawing when the window is covered (`--ignore-occlusion`, for checks): the page and the robot's browser.
     static var ignoreOcclusion = false
     let options: Options
@@ -35,10 +35,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private(set) var enabledModes: Set<Mode> = Mode.alwaysShown { didSet { if enabledModes != oldValue { onModesChanged?() } } }
     /// The tabs shown changed (the View menu renumbers its keys).
     var onModesChanged: (() -> Void)?
-    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘3 pick one (Settings is the gear).
+    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘4 pick one (Settings is the gear).
     var shownModes: [Mode] { Mode.tabs.filter { !$0.drawnByPage || enabledModes.contains($0) } }
     /// The side Settings returns to when it closes.
-    private var beforeSettings: Mode = .command
+    private var beforeSettings: Mode = .crew
     var nextMode: Mode {
         let modes = shownModes
         // From Settings, on from the side it opened over.
@@ -151,7 +151,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         }
         placeModeBar()
         // Where the user left it, across launches and app restarts.
-        if options.info == nil, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)), saved != .command {
+        if options.info == nil, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)), saved != .crew {
             DispatchQueue.main.async { self.show(saved) }
         }
         // The old terminal panel's saved state (`terminalOpen`, `terminalDock`, its sizes) is left alone, unread.
@@ -186,7 +186,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "integrations":
             enabledModes = Set(Mode.tabs.filter { $0.drawnByPage && body[$0.rawValue] as? Bool == true }).union(Mode.alwaysShown)
             modeBar.enabled = enabledModes
-            if mode.drawnByPage && !enabledModes.contains(mode) { show(.command) }
+            if mode.drawnByPage && !enabledModes.contains(mode) { show(.crew) }
             else if mode != .settings, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)),
                     saved.drawnByPage, enabledModes.contains(saved) { show(saved) }
         default:
@@ -260,6 +260,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "activity": show(.activity)
             case "settings": show(.settings)
             case "settings-close": if mode == .settings { show(beforeSettings) }
+            case "crew": show(.crew)
             case "command": show(.command)
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
             case "check-updates": Updater.shared?.checkNow()

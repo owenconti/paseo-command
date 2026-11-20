@@ -9,7 +9,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import { detailOf, launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { appEvent, detailOf, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 import { dungeon, sideBySide } from "./fleets";
 
 let app: Awaited<ReturnType<typeof startApp>>;
@@ -220,7 +220,7 @@ test("at a glance shows nothing while Linear, GitHub and Diagonal health are off
   await page.context().close();
 });
 
-test("picking a robot opens it in focus (the map steps aside, a strip back to the crew), its robot above the message box and beside its replies; Esc leaves the message box, then closes it", async () => {
+test("in a browser, picking a robot opens it in focus (the map steps aside, ← Crew goes back), its robot above the message box and beside its replies; Esc leaves the message box, then closes it", async () => {
   const page = await open();
   const node = page.locator('.crew-node[data-state="idle"]').first();
   const name = (await node.locator(".crew-node-name").textContent())!;
@@ -230,18 +230,16 @@ test("picking a robot opens it in focus (the map steps aside, a strip back to th
   assert.equal(await page.locator(".session").count(), 1, "one copy of the conversation");
   assert.equal(await page.locator(".crew-board").count(), 1, "the map is kept");
   assert.equal(await node.getAttribute("aria-current"), "true");
-  // Focus: the map steps aside, the conversation takes the window under a strip back to the crew and the other robots.
+  // Focus (in a browser): the map steps aside, the conversation takes the window under a strip back to the crew.
   assert.equal(await page.locator(".crew-board").evaluate((el) => getComputedStyle(el).visibility), "hidden", "the map steps aside");
   const focusStrip = page.getByRole("navigation", { name: "The crew" });
   await focusStrip.waitFor();
   const [stripBox, drawer] = await Promise.all([focusStrip, page.locator(".crew-drawer")].map((l) => l.evaluate((el) => el.getBoundingClientRect().toJSON())));
   assert.ok(drawer.top >= stripBox.bottom - 1 && drawer.left <= 1 && drawer.width >= stripBox.width - 2, `the conversation under the strip, the window wide: ${JSON.stringify({ stripBox, drawer })}`);
-  // The strip lists the other robots, those needing you first; the conversation's own "← Fleet" gives way to its Crew.
-  const others = await focusStrip.locator(".crew-focus-agent").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
-  assert.ok(others.length > 0 && !others.includes(null));
-  const urgent = ["failed", "approval", "question", "asking"];
-  const firstCalm = others.findIndex((st) => !urgent.includes(st!));
-  assert.ok(others.slice(firstCalm).every((st) => !urgent.includes(st!)), `needing you first: ${others}`);
+  // The strip is only ← Crew now (no tabs for the other robots: the user's call); the conversation's own "← Fleet"
+  // gives way to it.
+  assert.equal(await focusStrip.locator(".crew-focus-agent").count(), 0);
+  await focusStrip.getByRole("button", { name: "Crew" }).waitFor();
   assert.equal(await page.locator(".crew-drawer .session-back").isVisible(), false);
   // The robot, its state and progress sit at the foot, above the message box.
   const stage = page.locator(".crew-detail .session-footer .crew-stage");
@@ -668,9 +666,40 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   await page.locator(".crew-tool-tabs").getByRole("tab", { name: "Editor" }).click();
   await page.locator(".crew-files").waitFor();
   assert.equal(await page.locator(".board-browser").count(), 0);
+  // The Terminal tab: a shell in the workspace, in the same place.
+  await page.locator(".crew-tool-tabs").getByRole("tab", { name: "Terminal" }).click();
+  await page.locator('.crew-editor[data-tool="terminal"]').waitFor();
+  assert.equal(await page.locator('.crew-editor[data-tool="editor"]').count(), 0);
+  // ⇧⌘E, ⇧⌘B, ⇧⌘T (the app's View menu asks the page): each tool in turn; ⇧⌘D the message box.
+  await appEvent(page, "paseo:command", "tools-editor");
+  await page.locator('.crew-editor[data-tool="editor"]').waitFor();
+  await appEvent(page, "paseo:command", "tools-browser");
+  await page.locator(".board-browser.crew").waitFor();
+  await appEvent(page, "paseo:command", "tools-terminal");
+  await page.locator('.crew-editor[data-tool="terminal"]').waitFor();
+  assert.equal(await page.locator(".board-browser").count(), 0);
+  await appEvent(page, "paseo:command", "focus-composer");
+  await page.waitForFunction(() => document.activeElement?.matches(".crew-detail textarea"));
+  // No strip of the other robots in the app: its Crew tab is the way back.
+  assert.equal(await page.locator(".crew-focus-strip").count(), 0);
   await page.locator(".crew-tool-tabs").getByRole("button", { name: "Hide the tools" }).click();
   await page.locator(".crew-files").waitFor({ state: "detached" });
   assert.equal(await page.locator(".crew-tool-tabs").count(), 0);
+  // The Crew tab: the map, the open agent marked and its conversation kept for the Command tab; Esc from the
+  // conversation goes there too.
+  await page.locator(".crew-detail textarea").first().evaluate((el) => (el as HTMLElement).blur());
+  await page.keyboard.press("Escape");
+  await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "map", "on the Crew tab");
+  assert.equal(await page.locator(".crew-drawer").count(), 0, "the conversation waits for the Command tab");
+  assert.equal(await page.locator(".crew-board").evaluate((el) => getComputedStyle(el).visibility), "visible");
+  await appEvent(page, "paseo:mode", { mode: "command" });
+  await page.locator(".crew-detail .session").waitFor();
+  // Opening another robot on the Crew tab moves to the Command tab.
+  await appEvent(page, "paseo:mode", { mode: "crew" });
+  await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "map", "on the Crew tab again");
+  await page.locator('.crew-node[data-state="running"]').first().click();
+  await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "conversation", "on the Command tab");
+  await page.locator(".crew-detail .session").waitFor();
   await toggle.click();
   await page.locator(".board-browser.crew").waitFor();
   // B hides it (outside a field), and ⌘K shows it again.

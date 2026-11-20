@@ -30,7 +30,7 @@ const store = (name: string, value: unknown) => {
  * game, dealt at random by the server, for the short waits while agents
  * work. There is no choosing or restarting: a game is played to its end,
  * then the next is dealt. It doesn't block the page, and agents finishing
- * never interrupt it. ⌘⇧B (⌃⇧B), from anywhere, opens or closes it too.
+ * never interrupt it. (⇧⌘B is the agent's browser's now; ⌘K's Mini games opens it too.)
  */
 export function GamesButton({ hidden = false }: { hidden?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -40,28 +40,11 @@ export function GamesButton({ hidden = false }: { hidden?: boolean }) {
     if (open) setOpened(true);
   }, [open]);
   useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      // ⌘⇧B (plain B is the Dungeon Board's browser), in a field too, as other ⌘ chords are.
-      if (
-        e.key.toLowerCase() !== "b" ||
-        !(e.metaKey || e.ctrlKey) ||
-        !e.shiftKey ||
-        e.altKey ||
-        e.repeat ||
-        e.defaultPrevented ||
-        modalOpen()
-      )
-        return;
-      e.preventDefault();
-      setOpen((o) => !o);
-    };
-    window.addEventListener("keydown", key);
     // The command palette's Mini games.
     const offCommand = onAppCommand("show-games", () => setOpen(true));
     // The macOS app's top bar button (its own; this one is then hidden).
     const offBar = onAppBar("games", () => setOpen((o) => !o));
     return () => {
-      window.removeEventListener("keydown", key);
       offCommand();
       offBar();
     };

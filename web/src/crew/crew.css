@@ -1136,7 +1136,28 @@ button.crew-pool-name:hover {
    strip back to the crew and to the other robots. The chat column's width, `--crew-chat`, is set on the map's frame,
    where the tools (its siblings) read it too. */
 .crew-map[data-focus] {
-  padding-top: 40px;
+  padding-top: var(--crew-strip, 40px);
+}
+/* The macOS app's Command tab with nothing open: the map aside, a word in its place. */
+.crew-command-empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 24px;
+  color: var(--text-3);
+  text-align: center;
+}
+.crew-command-empty p {
+  margin: 0;
+}
+.crew-command-empty p:first-child {
+  color: var(--text-2);
+  font-size: var(--fs-md);
+}
+.crew-command-empty .page-btn {
+  margin-top: 10px;
 }
 .crew-map[data-focus] > .crew-board {
   position: absolute;
@@ -1249,7 +1270,7 @@ button.crew-pool-name:hover {
 .crew-tool-tabs {
   position: absolute;
   z-index: 3;
-  top: 40px;
+  top: var(--crew-strip, 40px);
   left: calc(clamp(380px, var(--crew-chat, 42%), calc(100% - 360px)) + 1px);
   right: 0;
   display: flex;
@@ -1305,14 +1326,14 @@ button.crew-pool-name:hover {
 /* The tools themselves: right of the conversation, under their tabs; filled, over all of it, under the strip. */
 .crew-map[data-focus] ~ .crew-files.beside,
 .crew-map[data-focus] ~ .board-browser.crew.beside {
-  top: 72px;
+  top: calc(var(--crew-strip, 40px) + 32px);
   left: calc(clamp(380px, var(--crew-chat, 42%), calc(100% - 360px)) + 1px);
   right: 0;
   border-right: 0;
 }
 .crew-map[data-focus] ~ .crew-files.filled,
 .crew-map[data-focus] ~ .board-browser.crew.filled {
-  top: 40px;
+  top: var(--crew-strip, 40px);
   left: 0;
   right: 0;
 }

@@ -5,7 +5,7 @@
  * tabs); Back (or Esc) returns to the map. A workspace's head archives it, and a claimed pool box's host head releases
  * the box. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Archive, ArrowLeft, ChevronDown, Globe, GripVertical, RotateCcw, SquareTerminal, X } from "lucide-react";
+import { Archive, ArrowLeft, ChevronDown, Globe, GripVertical, RotateCcw, SquareTerminal, Terminal, X } from "lucide-react";
 import { STATE_NAMES, STATE_PRIORITY, modelName, type State } from "../model/fleet";
 import { PoolClaims } from "../PoolClaims";
 import { PoolBoxes } from "./PoolBoxes";
@@ -32,6 +32,11 @@ type Props = CrewFleet & {
   detail: ReactNode;
   /** Nothing is open: the overview shows in the detail's place. */
   empty: boolean;
+  /** Which of Crew shows: the map (the macOS app's Crew tab: an open agent's conversation waits for the Command tab), the
+   *  open conversation (its Command tab: the map aside), or both (a browser: an agent opens over the map, ← Crew goes back). */
+  place: "map" | "conversation" | "both";
+  /** The Command tab with nothing open: back to the Crew tab. */
+  onShowMap?: () => void;
   loaded: boolean;
   blocked: boolean;
   /** New agent (⌘N, ⌘K; the map has no button for it): a pending pool claim's row opens it. */
@@ -40,6 +45,8 @@ type Props = CrewFleet & {
   browser?: { shown: boolean; tabs: number; toggle: () => void };
   /** Its workspace's files beside the conversation (`CrewFiles.tsx`): shown or hidden, F's toggle. */
   files?: { shown: boolean; toggle: () => void };
+  /** A terminal in its workspace beside the conversation (the workspace's shell, kept): shown or hidden, ⇧⌘T's toggle. */
+  terminal?: { shown: boolean; toggle: () => void };
   /** Archive a workspace (its confirmation), and those being archived (by `workspaceKey`). */
   onArchive?: (w: Workspace) => void;
   archiving?: Set<string>;
@@ -161,11 +168,16 @@ export function CrewMap(props: Props) {
       frame.style.removeProperty("--crew-drawer");
     };
   }, [drawerWidth]);
-  // Focus: an agent open. The map steps aside (kept, with its scroll), the conversation stands on the left and its tools
-  // (files, browser: main's CrewFiles and BoardBrowser, beside it) fill the right; a strip across the top goes back to
-  // the crew and to the other robots, those needing you first.
-  const focus = !props.empty && props.selection?.type === "agent";
-  const toolsShown = focus && !!(props.browser?.shown || props.files?.shown);
+  // Focus: an agent open (in the macOS app, the Command tab). The map steps aside (kept, with its scroll), the
+  // conversation stands on the left and its tools (your editor and browser: main's WorkspaceEditor and BoardBrowser, beside
+  // it) fill the right. On the Command tab whatever is open takes the window; on the Crew tab an agent's conversation waits
+  // for the Command tab (what else is open shows beside the map). In a browser a strip's ← Crew goes back to the map.
+  const isAgent = props.selection?.type === "agent";
+  const place = props.place;
+  const focus = !props.empty && (place === "conversation" || (isAgent && place === "both"));
+  /** The Command tab, nothing open: the map aside and a word in its place. */
+  const nothingOpen = place === "conversation" && props.empty;
+  const toolsShown = focus && !!(props.browser?.shown || props.files?.shown || props.terminal?.shown);
   const [chatWidth, setChatWidth] = useState<number | null>(() => readStore<number | null>(CHAT_WIDTH, null));
   const chatMax = () => Math.max(CHAT_MIN, (root.current?.clientWidth ?? window.innerWidth) - TOOLS_KEEP);
   const resizeChat = (w: number | null) => {
@@ -185,14 +197,25 @@ export function CrewMap(props: Props) {
   // What was last opened from the map: coming back, the map shows it and gives it the keyboard.
   const opened = useRef<string | null>(null);
 
+  const mapShown = !focus && !nothingOpen;
   useLayoutEffect(() => {
-    if (!props.empty) return;
+    if (!mapShown) return;
     const key = opened.current;
     if (!key) return;
     const node = board.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`);
     node?.focus({ preventScroll: true });
     node?.scrollIntoView({ block: "center" });
-  }, [props.empty]);
+  }, [mapShown]);
+  // The strip (a browser's ← Crew) takes the top of focus; without it (the macOS app's tabs), nothing does.
+  const strip = focus && place === "both";
+  useLayoutEffect(() => {
+    const frame = root.current?.parentElement;
+    if (!frame) return;
+    frame.style.setProperty("--crew-strip", strip ? "40px" : "0px");
+    return () => {
+      frame.style.removeProperty("--crew-strip");
+    };
+  }, [strip]);
 
   // What is open stays in view as the map narrows beside it (or is chosen elsewhere: J/K, ⌘K, a notification).
   useEffect(() => {
@@ -271,28 +294,46 @@ export function CrewMap(props: Props) {
   const running = roster.counts.running ?? 0;
   const need = (["failed", "approval", "question", "asking"] as State[]).reduce((n, s) => n + (roster.counts[s] ?? 0), 0);
 
-  const open = !props.empty;
+  const open = !props.empty && !(place === "map" && isAgent);
   return (
     <div
       ref={root}
       className="crew-map"
       data-world="crew"
       data-open={open || undefined}
-      data-focus={focus || undefined}
+      data-focus={focus || nothingOpen || undefined}
+      data-place={place}
       data-tools={toolsShown || undefined}
-      data-browser={(open && props.selection?.type === "agent" && (props.browser?.shown || props.files?.shown)) || undefined}
+      data-browser={(open && props.selection?.type === "agent" && (props.browser?.shown || props.files?.shown || props.terminal?.shown)) || undefined}
     >
-      {focus && <FocusStrip agents={data.agents} current={selected} pick={(key) => pick("agent", key)} back={() => props.select(null)} />}
+      {strip && <FocusStrip back={() => props.select(null)} />}
+      {nothingOpen && (
+        <div className="crew-command-empty">
+          <p>No conversation is open.</p>
+          <p>Open an agent on the Crew tab, or step through them with J and K.</p>
+          {props.onShowMap && (
+            <button className="page-btn" onClick={props.onShowMap}>
+              Show the crew
+            </button>
+          )}
+        </div>
+      )}
       {toolsShown && (
         <div className="crew-tool-tabs" role="tablist" aria-label="Tools">
           {props.files && (
-            <button role="tab" aria-selected={props.files.shown} aria-keyshortcuts="F" onClick={() => !props.files!.shown && props.files!.toggle()}>
+            <button role="tab" aria-selected={props.files.shown} aria-keyshortcuts="F Shift+Meta+E" onClick={() => !props.files!.shown && props.files!.toggle()}>
               <SquareTerminal size={13} aria-hidden="true" />
               Editor
             </button>
           )}
+          {props.terminal && (
+            <button role="tab" aria-selected={props.terminal.shown} aria-keyshortcuts="Shift+Meta+T" onClick={() => !props.terminal!.shown && props.terminal!.toggle()}>
+              <Terminal size={13} aria-hidden="true" />
+              Terminal
+            </button>
+          )}
           {props.browser && (
-            <button role="tab" aria-selected={props.browser.shown} aria-keyshortcuts="B" onClick={() => !props.browser!.shown && props.browser!.toggle()}>
+            <button role="tab" aria-selected={props.browser.shown} aria-keyshortcuts="B Shift+Meta+B" onClick={() => !props.browser!.shown && props.browser!.toggle()}>
               <Globe size={13} aria-hidden="true" />
               Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}
             </button>
@@ -302,7 +343,7 @@ export function CrewMap(props: Props) {
             className="crew-tool-tabs-close"
             aria-label="Hide the tools"
             data-tip="Hide the tools: the conversation takes the width (F or B shows them again; the editor keeps running)"
-            onClick={() => (props.files?.shown ? props.files.toggle() : props.browser?.toggle())}
+            onClick={() => (props.files?.shown ? props.files.toggle() : props.terminal?.shown ? props.terminal.toggle() : props.browser?.toggle())}
           >
             <X size={13} aria-hidden="true" />
           </button>
@@ -570,28 +611,14 @@ function Tally({ agents }: { agents: readonly { state: State }[] }) {
   );
 }
 
-/** Focus's strip across the top: back to the crew, then the other robots, those that need you first (then working, then
- *  the rest, oldest first), each a dot in its state's colour and its name; a click opens it. */
-function FocusStrip({ agents, current, pick, back }: { agents: readonly RosterAgent[]; current: string | null; pick: (key: string) => void; back: () => void }) {
-  const rank = (s: State) => {
-    const i = STATE_PRIORITY.indexOf(s);
-    return i < 0 ? STATE_PRIORITY.length : i;
-  };
-  const others = agents.filter((a) => a.key !== current).sort((a, b) => rank(a.state) - rank(b.state));
+/** Focus's strip across the top in a browser (the macOS app has its Crew tab instead): back to the crew. */
+function FocusStrip({ back }: { back: () => void }) {
   return (
     <nav className="crew-focus-strip" aria-label="The crew">
       <button className="crew-focus-back" onClick={back} aria-keyshortcuts="Escape" data-tip="Back to the crew (Esc)">
         <ArrowLeft size={14} aria-hidden="true" />
         Crew
       </button>
-      <span className="crew-focus-others">
-        {others.map((a) => (
-          <button key={a.key} className="crew-focus-agent" data-state={a.state} onClick={() => pick(a.key)} data-tip={`${a.name} · ${STATE_NAMES[a.state]}`}>
-            <i aria-hidden="true" />
-            <span>{a.name}</span>
-          </button>
-        ))}
-      </span>
     </nav>
   );
 }

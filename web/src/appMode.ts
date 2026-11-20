@@ -1,28 +1,28 @@
 import { useEffect, useState } from "react";
 import { openAppLink } from "./appLinks";
-import { askAppMode, configureAppIntegrations } from "./worldBridge";
+import { askAppMode, configureAppIntegrations, macApp } from "./worldBridge";
 import { useIntegrations } from "./integrationSettings";
 import { activityEnabled, type Integrations } from "./integrations";
 
 /** What stands in the map's place in the macOS app (its mode bar's tabs):
- * the map, or what the page draws itself: GitHub (pull requests), Activity (GitHub and
+ * the map (Crew), the open conversation (Command), or what the page draws itself: GitHub (pull requests), Activity (GitHub and
  * Linear notifications together) and Settings (the bar's gear, not a tab). (The Linear tab was
  * removed: an old `linear` mode shows the map; so were Files, Terminal and Conquer, your editor and the agent's browser
  * beside its conversation having their places.) */
-export type AppMode = "command" | "activity" | "github" | "settings";
+export type AppMode = "crew" | "command" | "activity" | "github" | "settings";
 
 /** The tabs in the mode bar's order (`Mode.tabs` in `native/…/ModeBar.swift`). */
-const TABS = ["command", "github", "activity"] as const;
+const TABS = ["crew", "command", "github", "activity"] as const;
 /** Every side the app reports, Settings (the gear's) among them. */
 const MODES: AppMode[] = [...TABS, "settings"];
 
 /** The page's tabs whose integration is on. */
 export const appTabs = (i: Integrations) => ({ github: i.github, activity: activityEnabled(i) });
 
-/** The mode bar's tabs shown, in its order: ⌘` steps through them, ⌘1…⌘3 pick one. */
+/** The mode bar's tabs shown, in its order: ⌘` steps through them, ⌘1…⌘4 pick one. */
 export function shownModes(i: Integrations): AppMode[] {
   const tabs = appTabs(i);
-  return TABS.filter((mode) => mode === "command" || tabs[mode]);
+  return TABS.filter((mode) => mode === "crew" || mode === "command" || tabs[mode]);
 }
 
 /** A tab's ⌘ key, by its place among those shown (macOS app only). */
@@ -35,7 +35,8 @@ export function useAppMode(): AppMode {
     configureAppIntegrations(appTabs(integrations));
     if (loaded) askAppMode();
   }, [integrations, loaded]);
-  const [mode, setMode] = useState<AppMode>("command");
+  // The macOS app opens on its Crew tab until it says otherwise; a browser has no tabs (Crew and the conversation both).
+  const [mode, setMode] = useState<AppMode>(() => (macApp() ? "crew" : "command"));
   useEffect(() => {
     const receive = (event: Event) => {
       const next = (event as CustomEvent).detail?.mode;

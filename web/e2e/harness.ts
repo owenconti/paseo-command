@@ -646,6 +646,32 @@ export const detailOf = (
   ...extra,
 });
 
+/** A mocked macOS app (a test's `window.webkit`) switches between its Crew and Command tabs as the page asks
+ * (`postAppMenu("crew" | "command")`), as the real app does: the page opens on Crew and an agent it opens moves it to
+ * Command; asked (`mode`), it says the tab it shows. Set wherever the test sets `window.webkit`, before or after this runs. */
+const ANSWER_MODES = `(() => {
+  let value;
+  // As the app restores the tab the user left: the conversation when the page opens on an agent, else the crew.
+  let mode = new URLSearchParams(location.search).has("agent") ? "command" : "crew";
+  const tell = () => setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode } })));
+  // The tab a test switched to itself (GitHub, Settings…) is the one shown: only Crew and Command are this one's to switch.
+  window.addEventListener("paseo:mode", (e) => { if (e.detail && typeof e.detail.mode === "string") mode = e.detail.mode; });
+  const wrap = (v) => {
+    const h = v && v.messageHandlers && v.messageHandlers.paseoWorld;
+    if (h && !h.__modes) {
+      const post = h.postMessage.bind(h);
+      h.postMessage = (m) => {
+        post(m);
+        if (m && m.type === "menu" && (m.action === "crew" || m.action === "command") && (mode === "crew" || mode === "command")) { mode = m.action; tell(); }
+        if (m && m.type === "mode" && (mode === "crew" || mode === "command")) tell();
+      };
+      h.__modes = true;
+    }
+    return v;
+  };
+  Object.defineProperty(window, "webkit", { configurable: true, get: () => value, set: (v) => { value = wrap(v); } });
+})();`;
+
 export async function newContext(browser: Browser): Promise<BrowserContext> {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
@@ -655,6 +681,7 @@ export async function newContext(browser: Browser): Promise<BrowserContext> {
   await context.route("**/api/**", (route) => route.abort());
   // Likewise the live connection: unless a test answers it, it is closed.
   await context.routeWebSocket("**/api/ws", (ws) => ws.close());
+  await context.addInitScript(ANSWER_MODES);
   await context.addInitScript(STUB_NOTIFICATIONS);
   await context.addInitScript(RECORD_LISTENERS);
   return context;

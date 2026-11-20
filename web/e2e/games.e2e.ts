@@ -46,12 +46,15 @@ async function open(page: Page) {
   page.on("pageerror", (e) => errors.push(String(e)));
   await mockApi(page, { agents: () => [], projects: () => [], lists: games, accept });
   await page.goto(app.url);
-  // Plain B is the Dungeon Board's browser now; ⌘⇧B opens the games, in a field too.
-  await page.keyboard.press("b");
+  // Plain B is the agent's browser and ⇧⌘B shows it; the games open from ⌘K (or the top bar's gamepad).
   const win = page.getByRole("region", { name: "Mini games" });
+  for (const key of ["b", "Meta+Shift+B"]) await page.keyboard.press(key);
   await page.waitForTimeout(150);
-  assert.equal(await win.count(), 0, "B alone doesn't open the games");
-  await page.keyboard.press("Meta+Shift+B");
+  assert.equal(await win.count(), 0, "B and ⇧⌘B don't open the games");
+  await page.keyboard.press("Meta+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await palette.getByRole("combobox").fill("mini games");
+  await palette.getByRole("option", { name: /Open the mini games/ }).click();
   await win.waitFor();
   return { win, errors };
 }

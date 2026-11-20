@@ -75,3 +75,10 @@ const filesOpen = setting("world:filesOpen", false);
 export const filesOpenSetting = filesOpen.get;
 export const setFilesOpen = filesOpen.set;
 export const useFilesOpen = filesOpen.use;
+
+/** Whether the open agent's workspace terminal shows beside its conversation (⇧⌘T, its tab; kept as the others are).
+ * The editor, the terminal and the browser share the place: one shows. */
+const terminalOpen = setting("world:terminalOpen", false);
+export const terminalOpenSetting = terminalOpen.get;
+export const setTerminalOpen = terminalOpen.set;
+export const useTerminalOpen = terminalOpen.use;

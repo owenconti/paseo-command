@@ -189,6 +189,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             guard let main = self?.main else { return }
             main.show(main.nextMode)
         }
+        listen("com.paseo.command.native.crew") { [weak self] in self?.main?.show(.crew) }
         listen("com.paseo.command.native.command") { [weak self] in self?.main?.show(.command) }
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
         listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
@@ -325,11 +326,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         // ⇧⌘G: the selected workspace's changes, in your editor beside its conversation, from anywhere.
         AppKeys.addBranchChanges(to: view, target: self, action: #selector(showBranchChanges))
+        // ⇧⌘E, ⇧⌘T, ⇧⌘B: the open agent's editor, terminal or browser, with the keyboard; ⇧⌘D its message box.
+        AppKeys.addTools(to: view, target: self, action: #selector(tool(_:)))
         // ⌘R while GitHub or Activity shows: the page's shown view refreshes (never a reload of the web view).
         AppKeys.addRefreshPage(to: view, target: self, action: #selector(refreshPage))
-        // ⌘` steps Command → GitHub → Activity → Command, through those shown
+        // ⌘` steps Crew → Command → GitHub → Activity → Crew, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
-        view.addItem(withTitle: "Next: Command", action: #selector(toggleMode), keyEquivalent: "`").target = self
+        view.addItem(withTitle: "Next: Crew, Command", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
         // Your editor's text size, while it has the keyboard. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
         for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
@@ -354,7 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// The View menu's tabs, in the bar's order.
     private var modeItems: [NSMenuItem] = []
-    /// ⌘1…⌘3: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
+    /// ⌘1…⌘4: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
     private func numberModes() {
         let shown = main?.shownModes ?? Mode.tabs.filter { !$0.drawnByPage }
         for item in modeItems {
@@ -371,6 +374,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
     @objc private func showSettings() { main?.toggleSettings() }
     @objc private func showBranchChanges() { main?.pageCommand(AppKeys.branchChangesCommand) }
+    @objc private func tool(_ sender: NSMenuItem) {
+        guard let main, let command = sender.representedObject as? String else { return }
+        // The message box is the page's: the keyboard goes back to the web view first.
+        if command == "focus-composer" { main.window.makeFirstResponder(main.web) }
+        main.pageCommand(command)
+    }
     @objc private func refreshPage() { main?.pageCommand(AppKeys.refreshPageCommand) }
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }

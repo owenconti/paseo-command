@@ -188,10 +188,10 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
     assert.equal(await palette.getByRole("option", { name: gone }).count(), 0, String(gone));
   await search.fill("conquer");
   assert.equal(await palette.getByRole("option", { name: /Conquer|Zen cookies/ }).count(), 0);
-  // The mode bar's tabs shown, in its order, with ⌘1…⌘3 by their place (no integrations here):
-  // Command alone; Settings is the bar's gear, ⌘, alone.
+  // The mode bar's tabs shown, in its order, with ⌘1…⌘4 by their place (no integrations here):
+  // Crew and Command; Settings is the bar's gear, ⌘, alone.
   await search.fill("next in the map");
-  await palette.getByRole("option", { name: /Next in the map's place: crew(?!,)/ }).waitFor();
+  await palette.getByRole("option", { name: /Next in the map's place: crew, conversation(?!,)/ }).waitFor();
   await search.fill("settings");
   const settingsEntry = palette.getByRole("option", { name: /^Settings/ }).first();
   assert.equal((await settingsEntry.locator(".palette-keys").innerText()).replace(/\s/g, ""), "⌘,");

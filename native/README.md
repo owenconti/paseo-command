@@ -67,10 +67,12 @@ Options: `--size <w>x<h>`, `--front` (show in front without activating), `--back
 - **The page draws everything in the window's body.** Crew (the fleet as a chat app), the session
   panel and the pages (GitHub, Activity, Settings) are the React app's, as in a browser; the
   page keeps every pointer and key event, and the web view stays first responder.
-- **Native views lie over boxes the page draws.** Your editor's terminal and the robot's browser lie in
+- **Native views lie over boxes the page draws.** Your editor's terminal (or the workspace's terminal) and the robot's browser lie in
   `content`, a pass-through view over the page, below the mode bar. The page says where they go
   (`editor`, `browser`) and when its map area moves (`viewport`). Web links go to your default browser
-  (there is no Conquer tab or Terminal tab any more).
+  (there is no Conquer tab or Terminal tab any more). The mode bar's tabs are Crew (the map), Command (the open
+  conversation), GitHub and Activity; View's ⇧⌘E, ⇧⌘T, ⇧⌘B and ⇧⌘D reach the conversation's editor, terminal, browser and message box
+  from anywhere.
 - **The splash** covers the window until the page posts `loaded` (its fleet is in), or a minute at most.
 
 ## Your editor's terminal
@@ -110,7 +112,7 @@ ignores them; such a copy keeps its page storage in memory, apart from the user'
 `.snapshot` writes `/tmp/x.png` (the page's snapshot with the native views over it; it shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or WebKit throttles while covered); `.info` rewrites
 `/tmp/x.json` (with your editor's and the browser's state); `.resize` alternates
 the window size; `.reload` runs the palette’s Restart app command; `.zoom` enlarges your editor's text; `.editortype` types
-`/tmp/x.type` into your editor; `.command`, `.github`, `.activity` show those tabs; `.quit`.
+`/tmp/x.type` into your editor; `.crew`, `.command`, `.github`, `.activity` show those tabs; `.quit`.
 The robot's browser (`BoardBrowser.swift`; `--info`'s `browser`: each robot's tabs and where their pages are, the stage's
 frame and holes, hosting): `.browser` runs `/tmp/x.browser`'s requests (a JSON list, each as the server relays an agent's
 browser tool call: `{"host": "local", "request": {"requestId", "agentId", "workspaceId", "command": {"command", "args"}}}`) one

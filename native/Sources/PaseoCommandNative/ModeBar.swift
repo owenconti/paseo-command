@@ -1,15 +1,17 @@
 import AppKit
 
-/// What stands in the map's place: the map (Command), or what the page draws itself: GitHub (pull requests),
+/// What stands in the map's place: the map (Crew), the open conversation (Command, with its editor, terminal and
+/// browser beside it), or what the page draws itself: GitHub (pull requests),
 /// Activity (GitHub and Linear notifications together) and Settings (the bar's gear, not a tab). (The Linear, Files,
 /// Terminal and Conquer tabs were removed at the user's request: an agent's files and terminal are its workspace's
 /// editor beside its conversation, and its browser is beside it too. A saved `linear`, `files`, `terminal` or
 /// `conquer` mode is no mode, so the map shows.)
 enum Mode: String, CaseIterable {
-    case command, github, activity, settings
+    case crew, command, github, activity, settings
 
     var title: String {
         switch self {
+        case .crew: "Crew"
         case .command: "Command"
         case .github: "GitHub"
         case .activity: "Activity"
@@ -18,7 +20,8 @@ enum Mode: String, CaseIterable {
     }
     var symbol: String {
         switch self {
-        case .command: "map"
+        case .crew: "map"
+        case .command: "bubble.left.and.bubble.right"
         case .github: "arrow.triangle.pull"
         case .activity: "bell"
         case .settings: "gearshape"
@@ -29,18 +32,19 @@ enum Mode: String, CaseIterable {
     var drawnByPage: Bool { self == .github || self == .activity || self == .settings }
     /// The page's tabs that always show (no integration of their own).
     static let alwaysShown: Set<Mode> = [.settings]
-    /// The tabs, in the bar's order (⌘1…⌘3 count those shown); Settings is the tools' gear instead.
+    /// The tabs, in the bar's order (⌘1…⌘4 count those shown); Settings is the tools' gear instead.
     static let tabs = allCases.filter { $0 != .settings }
     /// What it shows; the bar's tooltip adds its keys (`keys(at:)`).
     var tip: String {
         switch self {
-        case .command: "The map"
+        case .crew: "The crew: every host, project, workspace and agent"
+        case .command: "The open conversation, with its editor, terminal and browser"
         case .github: "Pull requests, in the map's place"
         case .activity: "GitHub and Linear notifications together, in the map's place"
         case .settings: "Settings: sounds, notifications, integrations, New agent, in the map's place"
         }
     }
-    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘3, and ⌘` steps (Settings' gear only ⌘,).
+    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘4, and ⌘` steps (Settings' gear only ⌘,).
     func keys(at index: Int?) -> String {
         let number = index.map { "⌘\($0 + 1), " } ?? ""
         switch self {
@@ -181,7 +185,8 @@ final class UsageMeters: NSButton {
 }
 
 /// The strip across the top of the window: the traffic lights, the product's name, the tabs that
-/// switch the map's place between the map (Command), GitHub and Activity (⌘` steps through them, ⌘1…⌘3
+/// switch the map's place between the map (Crew), the open conversation (Command), GitHub and Activity (⌘` steps
+/// through them, ⌘1…⌘4
 /// pick the one in that place), "Update ready" when a newer build
 /// is in, and the app's tools at the right: who needs you, usage, the glance (`GlanceBar`), the Settings gear, What's new, mini games,
 /// keyboard shortcuts and the session panel's side, layout and visibility. All of it is native;
@@ -192,7 +197,7 @@ final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
     /// A tool was used: its action's name and its button.
     var onAction: ((String, NSView) -> Void)?
-    /// The page's tabs whose integration is on (Command always shows).
+    /// The page's tabs whose integration is on (Crew and Command always show).
     var enabled: Set<Mode> = [] {
         didSet {
             for (mode, button) in buttons { button.isHidden = mode.drawnByPage && !enabled.contains(mode) }
@@ -201,7 +206,7 @@ final class ModeBar: NSView {
     }
     /// Activity's unread notifications, shown on its tab.
     var activityUnread = 0 { didSet { if activityUnread != oldValue { restyle() } } }
-    var mode: Mode = .command { didSet { settings.on = mode == .settings; restyle() } }
+    var mode: Mode = .crew { didSet { settings.on = mode == .settings; restyle() } }
     /// Where the bar's content starts: past the traffic lights.
     var leading: CGFloat = 0 { didSet { titleLeading?.constant = leading } }
     var updateReady = false { didSet { if updateReady != oldValue { update.isHidden = !updateReady } } }

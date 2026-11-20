@@ -189,9 +189,10 @@ and GitHub publication; report the published version and release link.
   preserving other credentials in an atomic owner-only file. Saved values never return to the page.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
   `web/server/settings.ts`), which the page once kept in localStorage and moves into the file on load.
-- Terminals: the Terminal tab (`TerminalDrawer.swift`: its tabs, splits and panes) was removed at the user's request, as the
-  side and bottom terminal panels were before it; don't add it back unless asked. The app's only terminal is your editor's
-  (`TerminalSession.swift`, laid over its pane by `EditorOverlay`; nvim's own `:terminal` gives shells). The old tab's and panel's
+- Terminals: the mode bar's Terminal tab (`TerminalDrawer.swift`: its tabs, splits and panes) was removed at the user's
+  request, as the side and bottom terminal panels were before it; don't add it back unless asked. The app's terminals are
+  your editor's and the workspace's Terminal tab beside a conversation (see Focus, below; `TerminalSession.swift`, laid over
+  its pane by `EditorOverlay`). The old tab's and panel's
   saved state (`terminalOpen`, `terminalDock`, `terminalWidth|Height`, a saved `terminal` mode) is ignored.
   Your editor's font (`TerminalFont.swift`): `TerminalFontSettings` (family, "" the system monospace; size, the ⌘+/⌘− value;
   line height above 0 up to 100, SwiftTerm's `lineSpacing`, which takes any positive value but keeps a cell within 1…8,192 pt (100× at 32 pt
@@ -249,7 +250,7 @@ and GitHub publication; report the published version and release link.
   Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
 - `web/src/urlState.ts`: what is open (the selection and any subagent) kept in the page's query, so a refresh returns
   there; a new selection pushes history, a subagent's opening or closing replaces it.
-- `web/src/games/`: the top bar's mini games (gamepad button, or ⌘⇧B from anywhere, in a field too; plain B is the agent's browser on Crew), a floating non-modal window with one game dealt at
+- `web/src/games/`: the top bar's mini games (gamepad button, or ⌘K "Open the mini games"; ⇧⌘B and plain B are the agent's browser's), a floating non-modal window with one game dealt at
   random by the server (`web/server/games.ts`, `/api/games`): no choosing or restarting, the next game only once it ends.
   Progress and each game's best score are kept in the data directory's `games.json`. Games implement `types.tsx`'s
   `GameDef` (plain JSON state) and are listed in `catalog.ts` and `registry.ts`.
@@ -317,9 +318,11 @@ and GitHub publication; report the published version and release link.
   While it's on, Crew's workspace head carries the auto-merge seal (`AUTO_MERGE` in `web/src/model/prStatus.ts`), its tooltip saying how
   it merges and who turned it on.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `ModeBar.swift`, its height an empty unified-compact toolbar's, which centres the traffic
-  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, GitHub, Activity, those enabled;
-  ⌘1…⌘3 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
-  whose items `numberModes` keys, ahead of the page, your editor and the agent's browser, as ⇧⌘G Show Branch Changes (the workspace's changes in your editor) is, `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
+  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Crew, Command, GitHub, Activity, those enabled;
+  ⌘1…⌘4 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
+  whose items `numberModes` keys, ahead of the page, your editor and the agent's browser, as ⇧⌘G Show Branch Changes (the workspace's changes in your editor) and View's tools are (⇧⌘E Show Editor, ⇧⌘T Show
+  Terminal, ⇧⌘B Show Browser, ⇧⌘D Focus Message Box: `AppKeys.tools`, asking the page's `tools-editor|terminal|browser` and
+  `focus-composer`, the web view taking the keyboard first for the last), `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`;
   the glance, `GlanceBar`, between the usage meters and the gear). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
@@ -678,8 +681,15 @@ and GitHub publication; report the published version and release link.
 ## Crew
 
 Crew (`web/src/crew/`) is the only map (the user's call: the Islands, Overworld and Dungeon Board maps were removed, below).
-It is the fleet as a chat app, drawn by the page itself on the Command tab, in a plain browser as in the macOS app
-(main's `crewShown`: the Command tab, Settings not showing). It began as the user's ask for a simpler, more traditional
+It is the fleet as a chat app, drawn by the page itself, in a plain browser as in the macOS app (main's `crewShown`:
+the Crew or Command tab, Settings not showing). In the macOS app the map is the Crew tab (the mode bar's first, ⌘1) and
+the open conversation the Command tab (⌘2; main's `crewPlace`, CrewMap's `place`: `map`, `conversation`; the user's
+ask, in place of focus's strip of the other robots): opening an agent on the Crew tab moves to Command (main's
+`openedAgent`), Esc in the conversation goes back to Crew keeping it open there, and the Command tab with nothing open
+says so (`.crew-command-empty`, Show the crew). On the Crew tab an open agent's conversation isn't drawn (its node marked);
+workspaces, projects and New agent still open beside the map. A browser has both at once (`both`): an agent opens over the
+map with a strip whose ← Crew goes back. ⌘K "Show the crew" (`crew-show`) and "Show the conversation with …"
+(`command-show`). The app opens on Crew (`Mode.crew`, the page's first `useAppMode`) unless the saved mode says otherwise. It began as the user's ask for a simpler, more traditional
 chat/AI interface that keeps the robots, their progress animations and the status medallions; then: no left sidebar,
 grouped Host › Project › Workspace, larger nodes, the agent's browser, equal-height cells, what is open beside the map and
 closed with Esc, the robot's strip above the message box; then that the session panel beside the other tabs be exactly
@@ -749,15 +759,19 @@ the component Crew's drawer is.
   the field; Esc then closes it from anywhere on Crew (main's key handler: after menus, pickers, previews and
   confirmations; a subagent goes back to its agent first), as does Back (Fleet).
 - Focus (the user's pick of three layouts, "map home, focus mode": the first stage of a new layout; since then the
-  Files, Terminal and Conquer tabs went (the user's call); next PR tabs in focus, Inbox (Activity and the GitHub tab together)
-  and a slimmer top bar): opening an agent
+  Files, Terminal and Conquer tabs went and Crew became a tab of its own (the user's calls); next PR tabs in focus, Inbox
+  (Activity and the GitHub tab together) and a slimmer top bar): opening an agent
   (CrewMap's `focus`: an agent selected, not a workspace, project or New agent, which still open in the drawer beside the
-  map) puts the map aside (kept mounted, its scroll too, `visibility: hidden`) and gives the agent the window: a strip
-  across the top (`FocusStrip`, `.crew-focus-strip`: ← Crew, which with Esc goes back, then every other robot, those
-  needing you first, tinted and pulsing, then working, then the rest; a click opens one), the conversation on the left
-  and its tools on the right (your editor, `WorkspaceEditor`, and the browser, `BoardBrowser`, main's, the map's siblings) under
-  one tab bar (`.crew-tool-tabs`: Editor, Browser, × hides them and the conversation takes the width; F and B still
-  toggle). The conversation's width beside its tools is dragged on its right edge (`crew:focusChatWidth`, `--crew-chat`
+  map) puts the map aside (kept mounted, its scroll too, `visibility: hidden`) and gives the agent the window (in a browser under a strip, `FocusStrip`, `.crew-focus-strip`: only ← Crew,
+  which with Esc goes back; the macOS app has no strip, `--crew-strip` 0, its Crew tab going back; the strip's tabs for the
+  other robots were dropped at the user's ask): the conversation on the left and its tools on the right (your editor and
+  the workspace's terminal, `WorkspaceEditor` with `kind` `editor` or `terminal`, and the browser, `BoardBrowser`, main's,
+  the map's siblings) under one tab bar (`.crew-tool-tabs`: Editor, Terminal, Browser, × hides them and the conversation
+  takes the width; F and B still toggle; ⇧⌘E, ⇧⌘T and ⇧⌘B show each from anywhere with the keyboard, ⇧⌘D gives the
+  message box the keyboard again). One shows at a time (main's `showTool`; `world:filesOpen|terminalOpen|browserOpen`).
+  The Terminal tab is one shell per workspace (`POST /api/terminals/create` in the workspace's folder, kept as
+  `terminal:workspaces` and found again while the daemon lists it; Start again once it ends), laid over its pane as the
+  editor is (`EditorOverlay`). The mini games lost ⇧⌘B to the browser (⌘K and the top bar's gamepad open them). The conversation's width beside its tools is dragged on its right edge (`crew:focusChatWidth`, `--crew-chat`
   on the map's frame, which the tools read; at least 380 px, the tools 360). In focus the panes' own close, fill and title
   rows and the conversation's "← Fleet" are hidden (the tab bar and the strip have them). Under 900 px the tools lie over
   the conversation. Tests: `e2e/crew.e2e.ts`, `e2e/files-editor.e2e.ts`.

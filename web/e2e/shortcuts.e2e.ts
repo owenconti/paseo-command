@@ -82,12 +82,12 @@ test("in the macOS app, the mode bar's keys list its tabs in order, Settings bei
   await appEvent(page, "paseo:command", "show-shortcuts");
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await dialog.waitFor();
-  // No integrations here: the crew alone.
-  await dialog.getByText("Next in the map's place: the crew", { exact: true }).waitFor();
+  // No integrations here: the crew and the conversation.
+  await dialog.getByText("Next in the map's place: the crew, the conversation", { exact: true }).waitFor();
   const tabs = dialog.locator("li, tr, div").filter({
-    has: page.getByText("The mode bar's tab in that place: the crew", { exact: true }),
+    has: page.getByText("The mode bar's tab in that place: the crew, the conversation", { exact: true }),
   }).last();
-  assert.match(await tabs.innerText(), /⌘\s*1(?!…)/);
+  assert.match(await tabs.innerText(), /1…2/);
   // No Terminal or Conquer tab any more: no ⌃`, no Conquer group.
   assert.equal(await dialog.getByText(/the Terminal tab|terminal panel/).count(), 0);
   assert.equal(await dialog.getByText(/Conquer/).count(), 0);

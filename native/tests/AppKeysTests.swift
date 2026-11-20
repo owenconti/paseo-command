@@ -40,39 +40,51 @@ func key(_ chars: String, _ mods: NSEvent.ModifierFlags, code: UInt16 = 5) -> NS
     NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods, timestamp: 0, windowNumber: 0, context: nil,
                      characters: chars, charactersIgnoringModifiers: chars.lowercased(), isARepeat: false, keyCode: code)!
 }
-// The window offers ⇧⌘G (and ⌘1…⌘3) to the menu ahead of its views; not ⌘G, ⌥⇧⌘G or ⌘4.
+// The window offers ⇧⌘G (and ⌘1…⌘4) to the menu ahead of its views; not ⌘G, ⌥⇧⌘G or ⌘5.
 let shiftG = key("G", [.command, .shift])
 assert(AppKeys.offeredToMenu(shiftG))
 assert(AppKeys.offeredToMenu(key("3", .command)))
 assert(!AppKeys.offeredToMenu(key("g", .command)))
 assert(!AppKeys.offeredToMenu(key("G", [.command, .shift, .option])))
-assert(!AppKeys.offeredToMenu(key("4", .command)), "three tabs: ⌘4 is no tab")
+assert(AppKeys.offeredToMenu(key("4", .command)))
+assert(!AppKeys.offeredToMenu(key("5", .command)), "four tabs: ⌘5 is no tab")
 assert(bar.performKeyEquivalent(with: shiftG))
 assert(menus.ran == ["branchChanges"], "\(menus.ran)")
 
-// ⇧⌘E and ⌃` are no app keys now (Show Files and Show Terminal went with their tabs).
-assert(!AppKeys.offeredToMenu(key("E", [.command, .shift])))
+// ⌃` is no app key now (the Terminal tab went). View's tools are, from anywhere, ahead of the views (your editor, its
+// terminal and the agent's browser's pages too): ⇧⌘E the editor, ⇧⌘T the terminal, ⇧⌘B the browser, ⇧⌘D the message box.
 assert(!AppKeys.offeredToMenu(key("`", .control, code: 50)))
-assert(view.item(withTitle: "Show Files") == nil && view.item(withTitle: "Show Terminal") == nil)
-// The tabs: Command, GitHub, Activity; Settings is no tab but the tools' gear, still a side the page draws.
-// A saved Files, Terminal or Conquer mode is no mode (the map shows).
-assert(Mode.tabs == [.command, .github, .activity])
+assert(view.item(withTitle: "Show Files") == nil)
+final class Tools: NSObject { var ran: [String] = []; @objc func tool(_ sender: NSMenuItem) { ran.append(sender.representedObject as! String) } }
+let tools = Tools()
+AppKeys.addTools(to: view, target: tools, action: #selector(Tools.tool(_:)))
+for (letter, command) in [("E", "tools-editor"), ("T", "tools-terminal"), ("B", "tools-browser"), ("D", "focus-composer")] {
+    let event = key(letter, [.command, .shift])
+    assert(AppKeys.offeredToMenu(event), letter)
+    tools.ran = []
+    assert(view.performKeyEquivalent(with: event) && tools.ran == [command], "\(letter): \(tools.ran)")
+    assert(!AppKeys.offeredToMenu(key(letter.lowercased(), .command)), "⌘\(letter) alone isn't one")
+}
+assert(view.item(withTitle: "Show Terminal")?.keyEquivalent == "t")
+// The tabs: Crew (the map), Command (the open conversation), GitHub, Activity; Settings is no tab but the tools' gear,
+// still a side the page draws. A saved Files, Terminal or Conquer mode is no mode (the map shows).
+assert(Mode.tabs == [.crew, .command, .github, .activity])
 for gone in ["files", "terminal", "conquer", "linear"] { assert(Mode(rawValue: gone) == nil, gone) }
-assert(Mode.github.keys(at: 1) == "⌘2, ⌘`")
+assert(Mode.github.keys(at: 2) == "⌘3, ⌘`")
 assert(Mode(rawValue: "settings") == .settings && Mode.settings.drawnByPage)
 assert(Mode.alwaysShown == [.settings])
 assert(Mode.settings.keys(at: nil) == "⌘,")
-// ⌘` steps through those shown: with no integrations, Command alone.
+// ⌘` steps through those shown: with no integrations, Crew and Command.
 let shownTabs = Mode.tabs.filter { !$0.drawnByPage || Mode.alwaysShown.contains($0) }
-assert(shownTabs == [.command], "\(shownTabs)")
+assert(shownTabs == [.crew, .command], "\(shownTabs)")
 
 // The bar: its tabs in that order (GitHub and Activity only while on), and the Settings gear, lit while Settings shows.
 do {
     let modeBar = ModeBar(frame: CGRect(x: 0, y: 0, width: 1200, height: 38))
     modeBar.enabled = [.settings]
-    assert(modeBar.state()["tabs"] as? [String] == ["command"], "\(modeBar.state())")
+    assert(modeBar.state()["tabs"] as? [String] == ["crew", "command"], "\(modeBar.state())")
     modeBar.enabled = [.settings, .github, .activity]
-    assert(modeBar.state()["tabs"] as? [String] == ["command", "github", "activity"])
+    assert(modeBar.state()["tabs"] as? [String] == ["crew", "command", "github", "activity"])
     assert(modeBar.state()["settingsOn"] as? Bool == false)
     var used: [String] = []
     modeBar.onAction = { name, _ in used.append(name) }
@@ -95,13 +107,14 @@ do {
     assert(github.isHidden && activity.isHidden)
     modeBar.enabled = [.github, .activity]
     assert(!github.isHidden && !activity.isHidden)
-    assert(github.toolTip?.hasSuffix("(⌘2, ⌘`)") == true && activity.toolTip?.hasSuffix("(⌘3, ⌘`)") == true)
+    assert(github.toolTip?.hasSuffix("(⌘3, ⌘`)") == true && activity.toolTip?.hasSuffix("(⌘4, ⌘`)") == true)
+    assert(find("Crew", in: modeBar)?.toolTip?.hasSuffix("(⌘1, ⌘`)") == true && find("Command", in: modeBar)?.toolTip?.hasSuffix("(⌘2, ⌘`)") == true)
     modeBar.activityUnread = 4
     assert(activity.title.hasSuffix("4"))
     modeBar.activityUnread = 0
     assert(activity.title.trimmingCharacters(in: .whitespaces) == "Activity")
     modeBar.enabled = [.activity]
-    assert(activity.toolTip?.hasSuffix("(⌘2, ⌘`)") == true)
+    assert(activity.toolTip?.hasSuffix("(⌘3, ⌘`)") == true)
 }
 
 // ⌘W is never offered ahead of the views, and no menu item has it: your editor and the agent's browser keep it.
@@ -144,8 +157,8 @@ do {
     NSApp.mainMenu = nil
     menus.refreshes = false
 }
-// ⇧⌘T, ⌃Tab and ⌥⌘←/→ aren't offered ahead.
-for k in [key("t", [.command, .shift]), key("\t", .control), key("\t", [.control, .shift])] {
+// ⌃Tab and ⌥⌘←/→ aren't offered ahead.
+for k in [key("\t", .control), key("\t", [.control, .shift])] {
     assert(!AppKeys.offeredToMenu(k))
 }
 // ⇧⌘C: the GitHub tab's (the page copies the PR's link, `GitHubView.tsx`). No app key or menu item uses it, so the

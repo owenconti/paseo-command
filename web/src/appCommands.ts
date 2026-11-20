@@ -4,6 +4,10 @@ import type { ShortcutKey } from "./shortcutKey";
  * the floating panel, the header's dialogs, the open agent), as their own
  * keys and buttons do. */
 export type AppCommand =
+  | "tools-editor"
+  | "tools-terminal"
+  | "tools-browser"
+  | "focus-composer"
   | "mermaid-diagram"
   | "board-browser-address"
   | "board-browser-new"
