@@ -751,8 +751,8 @@ the component Crew's drawer is.
 - What is open (`CrewDetail.tsx`: main's `detailView`, the agent's `Session`, a subagent's, New agent, a workspace, a
   project, Add project, with `ChatDecorContext` putting the robot beside each reply and in the working row, and
   `ChatFooterContext` the strip above the message box, `Stage` in `parts.tsx`: its robot, glow, mark and drones, its
-  state, model and subagents, what it is doing with a progress bar, its workspace's chip and medallions, and (the macOS
-  app's) its Browser button) shows in Crew's drawer, `.crew-drawer` on the map's right (440–760 px, 46% by default; under
+  state, model and subagents, what it is doing with a progress bar and its workspace's medallions; no buttons: the workspace chip, Browser and
+  Editor buttons were removed at the user's ask, the tools' tabs and keys having them) shows in Crew's drawer, `.crew-drawer` on the map's right (440–760 px, 46% by default; under
   a 900 px window over the map), its left edge resizing it (`ResizeEdge`; at least 360 px, leaving the map 320 px; kept in
   `crew:drawerWidth`, set as `--crew-drawer` on the map's frame, which the agent's browser follows), the map staying, its
   node or head marked and kept in view. Esc in a field (its message box, the filter, New agent's form) only leaves
@@ -804,7 +804,7 @@ with `mode: "command"`, `setEditorMode` in a layout effect; the app shows an edi
 `EditorPlacement.mode`, `visible(showing:)`). The page's own things over the pane (tooltips, menus such as the top bar's
 glance menus, the bar's popovers: `OVERLAYS` in `web/src/overlays.ts`, shared with the agent's browser) go with each placement as
 `holes`, which `EditorStage` cuts out of the terminal (a layer mask; clicks there reach the page), as `BrowserStage` does. Main's `filesShown` (`crewBrowsing` and `world:filesOpen`): F outside a field,
-the strip's Editor button and the tools' Editor tab, ⌘K "Show …’s workspace in your editor" / "Hide the editor beside the
+the tools' Editor tab, ⇧⌘E, ⌘K "Show …’s workspace in your editor" / "Hide the editor beside the
 conversation" (`crew-files`, page Command). It and the browser share the place. Asks go to it (`workspaceEditorAsks.ts`:
 `askWorkspaceEditor`, kept until its editor runs): a chat's file link (`openFileLink` in `Session.tsx`, title "Open in your
 editor") opens the editor and sends `:e +<line> <path>` from Normal mode (`openFileKeys`, the path Ex-escaped by `exPath`);
@@ -819,7 +819,7 @@ lists as that workspace's editor, the path `checkPath`ed). In a browser a file l
 Each agent has a browser of its own, tracked to it (host and daemon id): its tabs, shown on Crew in the map's place left
 of its conversation (the user's ask: an integrated browser attached to the agent, which the agent can open tabs in; it
 began on the Dungeon Board). Main's `crewBrowsing` (Crew shows, the macOS app, an agent open, not a subagent): B (outside a
-text field; main's `boardKeys`), the strip's Browser button (which counts its tabs) and ⌘K "Show …’s browser" show or hide
+text field; main's `boardKeys`), ⇧⌘B (shows it), the tools' Browser tab (which counts its tabs) and ⌘K "Show …’s browser" show or hide
 it (`world:browserOpen`, kept as you step from agent to agent and across launches). ⇧⌘W hides it from anywhere (the user's
 ask: a key that closes it): the page takes it, in a field too (`BoardBrowser.tsx`), and while a web page has the keyboard
 the app does and tells the page (`key` `hide`), which gives the keyboard back to the page. The page draws the panel
@@ -877,7 +877,7 @@ refused with why, a page that sends itself there is stopped, and its pages carry
 `WKContentRuleList`) that block frames, images, scripts and requests to them; such a tab is not made until those rules
 compile. `browser_upload` reads files only for this Mac's own agents (the paths are the agent's machine's).
 While an agent's conversation is open, a tab it opens shows at once (Settings → Browser "Show the browser when its agent
-opens a tab", `world:browserFollows`, on by default), else the Browser button counts it; another agent's is said in a
+opens a tab", `world:browserFollows`, on by default), else the tools' Browser tab counts it; another agent's is said in a
 notice, at most every 30 s an agent. While the browser shows, a web link clicked in the conversation (a visual reply's page
 too) opens in it, not in your default browser (the user's call; `web/src/chatLinks.ts`: `openChatLink`, which `BoardBrowser` takes over
 with `setBoardLinkOpener` while mounted, for links inside `.crew-detail` only): in a tab already at that address, else a

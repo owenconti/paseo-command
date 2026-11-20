@@ -5,7 +5,6 @@
  * tab, and in the session panel beside the other tabs (GitHub, Activity). */
 import { useMemo, type ReactNode } from "react";
 import { selectionKey } from "../atlasData";
-import { targetSelection } from "../worldBridge";
 import { ChatDecorContext, ChatFooterContext, type ChatDecor } from "../chatDecor";
 import type { Selection } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
@@ -18,10 +17,6 @@ export type CrewDetailProps = CrewFleet & {
   workingOn?: WorkSummaries;
   /** The open conversation, New agent, workspace or project. */
   detail: ReactNode;
-  /** The open agent's browser (the macOS app's, on Crew): shown beside its conversation, its tabs, B's toggle. */
-  browser?: { shown: boolean; tabs: number; toggle: () => void };
-  /** Its workspace's files beside the conversation (on Crew): shown or hidden, F's toggle. */
-  files?: { shown: boolean; toggle: () => void };
 };
 
 export function CrewDetail(props: CrewDetailProps) {
@@ -50,16 +45,10 @@ export function CrewDetail(props: CrewDetailProps) {
           value={
             shownAgent && (
               <Stage
-                browser={props.browser}
-                files={props.files}
                 agent={shownAgent}
                 sentence={sentence}
                 workspace={shownAgent.workspace ? data.workspaces.find((w) => w.key === shownAgent.workspace) : undefined}
                 medals={medals}
-                onWorkspace={(key) => {
-                  const s = targetSelection({ kind: "workspace", key }, snapshot);
-                  if (s) props.select(s);
-                }}
               />
             )
           }

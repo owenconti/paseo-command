@@ -577,8 +577,6 @@ export function CrewMap(props: Props) {
             select={props.select}
             workingOn={props.workingOn}
             detail={props.detail}
-            {...(props.browser ? { browser: props.browser } : {})}
-            {...(props.files ? { files: props.files } : {})}
           />
         </aside>
       )}

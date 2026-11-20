@@ -146,8 +146,8 @@ test("an agent's workspace in your editor beside its conversation on Crew (F): o
   try {
     await page.goto(`${app.url}?agent=a-idle`);
     await page.locator(".crew-drawer .crew-detail").waitFor();
-    const toggle = page.locator(".crew-files-toggle");
-    assert.equal(await toggle.getAttribute("aria-pressed"), "false");
+    const editorTab = () => page.locator(".crew-tool-tabs").getByRole("tab", { name: "Editor" });
+    assert.equal(await page.locator(".crew-tool-tabs").count(), 0);
     // F, outside a field: the workspace's editor takes the tools' place, right of the conversation.
     const blur = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await blur();
@@ -156,8 +156,7 @@ test("an agent's workspace in your editor beside its conversation on Crew (F): o
     const slot = page.locator(".crew-editor-slot[data-terminal=term-1]");
     await slot.waitFor();
     assert.deepEqual(created, [{ workspace: "wks_a", workspaceEditor: true }], "started once, in the workspace (the command is the settings file's)");
-    assert.equal(await toggle.getAttribute("aria-pressed"), "true");
-    assert.equal(await page.locator(".crew-tool-tabs").getByRole("tab", { name: "Editor" }).getAttribute("aria-selected"), "true");
+    assert.equal(await editorTab().getAttribute("aria-selected"), "true");
     const [box, drawer] = await Promise.all([pane, page.locator(".crew-drawer")].map((l) => l.evaluate((e) => e.getBoundingClientRect().toJSON())));
     assert.ok(box.left >= drawer.right - 1 && box.width > 500, `right of the conversation (focus): ${JSON.stringify({ box, drawer })}`);
     // Laid over the pane for the Command tab, and given the keyboard.

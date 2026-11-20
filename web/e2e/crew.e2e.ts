@@ -248,7 +248,7 @@ test("in a browser, picking a robot opens it in focus (the map steps aside, ← 
   assert.ok(strip.bottom <= input.top + 1, "above the message box");
   await page.locator(".crew-detail .msg.assistant .msg-avatar .crew-bot").waitFor();
   assert.match((await page.locator(".crew-detail .session-title").textContent())!, new RegExp(name));
-  assert.equal(await page.locator(".crew-browser-toggle").count(), 0, "the browser is the macOS app's");
+  assert.equal(await page.locator(".crew-stage button").count(), 0, "no buttons on the card");
   // Esc in the message box only leaves it; the next Esc closes the conversation, and the robot it left has the keyboard.
   const box = page.locator(".crew-detail .session-footer textarea").first();
   await box.focus();
@@ -639,14 +639,16 @@ test("folded projects stay folded across a reload", async () => {
   await page.context().close();
 });
 
-test("in the macOS app: the open agent's browser stands beside its conversation (its button, B, ⌘K)", async () => {
+test("in the macOS app: the open agent's browser stands beside its conversation (⇧⌘B, B, ⌘K)", async () => {
   const page = await open({ mac: true });
   await map(page).locator(".crew-node").first().waitFor();
   await page.locator('.crew-node[data-state="idle"]').first().click();
   await page.locator(".crew-detail .session").waitFor();
-  const toggle = page.locator(".crew-browser-toggle");
-  assert.equal(await toggle.getAttribute("aria-pressed"), "false");
-  await toggle.click();
+  // The card above the message box has no buttons now (the user's call): no workspace chip, Browser or Editor.
+  assert.equal(await page.locator(".crew-stage button").count(), 0);
+  assert.equal(await page.locator(".crew-tool-tabs").count(), 0, "no tools shown yet");
+  const showBrowser = () => appEvent(page, "paseo:command", "tools-browser");
+  await showBrowser();
   await page.locator(".board-browser.crew").waitFor();
   assert.equal(await page.locator(".crew-map[data-browser]").count(), 1);
   // Focus: right of the conversation, under the tools' tabs (Files · Browser), not over it.
@@ -700,7 +702,7 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   await page.locator('.crew-node[data-state="running"]').first().click();
   await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "conversation", "on the Command tab");
   await page.locator(".crew-detail .session").waitFor();
-  await toggle.click();
+  await showBrowser();
   await page.locator(".board-browser.crew").waitFor();
   // B hides it (outside a field), and ⌘K shows it again.
   await page.locator(".crew-stage-state").click();

@@ -697,7 +697,7 @@
   border-radius: var(--radius-lg);
   background: linear-gradient(90deg, color-mix(in srgb, var(--crew-state) 10%, var(--surface)), var(--surface) 60%);
 }
-/* The state keeps room to read on one line; the tools beside it wrap beneath it first. */
+/* The state keeps room to read on one line; the medallions beside it wrap beneath it first. */
 .crew-stage-text {
   display: flex;
   flex-direction: column;
@@ -762,17 +762,6 @@
   border-radius: 2px;
   background: var(--crew-running);
   animation: crew-slide 1.6s ease-in-out infinite;
-}
-.crew-stage-place {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 1 auto;
-  min-width: 0;
-}
-.crew-stage-place .crew-chip {
-  flex: 0 1 auto;
-  min-width: 48px;
 }
 .crew-chip {
   max-width: 220px;
@@ -900,19 +889,6 @@
 .board-browser.crew .bb-address:focus-visible {
   outline: 2px solid var(--focus);
 }
-.crew-files-toggle,
-.crew-browser-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex: none;
-  font-family: var(--font-sans);
-}
-.crew-files-toggle[aria-pressed="true"],
-.crew-browser-toggle[aria-pressed="true"] {
-  border-color: var(--accent-line);
-  color: var(--text-strong);
-}
 
 /* Narrow: smaller nodes, one workspace a row. */
 @container crew (max-width: 640px) {
@@ -925,9 +901,6 @@
   }
   .crew-hosts {
     --crew-tile: 192px;
-  }
-  .crew-stage-place {
-    display: none;
   }
 }
 

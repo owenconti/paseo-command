@@ -3,7 +3,6 @@
  * work frames, running subagents' drones, the status sheet's state marks, glows and PR, Probe and auto-merge
  * medallions (`sheets.ts`, from the art in rendering/src/assets/dungeon), and the strip above the message box. */
 import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
-import { Globe, SquareTerminal } from "lucide-react";
 import robotsUrl from "../../../rendering/src/assets/dungeon/robots.png";
 import statusUrl from "../../../rendering/src/assets/dungeon/status.png";
 import { AUTO_MERGE } from "../model/prStatus";
@@ -133,16 +132,12 @@ export function Medals({ workspace: w, pr, size }: { workspace: RosterWorkspace 
 }
 
 /** At the conversation's foot, above its message box: the agent's robot (working, resting or offline), its state and progress, and its
- * workspace with its pull request's medallions. Its name and tools are the conversation's own header's. */
+ * workspace's pull request medallions. Its name is the conversation's own header's, its tools the tool tabs'. */
 export function Stage(props: {
   agent: RosterAgent;
   sentence?: string;
   workspace?: CrewWorkspace;
   medals: (w: CrewWorkspace, size: number) => ReactNode;
-  onWorkspace: (key: string) => void;
-  browser?: { shown: boolean; tabs: number; toggle: () => void };
-  /** Its workspace's files beside the conversation (F): shown or hidden. */
-  files?: { shown: boolean; toggle: () => void };
 }) {
   const { agent, workspace } = props;
   const running = agent.state === "running";
@@ -167,43 +162,9 @@ export function Stage(props: {
         )}
         {!running && props.sentence && <div className="crew-stage-work">{props.sentence}</div>}
       </div>
-      {/* The workspace and the place's buttons: beside the state while there's room, else wrapped beneath it. */}
-      {(workspace || props.browser || props.files) && (
-        <div className="crew-stage-tools">
-        {workspace && (
-          <div className="crew-stage-place">
-            <button className="crew-chip" data-tip="Show the workspace" onClick={() => props.onWorkspace(workspace.key)}>
-              {workspace.name}
-            </button>
-            {props.medals(workspace, 26)}
-          </div>
-        )}
-        {props.browser && (
-          <button
-            className="crew-chip crew-browser-toggle"
-            aria-pressed={props.browser.shown}
-            aria-keyshortcuts="B"
-            data-tip={props.browser.shown ? "Hide the browser (B, ⇧⌘W)" : "Show its browser (B)"}
-            onClick={props.browser.toggle}
-          >
-            <Globe size={13} aria-hidden="true" />
-            Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}
-          </button>
-        )}
-        {props.files && (
-          <button
-            className="crew-chip crew-files-toggle"
-            aria-pressed={props.files.shown}
-            aria-keyshortcuts="F"
-            data-tip={props.files.shown ? "Hide the editor (F)" : "Show its workspace in your editor (F)"}
-            onClick={props.files.toggle}
-          >
-            <SquareTerminal size={13} aria-hidden="true" />
-            Editor
-          </button>
-        )}
-        </div>
-      )}
+      {/* Its workspace's pull request medallions (the editor, terminal and browser are the tools' tabs', and the
+          workspace the conversation's header's: the user's call). */}
+      {workspace && <div className="crew-stage-tools">{props.medals(workspace, 26)}</div>}
     </div>
   );
 }
