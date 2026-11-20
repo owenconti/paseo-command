@@ -6,7 +6,7 @@ import { clearAgentMode, publishAgentMode } from "./agentModeStore";
 import { askWorkspaceEditor } from "./crew/workspaceEditorAsks";
 import { onOwnedAppCommand } from "./appCommands";
 import { macApp, postAppMenu, postAppReveal } from "./worldBridge";
-import { openChatLink } from "./chatLinks";
+import { openChatLink, openInAgentBrowser } from "./chatLinks";
 import { usePeers } from "./peers";
 import { Robot } from "./crew/parts";
 import { robotColorOf } from "./crew/sheets";
@@ -152,7 +152,42 @@ export function openInAppBrowser(e: React.MouseEvent) {
   if (!(link instanceof HTMLAnchorElement) || !/^https?:$/.test(link.protocol)) return;
   if (link.origin === window.location.origin) return;
   e.preventDefault();
-  openChatLink(link.href, link);
+  // A tool row's links go to the agent's browser, shown for them.
+  if (link.dataset.agentBrowser) openInAgentBrowser(link.href, link);
+  else openChatLink(link.href, link);
+}
+
+/** A tool row's text with its web addresses as links to the agent's browser. In the row's summary (a button) they are
+ *  spans, clicked without toggling the row; in what it returned, real links. */
+function ToolText({ text, inButton }: { text: string; inButton?: boolean }) {
+  const runs = urlRuns(text);
+  if (!runs.some((r) => r.href)) return <>{text}</>;
+  return (
+    <>
+      {runs.map((run, i) => {
+        if (!run.href) return run.text;
+        const r = { url: run.href };
+        return inButton ? (
+          <span
+            key={i}
+            className="tool-link"
+            role="link"
+            title={`Open ${r.url} in the agent’s browser`}
+            onClick={(e) => {
+              e.stopPropagation();
+              openInAgentBrowser(r.url, e.currentTarget);
+            }}
+          >
+            {r.url}
+          </span>
+        ) : (
+          <a key={i} className="tool-link" href={r.url} target="_blank" rel="noopener noreferrer" data-agent-browser="true" title={`Open ${r.url} in the agent’s browser`}>
+            {r.url}
+          </a>
+        );
+      })}
+    </>
+  );
 }
 
 export type SessionProps = {
@@ -1357,12 +1392,18 @@ function Step({ step }: { step: Entry }) {
         {stepIcon(step)}
         <b>{name}</b>
         {source && <small>{source}</small>}
-        <code>{step.text}</code>
+        <code>
+          <ToolText text={step.text} inButton />
+        </code>
         {step.status && step.status !== "completed" && (
           <span className={`tool-status ${step.status}`}>{step.status}</span>
         )}
       </button>
-      {open && step.detail && <pre className="step-detail">{step.detail}</pre>}
+      {open && step.detail && (
+        <pre className="step-detail">
+          <ToolText text={step.detail} />
+        </pre>
+      )}
     </>
   );
 }

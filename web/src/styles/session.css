@@ -870,6 +870,17 @@ button.agent-report-name:hover {
   font-size: var(--fs-xs);
   color: var(--text-mid);
 }
+/* A tool row's web addresses (Session.tsx ToolText): links to the agent's browser. */
+.tool-link {
+  color: var(--accent-text, var(--accent));
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.tool-link:hover {
+  text-decoration-color: currentColor;
+}
 .step.thought span {
   font-style: italic;
   color: var(--text-3);

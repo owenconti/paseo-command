@@ -656,6 +656,10 @@ and GitHub publication; report the published version and release link.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   open in your default browser, unless the agent's browser shows beside the conversation (it takes them) or they're a pull
   request's or a Linear issue's (below).
+  A tool row's web addresses (its summary and what it returned: a dev server's, a task notification's; `ToolText` in
+  `Session.tsx`, over `urlRuns`) are links that always open in the agent's browser (`openInAgentBrowser` in `chatLinks.ts`):
+  hidden, it's shown first (`tools-browser`) and takes the link as it mounts (`setBoardLinkOpener`, within a few seconds);
+  a pull request's and a Linear issue's keep their own places; in a browser, a new tab.
 - Main commits: in the GitHub page, choose a repository and Main commits (`web/src/github/MainHistory.tsx`,
   `GithubPlace` kind `commits`, optional `sha`). The repository picker stays in main history while switching repositories.
   It polls the selected repository's `main` every 15 s while visible. Arrivals offer Show latest commits without moving

@@ -24,7 +24,7 @@ after(async () => {
 });
 
 type Sent = { type: string; [field: string]: any };
-async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeon; usage?: Record<string, number>; lists?: Record<string, unknown>; detail?: Record<string, unknown>; accept?: (path: string, body: unknown) => unknown } = {}): Promise<Page> {
+async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeon; usage?: Record<string, number>; lists?: Record<string, unknown>; detail?: Record<string, unknown>; accept?: (path: string, body: unknown) => unknown; timeline?: unknown[] } = {}): Promise<Page> {
   const fleet = opts.fleet ?? dungeon;
   const context = await newContext(browser);
   const page = await context.newPage();
@@ -41,7 +41,7 @@ async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeo
           paseoWorld: {
             postMessage(m: any) {
               if (m.type === "art") setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
-              if (["pageMap", "mapStyle", "loaded", "workspace", "viewport", "barState", "art", "detach", "browser", "glanceClick"].includes(m.type)) sent.push(m);
+              if (["pageMap", "mapStyle", "loaded", "workspace", "viewport", "barState", "art", "detach", "browser", "browserDo", "openLink", "glanceClick"].includes(m.type)) sent.push(m);
             },
           },
         },
@@ -59,7 +59,7 @@ async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeo
       const row = (dungeon.agents as unknown as { id: string; status: string }[]).find((a) => a.id === id);
       return detailOf(id, row?.status ?? "idle", { ...(opts.usage ? { LastUsage: opts.usage } : {}), ...opts.detail });
     },
-    timeline: () => ({ items: [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done. Shall I open the pull request?", messageId: "r1" }] }),
+    timeline: () => ({ items: opts.timeline ?? [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done. Shall I open the pull request?", messageId: "r1" }] }),
     accept: opts.accept ?? (() => true),
     ...(opts.lists ? { lists: opts.lists } : {}),
   } as any);
@@ -636,6 +636,35 @@ test("folded projects stay folded across a reload", async () => {
   await page.reload();
   await map(page).locator(".crew-node").first().waitFor();
   assert.equal(await page.locator(".crew-node").count(), fewer, "kept across a reload");
+  await page.context().close();
+});
+
+test("in the macOS app: a tool row's web address opens in the agent's browser, shown for it", async () => {
+  const page = await open({
+    mac: true,
+    timeline: [
+      { kind: "user", text: "Build the preview", messageId: "u1" },
+      { kind: "tool", id: "t1", name: "Task_notification", status: "completed", summary: 'Background command "Run the preview" completed: http://localhost:4173/', detail: "Preview at http://localhost:4173/app.\nAlso https://example.com/docs" },
+      { kind: "assistant", text: "The preview is up.", messageId: "r1" },
+    ],
+  });
+  await map(page).locator(".crew-node").first().waitFor();
+  await page.locator('.crew-node[data-state="idle"]').first().click();
+  await page.locator(".crew-detail .step.tool").waitFor();
+  assert.equal(await page.locator(".board-browser").count(), 0, "the browser is hidden");
+  // In the row's summary: the browser shows and the address opens there; the row doesn't fold open.
+  await page.locator(".crew-detail .step.tool .tool-link").click();
+  await page.locator(".board-browser.crew").waitFor();
+  const opened = await waitFor(() => sent(page, "browserDo"), (m) => m.some((x) => x.action === "open"), "opened in the agent's browser");
+  assert.equal(opened.find((x) => x.action === "open")!.url, "http://localhost:4173/");
+  assert.equal(await page.locator(".crew-detail .step-detail").count(), 0);
+  // In what it returned: links, without the sentence's full stop, also to the agent's browser (now showing).
+  await page.locator(".crew-detail .step.tool b").click();
+  const links = page.locator(".crew-detail .step-detail a.tool-link");
+  assert.deepEqual(await links.allInnerTexts(), ["http://localhost:4173/app", "https://example.com/docs"]);
+  await links.nth(1).click();
+  await waitFor(() => sent(page, "browserDo"), (m) => m.some((x) => x.action === "open" && x.url === "https://example.com/docs"), "the second address in the agent's browser");
+  assert.equal((await sent(page, "openLink")).length, 0, "not your default browser");
   await page.context().close();
 });
 
