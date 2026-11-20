@@ -5,7 +5,7 @@
  * tabs); Back (or Esc) returns to the map. A workspace's head archives it, and a claimed pool box's host head releases
  * the box. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Archive, ArrowLeft, ChevronDown, Globe, GripVertical, RotateCcw, SquareTerminal, Terminal, X } from "lucide-react";
+import { Archive, ArrowLeft, ChevronDown, FolderTree, Globe, GripVertical, RotateCcw, SquareTerminal, Terminal, X } from "lucide-react";
 import { STATE_NAMES, STATE_PRIORITY, modelName, type State } from "../model/fleet";
 import { PoolClaims } from "../PoolClaims";
 import { PoolBoxes } from "./PoolBoxes";
@@ -46,6 +46,8 @@ type Props = CrewFleet & {
   /** The open agent's browser (the macOS app's): shown beside its conversation, its tabs, B's toggle. */
   browser?: { shown: boolean; tabs: number; toggle: () => void };
   /** Its workspace's files beside the conversation (`CrewFiles.tsx`): shown or hidden, F's toggle. */
+  /** The Files tab (src/code/FilesPane.tsx): the workspace's changes and files in the app's own editor. */
+  code?: { shown: boolean; toggle: () => void };
   files?: { shown: boolean; toggle: () => void };
   /** A terminal in its workspace beside the conversation (the workspace's shell, kept): shown or hidden, ⇧⌘T's toggle. */
   terminal?: { shown: boolean; toggle: () => void };
@@ -179,7 +181,7 @@ export function CrewMap(props: Props) {
   const focus = !props.empty && (place === "conversation" || (isAgent && place === "both"));
   /** The Command tab, nothing open: the map aside and a word in its place. */
   const nothingOpen = place === "conversation" && props.empty;
-  const toolsShown = focus && !!(props.browser?.shown || props.files?.shown || props.terminal?.shown);
+  const toolsShown = focus && !!(props.browser?.shown || props.files?.shown || props.terminal?.shown || props.code?.shown);
   const [chatWidth, setChatWidth] = useState<number | null>(() => readStore<number | null>(CHAT_WIDTH, null));
   const chatMax = () => Math.max(CHAT_MIN, (root.current?.clientWidth ?? window.innerWidth) - TOOLS_KEEP);
   const resizeChat = (w: number | null) => {
@@ -313,7 +315,7 @@ export function CrewMap(props: Props) {
       data-focus={focus || nothingOpen || undefined}
       data-place={place}
       data-tools={toolsShown || undefined}
-      data-browser={(open && props.selection?.type === "agent" && (props.browser?.shown || props.files?.shown || props.terminal?.shown)) || undefined}
+      data-browser={(open && props.selection?.type === "agent" && (props.browser?.shown || props.files?.shown || props.terminal?.shown || props.code?.shown)) || undefined}
     >
       {strip && <FocusStrip back={() => props.select(null)} />}
       {nothingOpen && (
@@ -329,6 +331,12 @@ export function CrewMap(props: Props) {
       )}
       {toolsShown && (
         <div className="crew-tool-tabs" role="tablist" aria-label="Tools">
+          {props.code && (
+            <button role="tab" aria-selected={props.code.shown} aria-keyshortcuts="Shift+Meta+F" onClick={() => !props.code!.shown && props.code!.toggle()}>
+              <FolderTree size={13} aria-hidden="true" />
+              Files
+            </button>
+          )}
           {props.files && (
             <button role="tab" aria-selected={props.files.shown} aria-keyshortcuts="F Shift+Meta+E" onClick={() => !props.files!.shown && props.files!.toggle()}>
               <SquareTerminal size={13} aria-hidden="true" />
@@ -352,7 +360,7 @@ export function CrewMap(props: Props) {
             className="crew-tool-tabs-close"
             aria-label="Hide the tools"
             data-tip="Hide the tools: the conversation takes the width (F or B shows them again; the editor keeps running)"
-            onClick={() => (props.files?.shown ? props.files.toggle() : props.terminal?.shown ? props.terminal.toggle() : props.browser?.toggle())}
+            onClick={() => (props.code?.shown ? props.code.toggle() : props.files?.shown ? props.files.toggle() : props.terminal?.shown ? props.terminal.toggle() : props.browser?.toggle())}
           >
             <X size={13} aria-hidden="true" />
           </button>

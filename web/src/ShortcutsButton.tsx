@@ -74,6 +74,7 @@ const NATIVE: Group = {
       keys: [["⌘", "1…4"]],
       label: "The mode bar's tab in that place: the crew, the conversation, GitHub, Activity",
     },
+    { keys: [["⇧", "⌘", "F"]], label: "From anywhere: the open agent's Files tab beside its conversation, with the keyboard" },
     { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the open agent's editor beside its conversation, with the keyboard" },
     { keys: [["⇧", "⌘", "B"]], label: "From anywhere: the open agent's browser beside its conversation, with the keyboard" },
     { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },
@@ -147,6 +148,25 @@ const GITHUB: Group = {
     { keys: [["@"]], label: "In a comment: mention someone from the repository's organization (↑/↓ pick, Enter or Tab put them in, Esc closes the list)" },
   ],
 };
+/** The Files tab beside an agent's conversation (`code/FilesPane.tsx`, the macOS app's): its editor's keys, vim's
+ * (Settings → Files) and the language server's. */
+const FILES: Group = {
+  title: "Files",
+  note: "The Files tab beside an agent's conversation (⇧⌘F), in the macOS app",
+  rows: [
+    { keys: [["⌘", "P"]], label: "Go to any file in the workspace (name:line goes to a line; :e path and ⌃P in vim too)" },
+    { keys: [["⌘", "S"]], label: "Save (:w; :wa saves every file): only over the version read, so an agent's edit is never overwritten" },
+    { keys: [["gd"], ["F12"], ["⌘", "Click"]], label: "Go to the definition (another file opens in its tab)" },
+    { keys: [["gr"], ["⇧", "F12"]], label: "Usages, listed under the editor (↑/↓ or J/K and Enter; Esc closes them)" },
+    { keys: [["K"]], label: "What the language server says of the name under the cursor (hovering shows it too)" },
+    { keys: [["⌃", "O"], ["⌃", "I"]], label: "Back and forward through where you've been (⌥← and ⌥→ without vim)" },
+    { keys: [["F2"], ["Space", "rn"]], label: "Rename everywhere: each file edited, left unsaved" },
+    { keys: [["]d"], ["[d"]], label: "Next or previous error or warning" },
+    { keys: [["⇧", "⌥", "F"]], label: "Format the file (its language server's)" },
+    { keys: [[":diff"]], label: "Show or hide the file's diff against the sidebar's base (or its Diff button)" },
+  ],
+};
+
 /** Your editor beside an agent's conversation (`crew/WorkspaceEditor.tsx`, the macOS app's): the keys the app keeps
  * while it has the keyboard; every other key is the editor's. */
 const EDITOR: Group = {
@@ -256,6 +276,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           PAGES,
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           ...(integrations.github ? [GITHUB] : []),
+          FILES,
           EDITOR,
         ]
       : [...GROUPS, { ...CREW, rows: CREW.rows.filter((r) => !/browser/i.test(r.label)) }]

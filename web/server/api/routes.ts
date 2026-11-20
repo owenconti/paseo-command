@@ -23,7 +23,7 @@ import { activityRoute } from "../activity/route";
 import { glanceRoute } from "../glance";
 import { githubRoute } from "../github/route";
 import { changesFor } from "./changes";
-import { filesAll, filesChanged, filesImage, filesRead, filesTree } from "./files";
+import { filesAll, filesChanged, filesImage, filesRead, filesTree, filesVersion, filesWrite } from "./files";
 import {
   concludeFork,
   createFork,
@@ -311,9 +311,9 @@ export async function handleApi(
         (parts[1] === "commands" || parts[1] === "files" || parts[1] === "prs")
       ) {
         result = await draftGet(parts[1], url);
-      } else if (parts[0] === "files" && parts.length === 2 && ["tree", "read", "all", "changed"].includes(parts[1])) {
-        // The Files page: a workspace's folders and files, read through its host's daemon.
-        const read = { tree: filesTree, read: filesRead, all: filesAll, changed: filesChanged }[parts[1] as "tree" | "read" | "all" | "changed"];
+      } else if (parts[0] === "files" && parts.length === 2 && ["tree", "read", "all", "changed", "version"].includes(parts[1])) {
+        // The Files tab: a workspace's folders and files, read through its host's daemon.
+        const read = { tree: filesTree, read: filesRead, all: filesAll, changed: filesChanged, version: filesVersion }[parts[1] as "tree" | "read" | "all" | "changed" | "version"];
         result = await read(url.searchParams);
       } else if (parts[0] === "files" && parts.length === 2 && parts[1] === "image") {
         // A Markdown file's relative image: raster only, size-limited, inside the workspace.
@@ -433,7 +433,9 @@ export async function handleApi(
         req,
         parts[2] === "send" || (parts[0] === "dispatch" && parts.length === 1)
           ? 30 * 1024 * 1024
-          : 4 * MAX_PROMPT + 16000,
+          : parts[0] === "files" && parts[1] === "write"
+            ? 8 * 1024 * 1024
+            : 4 * MAX_PROMPT + 16000,
       );
       // What the mutation could have changed, dropped once it has been issued,
       // whether or not it reported success (a timed-out send may still land).
@@ -456,6 +458,8 @@ export async function handleApi(
           result = await createWorkspaceEditor(body);
         else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "editor-send")
           result = await sendToEditor(body);
+        else if (parts[0] === "files" && parts.length === 2 && parts[1] === "write")
+          result = await filesWrite(body);
         else if (parts[0] === "projects" && parts.length === 2) {
           if (parts[1] === "add") result = await addProject(body, mark);
           else if (parts[1] === "create-folder")

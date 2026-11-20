@@ -58,7 +58,7 @@ assert(view.item(withTitle: "Show Files") == nil)
 final class Tools: NSObject { var ran: [String] = []; @objc func tool(_ sender: NSMenuItem) { ran.append(sender.representedObject as! String) } }
 let tools = Tools()
 AppKeys.addTools(to: view, target: tools, action: #selector(Tools.tool(_:)))
-for (letter, command) in [("E", "tools-editor"), ("T", "tools-terminal"), ("B", "tools-browser"), ("D", "focus-composer")] {
+for (letter, command) in [("F", "tools-files"), ("E", "tools-editor"), ("T", "tools-terminal"), ("B", "tools-browser"), ("D", "focus-composer")] {
     let event = key(letter, [.command, .shift])
     assert(AppKeys.offeredToMenu(event), letter)
     tools.ran = []

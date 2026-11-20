@@ -76,6 +76,13 @@ export const filesOpenSetting = filesOpen.get;
 export const setFilesOpen = filesOpen.set;
 export const useFilesOpen = filesOpen.use;
 
+/** Whether the Files tab (the workspace's changes and files, in the app's own editor: src/code/FilesPane.tsx) shows
+ * beside the open agent's conversation (⇧⌘F, its tab; kept as the others are). One of the four tools shows at a time. */
+const codeOpen = setting("world:codeOpen", false);
+export const codeOpenSetting = codeOpen.get;
+export const setCodeOpen = codeOpen.set;
+export const useCodeOpen = codeOpen.use;
+
 /** Whether the open agent's workspace terminal shows beside its conversation (⇧⌘T, its tab; kept as the others are).
  * The editor, the terminal and the browser share the place: one shows. */
 const terminalOpen = setting("world:terminalOpen", false);

@@ -2,10 +2,9 @@ import AppKit
 
 /// The app-wide keys the window offers the main menu ahead of its views (`AppWindow.performKeyEquivalent`):
 /// ⌘1…⌘4, the mode bar's tabs; ⇧⌘G, View → Show Branch Changes (the selected workspace's branch against main,
-/// in its own editor beside its conversation); and View → Show Editor ⇧⌘E, Show Terminal ⇧⌘T, Show Browser ⇧⌘B and
-/// Focus Message Box ⇧⌘D, the open agent's tools beside its conversation and its message box, from anywhere (your
-/// editor, its terminal and its browser's pages included). (⇧⌘E Show Files and ⌘W Close File Tab went with the Files tab, Conquer's
-/// keys with Conquer.)
+/// in its own editor beside its conversation); and View → Show Files ⇧⌘F, Show Editor ⇧⌘E, Show Terminal ⇧⌘T, Show
+/// Browser ⇧⌘B and Focus Message Box ⇧⌘D, the open agent's tools beside its conversation and its message box, from
+/// anywhere (your editor, its terminal and its browser's pages included). (Conquer's keys went with Conquer.)
 /// And ⌘R while a page with a refresh of its own shows (`pageRefreshes`): View → Refresh Page, which asks the
 /// page's shown view to refresh (`page-refresh`), never a reload of the web view.
 enum AppKeys {
@@ -13,18 +12,19 @@ enum AppKeys {
         guard event.type == .keyDown, let key = event.charactersIgnoringModifiers?.lowercased() else { return false }
         let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])
         if flags == .command { return ("1"..."4").contains(key) || pageRefreshes && key == "r" }
-        return flags == [.command, .shift] && ["g", "e", "t", "b", "d"].contains(key)
+        return flags == [.command, .shift] && ["g", "f", "e", "t", "b", "d"].contains(key)
     }
 
     /// View's tool items: their titles, ⇧⌘ keys and the page command each asks (`web/src/main.tsx`).
     static let tools: [(title: String, key: String, command: String)] = [
+        ("Show Files", "f", "tools-files"),
         ("Show Editor", "e", "tools-editor"),
         ("Show Terminal", "t", "tools-terminal"),
         ("Show Browser", "b", "tools-browser"),
         ("Focus Message Box", "d", "focus-composer"),
     ]
 
-    /// View → Show Editor, Show Terminal, Show Browser, Focus Message Box, each naming its page command.
+    /// View → Show Files, Show Editor, Show Terminal, Show Browser, Focus Message Box, each naming its page command.
     static func addTools(to menu: NSMenu, target: AnyObject, action: Selector) {
         for tool in tools {
             let item = menu.addItem(withTitle: tool.title, action: action, keyEquivalent: tool.key)

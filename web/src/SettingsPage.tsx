@@ -20,6 +20,7 @@ import { closeSettings, useSettingsRequest } from "./settingsStore";
 import { macApp } from "./worldBridge";
 import { plainText } from "./ui";
 import { DEFAULT_CHANGES_COMMAND, DEFAULT_EDITOR_COMMAND, changesCommandProblem, editorCommandProblem } from "./files/editorCommand";
+import { setVimSetting, useVimSetting } from "./code/vimSetting";
 import { saveFilesSettings, useFilesSettings } from "./files/filesSettings";
 import { Picker } from "./Picker";
 import { familyCss, familyLabel, parseLineHeight, setTerminalFont, useTerminalFont, type TerminalFontValues } from "./terminalFont";
@@ -253,9 +254,14 @@ export function SettingsPage({
             </SettingsGroup>
           )}
           {shown.id === "files" && (
-            <SettingsGroup note="Your editor, beside an agent’s conversation, where its workspace’s files and changes open.">
-              <FilesSettings />
-            </SettingsGroup>
+            <>
+              <SettingsGroup note="The Files tab beside an agent’s conversation: its workspace’s changes and files in the app’s own editor.">
+                <FilesTabSettings />
+              </SettingsGroup>
+              <SettingsGroup note="Your editor, beside an agent’s conversation (its Editor tab), where its workspace’s files and changes open.">
+                <FilesSettings />
+              </SettingsGroup>
+            </>
           )}
           {shown.id === "browser" && (
             <SettingsGroup note={macApp() ? undefined : "Each agent's browser is the macOS app's."}>
@@ -547,6 +553,19 @@ function BoardBrowserSettings() {
         onChange={setBrowserFollows}
       />
     </>
+  );
+}
+
+/** Settings → Files: the Files tab's editor. */
+function FilesTabSettings() {
+  const vim = useVimSetting();
+  return (
+    <SwitchRow
+      title="Vim keys in the Files tab"
+      description="Normal, insert and visual modes, motions, registers, macros and Ex commands (:w saves, :e opens a file). Off, the editor's keys are the usual ones. Either way: ⌘P goes to a file, F12 or ⌘-click to a definition, ⇧F12 lists usages, F2 renames."
+      checked={vim}
+      onChange={setVimSetting}
+    />
   );
 }
 

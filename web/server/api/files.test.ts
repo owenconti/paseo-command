@@ -1,8 +1,8 @@
 import { after, before, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { fleet, get, install, register, serve } from "../fake-daemon";
+import { FILE_EPOCH, fleet, get, install, post, register, serve } from "../fake-daemon";
 import { isIgnored, parseIgnore } from "../files/gitignore";
-import { checkPath, FILES, resetFilesCache } from "./files";
+import { checkPath, FILES, resetFilesCache, resetFileWatches } from "./files";
 
 // Only fake daemons: install() points the app's connector at them.
 const { network, local } = fleet();
@@ -63,6 +63,7 @@ before(async () => {
 });
 beforeEach(() => resetFilesCache());
 after(async () => {
+  resetFileWatches();
   await server?.close();
   uninstall();
   setTimeout(() => process.exit(0), 50).unref();
@@ -107,7 +108,7 @@ test("a folder's own .gitignore and its parents' apply, the deeper and later one
 
 test("reads: a text file, and binary, image, non-UTF-8 and big files refused politely", async () => {
   const text = await get("files/read?workspace=wks_app&path=src/index.ts");
-  assert.deepEqual(text.data, { path: "src/index.ts", size: 20, text: "export const a = 1;\n" });
+  assert.deepEqual(text.data, { path: "src/index.ts", size: 20, text: "export const a = 1;\n", modifiedAt: FILE_EPOCH });
   assert.equal((await get("files/read?workspace=wks_app&path=data.bin")).data.refused, "binary");
   assert.equal((await get("files/read?workspace=wks_app&path=latin1.txt")).data.refused, "binary");
   assert.equal((await get("files/read?workspace=wks_app&path=logo.png")).data.refused, "image");
@@ -255,4 +256,45 @@ test("gitignore patterns", () => {
   no("x.tmp");
   no("sub/keep.log");
   yes("sub/other.log");
+});
+
+test("a read gives the version a save must match; a save over it writes, over another is a conflict", async () => {
+  const read = await get("files/read?workspace=wks_app&path=README.md&fresh=1");
+  assert.equal(read.data.modifiedAt, FILE_EPOCH);
+  const saved = await post("files/write", { workspace: "wks_app", path: "README.md", text: "# App\n\nEdited.\n", modifiedAt: FILE_EPOCH });
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.equal(saved.data.status, "written");
+  assert.equal(saved.data.size, 15);
+  assert.notEqual(saved.data.modifiedAt, FILE_EPOCH);
+  // What was kept of it is forgotten: the next read is the new text.
+  assert.equal((await get("files/read?workspace=wks_app&path=README.md")).data.text, "# App\n\nEdited.\n");
+  // Saving again over the old version: someone else's write is never overwritten.
+  const stale = await post("files/write", { workspace: "wks_app", path: "README.md", text: "mine\n", modifiedAt: FILE_EPOCH });
+  assert.equal(stale.data.status, "conflict");
+  assert.equal(stale.data.version.modifiedAt, saved.data.modifiedAt);
+  assert.equal(local.trees.get("/home/review/code/wt")!.get("README.md"), "# App\n\nEdited.\n");
+  local.touchFile("/home/review/code/wt", "README.md", "# App\n", FILE_EPOCH);
+});
+
+test("a save is checked: inside the workspace, text within the limit, known fields only", async () => {
+  const base = { workspace: "wks_app", path: "README.md", text: "x", modifiedAt: FILE_EPOCH };
+  for (const bad of [{ ...base, path: "../x" }, { ...base, path: "/etc/passwd" }, { ...base, path: "" }, { ...base, text: 1 }, { ...base, modifiedAt: "" }, { ...base, extra: 1 }, { ...base, workspace: "wks_nope" }])
+    assert.equal((await post("files/write", bad)).status >= 400, true, JSON.stringify(bad));
+  const big = await post("files/write", { ...base, text: "x".repeat(1024 * 1024 + 1) });
+  assert.match(big.data.error, /too large/);
+  const outside = await post("files/write", { ...base, path: "escape" });
+  assert.match(outside.data.error, /outside the workspace/);
+  assert.ok(!local.calls.some((c) => c.method === "writeFile" && /\.\.|^\//.test(String(c.args[0]?.path))));
+});
+
+test("a file's version follows changes on disk through one subscription", async () => {
+  const first = await get("files/version?workspace=wks_app&path=src/index.ts");
+  assert.deepEqual(first.data, { path: "src/index.ts", status: "ready", size: 20, modifiedAt: FILE_EPOCH });
+  local.touchFile("/home/review/code/wt", "src/index.ts", "export const a = 2; // agent\n", "2026-02-02T00:00:00.000Z");
+  const next = await get("files/version?workspace=wks_app&path=src/index.ts");
+  assert.equal(next.data.modifiedAt, "2026-02-02T00:00:00.000Z");
+  assert.equal(local.calls.filter((c) => c.method === "subscribeFile").length, 1);
+  local.touchFile("/home/review/code/wt", "src/index.ts", null);
+  assert.equal((await get("files/version?workspace=wks_app&path=src/index.ts")).data.status, "missing");
+  local.touchFile("/home/review/code/wt", "src/index.ts", "export const a = 1;\n", FILE_EPOCH);
 });

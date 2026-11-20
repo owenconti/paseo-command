@@ -12,6 +12,11 @@
  *   quick-open and the filter), walked directory by directory, up to a cap.
  * - `GET /api/files/changed?workspace=&host=`: the changed files (all changes,
  *   as the GitHub tab's Changes shows them).
+ * - `GET /api/files/version?workspace=&host=&path=`: what is on disk now (its
+ *   modified time and revision), from a daemon subscription to the file held
+ *   while it's asked about, so the Files tab notices an agent's edit cheaply.
+ * - `POST /api/files/write`: the Files tab's save, through the daemon's
+ *   `writeFile`, only over the version it read (`conflict` otherwise).
  * - `GET /api/files/image?workspace=&host=&path=`: a raster image's bytes (PNG,
  *   JPEG, GIF, WebP: by its name and its first bytes; never SVG), at most
  *   `FILES.maxImageBytes`, for a Markdown file's relative images.
@@ -19,9 +24,9 @@
  * Paths are the workspace's (relative, `/`-separated): an absolute path,
  * `..`, `.` or an empty segment is refused before the daemon is asked, and the
  * daemon refuses whatever resolves outside the workspace (symlinks out). Each
- * answer is kept a few seconds (`fresh=1` asks again).
+ * answer is kept a few seconds (`fresh=1` asks again). Only `write` writes.
  */
-import { FILE_LIMITS, type FileChange, type FileChanges, type FileEntry, type FileList, type FileRead, type FileTree } from "../../src/files/types";
+import { FILE_LIMITS, type FileChange, type FileChanges, type FileEntry, type FileList, type FileRead, type FileTree, type FileVersion, type FileWrite } from "../../src/files/types";
 import type { GithubUnavailable } from "../../src/github/types";
 import { isIgnored, parseIgnore, type IgnoreRule } from "../files/gitignore";
 import { redactText } from "../redact";
@@ -42,6 +47,8 @@ export const FILES = {
   maxIgnoreBytes: 256 * 1024,
   /** At most this many answers are kept. */
   maxCached: 2_000,
+  /** A file's version is watched (one daemon subscription) until it hasn't been asked about for this long. */
+  watchMs: 30_000,
   /** A larger image isn't sent. */
   maxImageBytes: 10 * 1024 * 1024,
 };
@@ -68,10 +75,10 @@ export function checkPath(raw: string | null, label = "path"): string {
   return p;
 }
 
-type Workspace = { client: DaemonClient; cwd: string; key: string };
+export type Workspace = { client: DaemonClient; cwd: string; key: string };
 
 /** The workspace's folder on its host, and that host's client. */
-async function workspaceOf(params: URLSearchParams, allowed: string[]): Promise<Workspace> {
+export async function workspaceOf(params: URLSearchParams, allowed: string[]): Promise<Workspace> {
   for (const k of params.keys()) if (!["workspace", "host", "fresh", ...allowed].includes(k)) throw new Error(`Unexpected parameter ${k}`);
   const workspaceId = id(params.get("workspace"));
   const host = await resolveHost(params.get("host"));
@@ -215,8 +222,146 @@ export async function filesRead(params: URLSearchParams): Promise<FileRead> {
     } catch {
       return { path, size, refused: "binary" as const };
     }
-    return { path, size, text };
+    return { path, size, text, modifiedAt: r.modifiedAt, ...(r.revision ? { revision: r.revision } : {}) };
   });
+}
+
+/** Forgets what was kept of a file (its read, its folder's listing), after it was written. */
+function forget(ws: Workspace, path: string) {
+  const slash = path.lastIndexOf("/");
+  kept.delete(`${ws.key}|read|${path}`);
+  kept.delete(`${ws.key}|list|${slash < 0 ? "" : path.slice(0, slash)}`);
+}
+
+type Watch = { version: FileVersion; asked: number; stop: () => void; ready: Promise<void> };
+/** Files the page asks the version of: one daemon subscription each, dropped once it hasn't been asked for a while. */
+const watches = new Map<string, Watch>();
+let sweeping: ReturnType<typeof setInterval> | undefined;
+function sweep() {
+  const now = Date.now();
+  for (const [key, w] of watches)
+    if (now - w.asked > FILES.watchMs) {
+      watches.delete(key);
+      w.stop();
+    }
+  if (!watches.size && sweeping) {
+    clearInterval(sweeping);
+    sweeping = undefined;
+  }
+}
+const versionOf = (path: string, v: { status?: string; size?: number; modifiedAt?: string; revision?: string }): FileVersion =>
+  v.status === "ready" && typeof v.modifiedAt === "string"
+    ? { path, status: "ready", size: typeof v.size === "number" ? v.size : 0, modifiedAt: v.modifiedAt, ...(v.revision ? { revision: v.revision } : {}) }
+    : { path, status: "missing" };
+
+/** The file's version on disk now, from its listing (a daemon without file subscriptions, or one that failed). */
+async function listedVersion(ws: Workspace, path: string): Promise<FileVersion> {
+  const slash = path.lastIndexOf("/");
+  const dir = slash < 0 ? "" : path.slice(0, slash);
+  const r = await timed(ws.client.listDirectory(ws.cwd, dir || "."), undefined, ws.client).catch((e) => {
+    if (/ENOENT|no such file/i.test(e instanceof Error ? e.message : "")) return { entries: [] };
+    throw daemonError(e);
+  });
+  const name = path.slice(slash + 1);
+  const e = ((Array.isArray(r?.entries) ? r.entries : []) as { name?: unknown; kind?: unknown; size?: unknown; modifiedAt?: unknown }[]).find(
+    (x) => x?.name === name && x.kind === "file",
+  );
+  return e && typeof e.modifiedAt === "string"
+    ? { path, status: "ready", size: typeof e.size === "number" ? e.size : 0, modifiedAt: e.modifiedAt }
+    : { path, status: "missing" };
+}
+
+export async function filesVersion(params: URLSearchParams): Promise<FileVersion> {
+  const ws = await workspaceOf(params, ["path"]);
+  const path = checkPath(params.get("path"));
+  if (!path) throw new Error("A file is required");
+  const key = `${ws.key}|${path}`;
+  let w = watches.get(key);
+  if (!w) {
+    const abort = new AbortController();
+    const made: Watch = { version: { path, status: "missing" }, asked: Date.now(), stop: () => abort.abort(), ready: Promise.resolve() };
+    made.ready = (async () => {
+      try {
+        const sub = await timed(
+          ws.client.subscribeFile({ cwd: ws.cwd, path, signal: abort.signal }, (v) => {
+            made.version = versionOf(path, v);
+          }),
+          undefined,
+          ws.client,
+        );
+        made.version = versionOf(path, sub.initial);
+        made.stop = () => {
+          abort.abort();
+          void sub.unsubscribe().catch(() => {});
+        };
+        if (abort.signal.aborted) made.stop();
+      } catch {
+        // No subscription: each ask reads the listing instead.
+        watches.delete(key);
+        throw new Error("unwatched");
+      }
+    })();
+    watches.set(key, made);
+    sweeping ??= setInterval(sweep, FILES.watchMs / 2);
+    sweeping.unref?.();
+    w = made;
+  }
+  w.asked = Date.now();
+  try {
+    await w.ready;
+    return w.version;
+  } catch {
+    return listedVersion(ws, path);
+  }
+}
+
+/** Tests: every subscription dropped. */
+export function resetFileWatches() {
+  for (const w of watches.values()) w.stop();
+  watches.clear();
+}
+
+const str = (v: unknown, label: string, max = 200) => {
+  if (typeof v !== "string" || !v || v.length > max) throw new Error(`Invalid ${label}`);
+  return v;
+};
+
+export async function filesWrite(body: Record<string, unknown>): Promise<FileWrite> {
+  for (const k of Object.keys(body)) if (!["workspace", "host", "path", "text", "modifiedAt", "revision"].includes(k)) throw new Error(`Unexpected field ${k}`);
+  const params = new URLSearchParams();
+  params.set("workspace", str(body.workspace, "workspace"));
+  if (body.host !== undefined && body.host !== null && body.host !== "") params.set("host", str(body.host, "host"));
+  const ws = await workspaceOf(params, []);
+  const path = checkPath(typeof body.path === "string" ? body.path : null);
+  if (!path) throw new Error("A file is required");
+  if (typeof body.text !== "string") throw new Error("Invalid text");
+  const text = body.text;
+  const size = Buffer.byteLength(text, "utf8");
+  if (size > FILE_LIMITS.maxBytes) throw new Error("That file is too large to save here.");
+  const modifiedAt = str(body.modifiedAt, "version", 100);
+  const revision = body.revision === undefined ? undefined : str(body.revision, "revision", 200);
+  let r;
+  try {
+    r = await timed(
+      ws.client.writeFile({ cwd: ws.cwd, path, content: text, expectedModifiedAt: modifiedAt, ...(revision ? { expectedRevision: revision } : {}) }),
+      undefined,
+      ws.client,
+    );
+  } catch (e) {
+    throw daemonError(e);
+  } finally {
+    forget(ws, path);
+  }
+  if (r.status === "error") throw daemonError(new Error(r.error));
+  const watch = watches.get(`${ws.key}|${path}`);
+  if (r.status === "conflict") {
+    const version = versionOf(path, r.version);
+    if (watch) watch.version = version;
+    return { status: "conflict", path, version };
+  }
+  const written: FileWrite = { status: "written", path, size: r.size, modifiedAt: r.modifiedAt, ...(r.revision ? { revision: r.revision } : {}) };
+  if (watch) watch.version = { path, status: "ready", size: r.size, modifiedAt: r.modifiedAt, ...(r.revision ? { revision: r.revision } : {}) };
+  return written;
 }
 
 /** Every file not ignored, breadth first, so a cap keeps the shallow ones. */

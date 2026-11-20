@@ -17,6 +17,7 @@ import {
 } from "./hosts";
 import { allowedOrigin } from "./http";
 import { terminalUpgrade } from "./terminals";
+import { LSP, lspUpgrade } from "../lsp";
 import { BROWSER_HOST, browserHostUpgrade } from "../browserHost";
 import { id } from "./validate";
 
@@ -67,6 +68,8 @@ export function handleUpgrade(
 ) {
   const url = new URL(req.url || "/", "http://127.0.0.1");
   if (url.pathname === "/api/terminal") return terminalUpgrade(req, socket, head);
+  // The Files tab's language servers, on the workspace's host (server/lsp.ts).
+  if (url.pathname === LSP.path) return lspUpgrade(req, socket, head);
   // The macOS app's browser, as a Paseo browser host on the hosts being followed.
   if (url.pathname === BROWSER_HOST.path) {
     startLive();

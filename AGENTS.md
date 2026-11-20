@@ -320,9 +320,9 @@ and GitHub publication; report the published version and release link.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `ModeBar.swift`, its height an empty unified-compact toolbar's, which centres the traffic
   lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Crew, Command, GitHub, Activity, those enabled;
   ⌘1…⌘4 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
-  whose items `numberModes` keys, ahead of the page, your editor and the agent's browser, as ⇧⌘G Show Branch Changes (the workspace's changes in your editor) and View's tools are (⇧⌘E Show Editor, ⇧⌘T Show
-  Terminal, ⇧⌘B Show Browser, ⇧⌘D Focus Message Box: `AppKeys.tools`, asking the page's `tools-editor|terminal|browser` and
-  `focus-composer`, the web view taking the keyboard first for the last), `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
+  whose items `numberModes` keys, ahead of the page, your editor and the agent's browser, as ⇧⌘G Show Branch Changes (the workspace's changes in your editor) and View's tools are (⇧⌘F Show Files, ⇧⌘E Show Editor, ⇧⌘T Show
+  Terminal, ⇧⌘B Show Browser, ⇧⌘D Focus Message Box: `AppKeys.tools`, asking the page's `tools-files|editor|terminal|browser` and
+  `focus-composer`, the web view taking the keyboard first for the first and last), `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`;
   the glance, `GlanceBar`, between the usage meters and the gear). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
@@ -553,14 +553,14 @@ and GitHub publication; report the published version and release link.
   /api/github/q/viewer|prs|repos|repoSearch|people|teams|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
   whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed|reviewers|assignees|merge|autoMerge|queue|ready|updateBranch|state|deleteBranch|star`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
   otherwise) and `web/e2e/github.e2e.ts` in the browser.
-- Files: the Files tab (tree, file tabs, viewer, Markdown preview, Changes and its pending diff comments) was removed at the
-  user's request: their nvim manages every file view, edit and diff (see "Your editor beside its conversation", below). Don't add
-  the built-in views back unless asked. A GitHub pull request's diff still renders read only in the GitHub tab (`DiffView`). What
-  stays: `web/server/api/files.ts` (`GET /api/files/tree|read|all|changed|image`, the chat's autolinks reading `files/all` through
-  `web/src/files/api.ts`), `web/server/api/changes.ts`, and Settings → Files: the editor command (`files.editorCommand`, `{file}` and
+- Files: the old Files page (its own mode bar tab: tree, file tabs, viewer, Markdown preview, Changes and its pending diff
+  comments) was removed at the user's request; don't add that page back unless asked. The Files *tool tab* beside a conversation
+  ("The Files tab", below) is its successor, at the user's later ask. A GitHub pull request's diff still renders read only in the
+  GitHub tab (`DiffView`). What stays: `web/server/api/files.ts` (`GET /api/files/tree|read|all|changed|version|image`, `POST
+  /api/files/write`; the chat's autolinks read `files/all` through `web/src/files/api.ts`), `web/server/api/changes.ts`, and Settings → Files: the editor command (`files.editorCommand`, `{file}` and
   `{line}`, checked by `editorCommandProblem` and run by `editorLaunch` under the host's login shell, `web/src/files/editorCommand.ts`)
   and the changes command (`files.changesCommand`, an Ex command, `:DiffviewOpen` by default, `changesCommandProblem`). The user's old
-  data stays as it is, ignored: `files.openIn`, `diff-comments.json`, the `files:*` and `github:changesMode` localStorage keys.
+  data stays as it is, ignored: `files.openIn`, `diff-comments.json`, the old page's `files:*` and `github:changesMode` localStorage keys.
 - Chat Markdown renders fenced `mermaid` blocks (`web/src/mermaid/`), in every conversation (Crew's drawer and the
   session panel). The engine loads near the viewport, with serialized strict-mode renders and each view's
   palette; its SVG is shown as an isolated image. Source/copy, zoom/reset and an expanded focus-trapped view have
@@ -768,9 +768,10 @@ the component Crew's drawer is.
   which with Esc goes back; the macOS app has no strip, `--crew-strip` 0, its Crew tab going back; the strip's tabs for the
   other robots were dropped at the user's ask): the conversation on the left and its tools on the right (your editor and
   the workspace's terminal, `WorkspaceEditor` with `kind` `editor` or `terminal`, and the browser, `BoardBrowser`, main's,
-  the map's siblings) under one tab bar (`.crew-tool-tabs`: Editor, Terminal, Browser, × hides them and the conversation
-  takes the width; F and B still toggle; ⇧⌘E, ⇧⌘T and ⇧⌘B show each from anywhere with the keyboard, ⇧⌘D gives the
-  message box the keyboard again). One shows at a time (main's `showTool`; `world:filesOpen|terminalOpen|browserOpen`).
+  the map's siblings, and the Files tab, `FilesPane`, below) under one tab bar (`.crew-tool-tabs`: Files, Editor, Terminal, Browser, × hides them and the conversation
+  takes the width; F (your editor) and B still toggle; ⇧⌘F, ⇧⌘E, ⇧⌘T and ⇧⌘B show each from anywhere with the keyboard, ⇧⌘D gives the
+  message box the keyboard again). One shows at a time (main's `showTool`; `world:codeOpen|filesOpen|terminalOpen|browserOpen`: `codeOpen` is
+  the Files tab's, `filesOpen` your editor's, as it was named before the Files tab).
   The Terminal tab is one shell per workspace (`POST /api/terminals/create` in the workspace's folder, kept as
   `terminal:workspaces` and found again while the daemon lists it; Start again once it ends), laid over its pane as the
   editor is (`EditorOverlay`). The mini games lost ⇧⌘B to the browser (⌘K and the top bar's gamepad open them). The conversation's width beside its tools is dragged on its right edge (`crew:focusChatWidth`, `--crew-chat`
@@ -815,12 +816,51 @@ glance menus, the bar's popovers: `OVERLAYS` in `web/src/overlays.ts`, shared wi
 the tools' Editor tab, ⇧⌘E, ⌘K "Show …’s workspace in your editor" / "Hide the editor beside the
 conversation" (`crew-files`, page Command). It and the browser share the place. Asks go to it (`workspaceEditorAsks.ts`:
 `askWorkspaceEditor`, kept until its editor runs): a chat's file link (`openFileLink` in `Session.tsx`, title "Open in your
-editor") opens the editor and sends `:e +<line> <path>` from Normal mode (`openFileKeys`, the path Ex-escaped by `exPath`);
+editor"; while the Files tab shows, main hands it to the Files tab instead, `askFilesOpen`) opens the editor and sends `:e +<line> <path>` from Normal mode (`openFileKeys`, the path Ex-escaped by `exPath`);
 Show changes (⇧⌘G from anywhere; the pane has no header or button of its own, nvim filling it, the user's call; ⌘K "Show …’s changes in your editor", `files-workspace-changes`) sends the
 changes command (`exCommandKeys`). Both through `POST /api/terminals/editor-send` (`sendToEditor`: only to a terminal the daemon
 lists as that workspace's editor, the path `checkPath`ed). In a browser a file link says the editor is the macOS app's. Tests:
 `e2e/files-editor.e2e.ts`, `e2e/autolink-files.e2e.ts`, `server/api/terminals.test.ts`, `src/files/editorCommand.test.ts`,
 `native/tests/EditorEmbedTests.swift`.
+
+### The Files tab
+
+The first of the tools beside an agent's conversation (the user's ask: a native Files tab with the branch's diff, the
+uncommitted changes and the full source, going straight to any file, a language server's go to definition and usages, and
+editing with vim keys), drawn by the page (`web/src/code/`), unlike your editor's terminal. Main's `codeShown`
+(`crewBrowsing` and `world:codeOpen`): its tab, ⇧⌘F (View → Show Files; the web view takes the keyboard first), ⌘K "Show
+…’s files and changes" (`crew-code-files`, page Command; while it shows, "Go to file…" and the sidebar's three views).
+`FilesPane.tsx`: a sidebar (resizable, `files:sidebarWidth`) of Uncommitted (`GET /api/changes?mode=uncommitted`), Branch
+(`mode=all`: everything the branch changes against its base, committed or not; the default, `files:side`) or All files
+(`files/tree`, folder by folder, `files:tree:<host>|<workspace>`); a changed file opens with its diff against that base.
+Open files are tabs (`store.ts`, per workspace for the page's life: stepping away keeps unsaved edits; at most 24, the
+oldest unchanged one going first), each a CodeMirror 6 view (`editor.ts`: the app's tokens, `oneDarkHighlightStyle` in
+dark, the file's language from `@codemirror/language-data` by name, search, folding, brackets, lint gutter). ⌘P (⌃P and
+`:e` in vim) goes to any file, fuzzy over `files/all` (`filterFiles`), `name:line` to a line. Vim keys
+(`@replit/codemirror-vim`; Settings → Files "Vim keys in the Files tab", `files:vim`, on by default, `vimSetting.ts`):
+`:w` `:wa` `:x` `:q` `:e` `:diff` and `gd` `gy` `gr` `K` ⌃O ⌃I `]d` `[d` `<space>rn` are the tab's (`setUpVim`); the
+editor's keydowns without ⌘ stop at it, so Esc is vim's, never the page's. Saving (⌘S, `:w`) is `POST /api/files/write`
+(`filesWrite`: the daemon's `writeFile` with the read's `modifiedAt`/`revision`, never over another version: `conflict`);
+the shown file's version (`GET /api/files/version`, one daemon `subscribeFile` per file held while asked,
+`FILES.watchMs`, else its folder's listing) is asked every 2 s: a clean buffer reloads an agent's edit, one with unsaved
+edits says so (Reload theirs / Keep mine, which saves over the version noticed). The diff is `@codemirror/merge`'s
+unified view (deletions inline, unchanged stretches folded, Revert per change); its base is rebuilt from the file and the
+daemon's diff (`baseText.ts`: the diff applied backwards, checked line by line; a diff of another version is asked again).
+Language servers (`lsp.ts`, `@codemirror/lsp-client`): one `LspConnection` per workspace and server group (`paths.ts`
+`languageOf`: TypeScript/JS, PHP, Python, Go, Rust, CSS, HTML, JSON, YAML, Lua, Ruby, Swift, Vue) over `GET /api/lsp`
+(upgrade; `web/server/lsp.ts`), which relays to the workspace host's `language-servers` Paseo plugin
+(github.com/owenconti/paseo-cc-plugins, `plugins/language-servers`, installed per daemon as `visual-replies` is):
+`lsp.start` runs the server in the workspace's folder there (found in the folder's `node_modules/.bin`, Mason's bin, the
+login shell's PATH…), `lsp.send` writes the editor's messages, `lsp.poll` long-polls the server's (20 s), `lsp.read`
+reads a file outside the workspace that the server named (a library's types; read only, `outside:` tabs); closing the
+socket stops it. A host without the plugin or the server says so on the file's bar (click to try again). The client's
+workspace is the tab's (`PaneWorkspace`: a definition in another file opens its tab, `displayFile`); requests the client
+doesn't answer (`workspace/configuration`, `client/registerCapability`, progress) are answered in the transport; the
+server's Markdown is sanitized. Usages (`gr`, ⇧F12) and rename (F2, `<space>rn`: every file edited, left unsaved) are the
+tab's own (the client's skip files not open); usages list under the editor by file. Hover on the pointer is the
+client's; `K` asks for the cursor's. ⌘-click and F12 go to a definition, ⌃O/⌃I (⌥←/⌥→) through where you've been. A
+chat's file link opens there while the tab shows. Tests: `server/lsp.test.ts` (a fake plugin), `server/api/files.test.ts`
+(write, conflict, version), `src/code/code.test.ts`, `e2e/files-tab.e2e.ts` (a fake `/api/lsp` socket).
 
 ### The agent's browser
 

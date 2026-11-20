@@ -13,9 +13,9 @@ export type FileTree = { dir: string; entries: FileEntry[] };
 /** Why a file isn't shown: not text, an image, or past the size limit. */
 export type FileRefusal = "binary" | "image" | "large";
 
-/** `GET /api/files/read`: a text file's contents, or why it isn't shown. */
+/** `GET /api/files/read`: a text file's contents (with the version a save must match), or why it isn't shown. */
 export type FileRead =
-  | { path: string; size: number; text: string }
+  | { path: string; size: number; text: string; modifiedAt: string; revision?: string }
   | { path: string; size: number; refused: FileRefusal; mime?: string };
 
 /** `GET /api/files/all`: every path not ignored (for quick-open and the filter), up to a cap. */
@@ -34,3 +34,16 @@ export const FILE_LIMITS = {
   /** Quick-open lists at most this many files. */
   maxListed: 25_000,
 };
+
+/** `GET /api/files/version`: what is on disk now, without its contents (`missing` once it's gone). */
+export type FileVersion =
+  | { path: string; status: "ready"; size: number; modifiedAt: string; revision?: string }
+  | { path: string; status: "missing" };
+
+/**
+ * `POST /api/files/write` `{workspace, host?, path, text, modifiedAt, revision?}`: saved only if the file is still the
+ * version read (`modifiedAt`, `revision`); else `conflict` with what is there now.
+ */
+export type FileWrite =
+  | { status: "written"; path: string; size: number; modifiedAt: string; revision?: string }
+  | { status: "conflict"; path: string; version: FileVersion };

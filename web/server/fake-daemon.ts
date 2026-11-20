@@ -35,6 +35,8 @@ const FAKE_PRS = [
   { kind: "pr", number: 57, title: "Fix the harbour lights", url: "https://github.com/acme/app/pull/57", state: "open", body: null, labels: [], headRefName: "harbour-lights" },
 ];
 const iso = (t = Date.now()) => new Date(t).toISOString();
+/** When a fake workspace's files were made, unless written since. */
+export const FILE_EPOCH = "2026-01-01T00:00:00.000Z";
 
 /** A subscription handle shaped like the SDK's OwnedSubscription. */
 class FakeSubscription {
@@ -139,6 +141,27 @@ export class FakeDaemon {
    * `"dir"` for an empty one; `"outside"` a symlink that resolves out of the workspace).
    */
   trees = new Map<string, Map<string, string | Uint8Array | "dir" | "outside">>();
+  /** Each tree file's modified time (`${cwd}|${path}`), as `readFile`, `writeFile` and `subscribeFile` give it; files without one were made at `FILE_EPOCH`. */
+  fileTimes = new Map<string, string>();
+  /** Who watches a tree file (`subscribeFile`), by `${cwd}|${path}`. */
+  fileWatchers = new Map<string, Set<(v: unknown) => void>>();
+  /** A file's version, as the daemon's `FileVersion`. */
+  fileVersion(cwd: string, path: string) {
+    const value = this.trees.get(cwd)?.get(path);
+    if (value === undefined || value === "dir" || value === "outside") return { status: "missing" as const, cwd, path };
+    const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
+    return { status: "ready" as const, cwd, path, size: bytes.byteLength, modifiedAt: this.fileTimes.get(`${cwd}|${path}`) ?? FILE_EPOCH };
+  }
+  /** Writes a tree file as something else on the host would (an agent's edit): a new time, its watchers told. */
+  touchFile(cwd: string, path: string, text: string | null, at = iso()) {
+    const tree = this.trees.get(cwd) ?? new Map();
+    this.trees.set(cwd, tree);
+    if (text === null) tree.delete(path);
+    else tree.set(path, text);
+    this.fileTimes.set(`${cwd}|${path}`, at);
+    const version = this.fileVersion(cwd, path);
+    this.fileWatchers.get(`${cwd}|${path}`)?.forEach((tell) => tell(version));
+  }
   /** The client's transport has gone: its sends throw (the relay must close its socket, not crash). */
   transportGone = false;
   /** What `bin/worktree status` prints in a folder (Diagonal's worktrees, `worktreeUrl.ts`); a folder without is "no bin/worktree". */
@@ -1597,7 +1620,36 @@ export class FakeClient {
     if (maxBytes && bytes.byteLength > maxBytes) throw new Error("File is too large to display");
     const image = /\.(png|jpe?g|gif|webp|svg)$/i.test(rel);
     const binary = !image && (typeof value !== "string" || bytes.includes(0));
-    return { bytes, mime: image ? "image/png" : binary ? "application/octet-stream" : "text/plain", size: bytes.byteLength, path: rel, kind: image ? "image" : binary ? "binary" : "text", modifiedAt: iso() };
+    return { bytes, mime: image ? "image/png" : binary ? "application/octet-stream" : "text/plain", size: bytes.byteLength, path: rel, kind: image ? "image" : binary ? "binary" : "text", modifiedAt: this.daemon.fileTimes.get(`${cwd}|${rel}`) ?? FILE_EPOCH };
+  }
+  /** As the daemon's `fs.file.subscribe`: the version now, then each change (`touchFile`). */
+  async subscribeFile(input: { cwd: string; path: string; signal?: AbortSignal }, onUpdate: (v: unknown) => void) {
+    await this.gate("subscribeFile", input.cwd, input.path);
+    const rel = fakeScoped(input.path);
+    const key = `${input.cwd}|${rel}`;
+    const set = this.daemon.fileWatchers.get(key) ?? new Set();
+    this.daemon.fileWatchers.set(key, set);
+    set.add(onUpdate);
+    const unsubscribe = async () => {
+      set.delete(onUpdate);
+    };
+    input.signal?.addEventListener("abort", () => void unsubscribe());
+    return { initial: this.daemon.fileVersion(input.cwd, rel), subscription: null, unsubscribe };
+  }
+  /** As the daemon's `fs.file.write`: only over the version given (`conflict` otherwise). */
+  async writeFile(input: { cwd: string; path: string; content: string; expectedModifiedAt: string; expectedRevision?: string }) {
+    await this.gate("writeFile", input);
+    const rel = fakeScoped(input.path);
+    const tree = this.daemon.trees.get(input.cwd);
+    const value = tree?.get(rel);
+    if (value === "outside") return { status: "error" as const, error: "Access outside of workspace is not allowed" };
+    if (value === "dir") return { status: "error" as const, error: "EISDIR: illegal operation on a directory" };
+    const now = this.daemon.fileVersion(input.cwd, rel);
+    if (now.status === "ready" ? now.modifiedAt !== input.expectedModifiedAt : input.expectedModifiedAt !== "")
+      return { status: "conflict" as const, version: now };
+    const at = iso(Math.max(Date.now(), Date.parse(now.status === "ready" ? now.modifiedAt : FILE_EPOCH) + 1));
+    this.daemon.touchFile(input.cwd, rel, input.content, at);
+    return { status: "written" as const, modifiedAt: at, size: new TextEncoder().encode(input.content).byteLength };
   }
   async searchGitHub(o: any) {
     await this.gate("searchGitHub", o);
