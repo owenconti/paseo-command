@@ -24,6 +24,7 @@ final class EditorOverlay: EditorStage {
     /// The close question, while it shows (checks answer it).
     private(set) var closeAlert: NSAlert?
     private var clicks: Any?
+    private var reclaim: Timer?
 
     init(font: TerminalFontSettings) {
         self.font = font
@@ -33,6 +34,14 @@ final class EditorOverlay: EditorStage {
         autoresizingMask = []
         onAppearance = { [weak self] in self?.restyle($0) }
         restyle(NSApp.effectiveAppearance)
+        // The daemon sizes a terminal as whichever client last asked, and doesn't say when another does (the Paseo app
+        // showing the same terminal sizes it to its own pane): while one shows here, its size goes again every 2 s. The
+        // same size changes nothing for the program in it.
+        reclaim = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            guard let self, !self.isHiddenOrHasHiddenAncestor, self.window?.isVisible == true,
+                  let id = self.shown, let s = self.sessions[id] else { return }
+            s.reclaimSize()
+        }
         // A click in the editor gives it the keyboard (SwiftTerm takes it), and is the page's `use`.
         clicks = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             if let self, !self.isHiddenOrHasHiddenAncestor, event.window === self.window,
