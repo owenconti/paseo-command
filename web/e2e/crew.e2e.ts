@@ -695,6 +695,9 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   assert.equal(await page.locator(".crew-drawer").count(), 0, "the conversation waits for the Command tab");
   assert.equal(await page.locator(".crew-node[aria-current], .crew-head[aria-current]").count(), 0, "no card stays marked on the Crew tab");
   assert.equal(await page.locator(".crew-board").evaluate((el) => getComputedStyle(el).visibility), "visible");
+  // The same agent clicked again opens it on the Command tab again (nothing about what's open changes).
+  await page.locator('.crew-node[data-state="idle"]').first().click();
+  await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "conversation", "the same agent on the Command tab");
   await appEvent(page, "paseo:mode", { mode: "command" });
   await page.locator(".crew-detail .session").waitFor();
   // Opening another robot on the Crew tab moves to the Command tab.

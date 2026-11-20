@@ -2824,6 +2824,7 @@ function App() {
                 empty={detailEmpty}
                 place={crewPlace}
                 onShowMap={() => postAppMenu("crew")}
+                onShowConversation={() => postAppMenu("command")}
                 loaded={!loading}
                 blocked={confirming}
                 onDispatch={() => openDispatch()}

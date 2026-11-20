@@ -37,6 +37,8 @@ type Props = CrewFleet & {
   place: "map" | "conversation" | "both";
   /** The Command tab with nothing open: back to the Crew tab. */
   onShowMap?: () => void;
+  /** The Crew tab: show the Command tab, where what was picked opens. */
+  onShowConversation?: () => void;
   loaded: boolean;
   blocked: boolean;
   /** New agent (⌘N, ⌘K; the map has no button for it): a pending pool claim's row opens it. */
@@ -227,6 +229,9 @@ export function CrewMap(props: Props) {
     if (!s) return;
     opened.current = key;
     props.select(s);
+    // The macOS app's Crew tab: what you pick opens on the Command tab, the one already open too (picking it again changes
+    // nothing open, so nothing else would take you there).
+    if (place === "map") props.onShowConversation?.();
   };
   const rowOf = (key: string) => snapshot.agents.find((a) => a.key === key);
   // The roster keys hosts as Crew's data does: "local", else the server id.
