@@ -33,6 +33,7 @@ const asMacAppWithLsp = (page: Page) =>
     window.sentToApp = [];
     window.webkit = { messageHandlers: { paseoWorld: { postMessage: (m) => window.sentToApp.push(JSON.parse(JSON.stringify(m))) } } };
     window.lspSeen = [];
+    window.lspSockets = { opened: 0, closed: 0 };
     const Real = window.WebSocket;
     const ROOT = ${JSON.stringify(ROOT)};
     const uri = (p) => "file://" + ROOT + "/" + p;
@@ -41,6 +42,7 @@ const asMacAppWithLsp = (page: Page) =>
         super();
         this.url = url;
         this.readyState = 0;
+        window.lspSockets.opened++;
         setTimeout(() => {
           this.readyState = 1;
           this.onopen && this.onopen({});
@@ -63,7 +65,7 @@ const asMacAppWithLsp = (page: Page) =>
         if (m.method === "textDocument/hover") return this.reply(m.id, { contents: { kind: "markdown", value: "**const helper**: the fake's hover" } });
         if (m.id !== undefined) return this.reply(m.id, null);
       }
-      close() { this.readyState = 3; }
+      close() { if (this.readyState !== 3) window.lspSockets.closed++; this.readyState = 3; }
     }
     window.WebSocket = function (url, protocols) {
       return String(url).includes("/api/lsp") ? new FakeLsp(url) : new Real(url, protocols);
@@ -274,6 +276,16 @@ test("the language server: gd goes to a definition in another file, ⌃O comes b
     await page.locator(".files-tab[aria-selected=true]").getByText("util.ts").waitFor();
     await page.keyboard.type("K");
     await page.locator(".cm-lsp-hover-tooltip").getByText("the fake's hover").waitFor();
+    // Its server stays while a TypeScript file is open, goes with the last, and comes back with the next one opened.
+    const sockets = () => page.evaluate(() => (window as unknown as { lspSockets: { opened: number; closed: number } }).lspSockets);
+    assert.deepEqual(await sockets(), { opened: 1, closed: 0 });
+    await page.getByRole("button", { name: "Close util.ts" }).click();
+    assert.deepEqual(await sockets(), { opened: 1, closed: 0 }, "app.ts is still open");
+    await page.getByRole("button", { name: "Close app.ts" }).click();
+    await waitFor(sockets, (s) => s.closed === 1, "stopped with the last TypeScript file");
+    await page.locator(".files-tree").getByText("long.ts").click();
+    await page.locator(".files-lsp[data-state=ready]").waitFor();
+    assert.deepEqual(await sockets(), { opened: 2, closed: 1 });
   } finally {
     await context.close();
   }

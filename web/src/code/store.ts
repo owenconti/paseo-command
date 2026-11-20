@@ -2,7 +2,8 @@
  * The Files tab's state, per workspace, kept for the page's life (stepping to another agent or tab and back loses
  * nothing, unsaved edits included): its open files (buffers, each a CodeMirror view kept while it's open), the one
  * shown, where you've been (back and forward, as go to definition and usages move you), the usages last found, and its
- * language servers (`lsp.ts`).
+ * language servers (`lsp.ts`): one per server group, started with the workspace's first open file of the group and
+ * stopped with its last.
  *
  * A buffer is saved only over the version it read (`POST /api/files/write`); the shown one's version on disk is asked
  * every couple of seconds (`GET /api/files/version`), so an agent's edit reloads a buffer without unsaved edits and
@@ -313,6 +314,14 @@ function dropBuffer(f: Files, b: Buffer) {
   f.back = f.back.filter((p) => p.key !== b.key);
   f.forward = f.forward.filter((p) => p.key !== b.key);
   b.view.destroy();
+  // Its language server goes with the workspace's last open file of its group (the relay stops it on the host);
+  // the next such file starts another.
+  const group = b.lsp?.group;
+  if (group && !f.buffers.some((x) => x.lsp?.group === group)) {
+    f.lsp.get(group)?.close();
+    f.lsp.delete(group);
+    changed();
+  }
 }
 /** Closes a buffer; one with unsaved edits asks first (`closing`, answered by the pane's banner). */
 export function closeBuffer(f: Files, key: string, force = false) {

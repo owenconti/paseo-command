@@ -846,7 +846,8 @@ the shown file's version (`GET /api/files/version`, one daemon `subscribeFile` p
 edits says so (Reload theirs / Keep mine, which saves over the version noticed). The diff is `@codemirror/merge`'s
 unified view (deletions inline, unchanged stretches folded, Revert per change); its base is rebuilt from the file and the
 daemon's diff (`baseText.ts`: the diff applied backwards, checked line by line; a diff of another version is asked again).
-Language servers (`lsp.ts`, `@codemirror/lsp-client`): one `LspConnection` per workspace and server group (`paths.ts`
+Language servers (`lsp.ts`, `@codemirror/lsp-client`): one `LspConnection` per workspace and server group, started with
+its first open file of the group and stopped with its last (`dropBuffer`; closing the socket stops the process) (`paths.ts`
 `languageOf`: TypeScript/JS, PHP, Python, Go, Rust, CSS, HTML, JSON, YAML, Lua, Ruby, Swift, Vue) over `GET /api/lsp`
 (upgrade; `web/server/lsp.ts`), which relays to the workspace host's `language-servers` Paseo plugin
 (github.com/owenconti/paseo-cc-plugins, `plugins/language-servers`, installed per daemon as `visual-replies` is):
