@@ -1,7 +1,7 @@
 /**
  * Activity's GitHub source: your notifications, from GitHub's API with the
  * GitHub token (`githubApi.ts`: `GET /notifications`), only while
- * `integrations.github` is on. Unread ones and those read in the last 14 days, at most 100, kept
+ * `integrations.github` is on, and only those that need you (`needsYou.ts`). Unread ones and those read in the last 14 days, at most 100, kept
  * for `GITHUB_ACTIVITY.ttlMs`; each pull request's or issue's state is asked
  * for in one GraphQL query alongside, and left out when GitHub can't answer it.
  * Writes: read (`PATCH /notifications/threads/:id`) and done (`DELETE`).
@@ -19,6 +19,7 @@ import { join } from "node:path";
 import type { ActivityItem, ActivityWriteName } from "../../src/activity/types";
 import { githubGraphql, githubRest } from "../githubApi";
 import { dataDir } from "../subagentArchive";
+import { githubNeedsYou } from "./needsYou";
 import { ACTIVITY_MARKS, applyMarks, newMarks, type DoneMark } from "./marks";
 
 export const GITHUB_ACTIVITY = {
@@ -238,6 +239,8 @@ async function gather(): Promise<Gathered> {
   const items = raw
     .map(githubItem)
     .filter((i): i is ActivityItem => i !== null)
+    // Only what needs you (`needsYou.ts`): review requests and assignments are the pull request lists'.
+    .filter((i) => githubNeedsYou(i.kind))
     .slice(0, GITHUB_ACTIVITY.max);
   // Each pull request's and issue's state: nice to have, so a failure leaves them without.
   const refs = items.map(repoOf).filter((r) => r !== null);

@@ -1,7 +1,8 @@
 /**
  * Activity's Linear source: your Inbox (its first page, up to 250
  * notifications), one item per issue (or project, or lone notification) as
- * the Inbox shows them, not archived and not snoozed. An issue's (a pull
+ * the Inbox shows them, not archived and not snoozed, of only the
+ * notifications that need you (`needsYou.ts`: mentions, comments, due dates). An issue's (a pull
  * request's too: the issue its branch or title names) links to the issue on
  * linear.app, which the app opens in Linear's desktop app when it's installed,
  * else in Conquer. Only while Linear is on
@@ -16,6 +17,7 @@ import type { LinearUser } from "../linear/types";
 import { readNotifications, readWorkspace } from "../linear/reads";
 import { appSettings } from "../settings";
 import { linearWrite } from "../linear/writes";
+import { linearNeedsYou } from "./needsYou";
 import { ACTIVITY_MARKS, applyMarks, newMarks } from "./marks";
 
 export const LINEAR_ACTIVITY = { ttlMs: 20_000 };
@@ -80,7 +82,9 @@ async function gather(): Promise<{ items: ActivityItem[]; limited: boolean }> {
     appSettings().linearWorkspace ||
     notifications.map((n) => /^https:\/\/linear\.app\/([a-z0-9][a-z0-9-]{0,63})\//i.exec(n.url)?.[1]).find(Boolean) ||
     "";
-  return { items: inboxGroups(notifications, Date.now(), false, teams).map((g) => linearItem(g, ws?.users, workspace)), limited: !!next };
+  // Only what needs you (`needsYou.ts`), grouped after: a row says, and is unread for, the newest of those.
+  const needed = notifications.filter((n) => linearNeedsYou(n.type));
+  return { items: inboxGroups(needed, Date.now(), false, teams).map((g) => linearItem(g, ws?.users, workspace)), limited: !!next };
 }
 
 /** Your Linear Inbox as Activity items; throws a LinearError when Linear can't answer. */

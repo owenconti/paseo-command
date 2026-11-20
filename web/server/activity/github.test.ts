@@ -17,6 +17,7 @@ import {
   writeGithubActivity,
 } from "./github";
 import { ACTIVITY_MARKS } from "./marks";
+import { ACTIVITY_NEEDS_YOU } from "./needsYou";
 
 let fake: ReturnType<typeof installGithubApi>;
 let answer: (req: FakeRequest) => FakeAnswer | Promise<FakeAnswer>;
@@ -50,10 +51,13 @@ beforeEach(() => {
   clock = Date.now();
   ACTIVITY_MARKS.now = () => clock;
   resetGithubActivity();
+  // The shapes are tested with every notification; "only what needs you" has its own test.
+  ACTIVITY_NEEDS_YOU.only = false;
   answer = () => ({ json: [] });
   fake = installGithubApi((req) => answer(req));
 });
 afterEach(() => {
+  ACTIVITY_NEEDS_YOU.only = true;
   ACTIVITY_MARKS.now = realNow;
   fake.restore();
 });
@@ -282,4 +286,20 @@ test("a refused done leaves the thread in Activity, saying why", async () => {
   assert.ok(failed[0]!.error);
   assert.deepEqual((await readGithubActivity()).map((i) => i.id), ["5", "6"]);
   assert.equal(existsSync(githubActivityFile()), false, "nothing saved");
+});
+
+test("only what needs you: mentions and replies, not review requests or assignments", async () => {
+  ACTIVITY_NEEDS_YOU.only = true;
+  const reasons = ["review_requested", "assign", "mention", "team_mention", "author", "comment", "subscribed", "state_change", "ci_activity"];
+  answer = (req) =>
+    req.path === "graphql" ? { json: { data: {} } } : { json: reasons.map((reason, i) => thread(String(i + 1), { reason })) };
+  const items = await readGithubActivity();
+  assert.deepEqual(
+    items.map((i) => i.kind),
+    ["mention", "team_mention", "author", "comment"],
+  );
+  // The states are asked only for those shown.
+  const query = String((calls().find((r) => r.path === "graphql")?.body as { query?: string } | undefined)?.query ?? "");
+  assert.match(query, /n3:.*n6:/);
+  assert.doesNotMatch(query, /n1:|n2:/);
 });

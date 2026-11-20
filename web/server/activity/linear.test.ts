@@ -10,6 +10,7 @@ import { writeSettings } from "../settings";
 import { issueKeysIn } from "../linear/normalize";
 import { linearEntity, readLinearInbox, readLinearActivity, resetLinearActivity, writeLinearActivity } from "./linear";
 import { ACTIVITY_MARKS } from "./marks";
+import { ACTIVITY_NEEDS_YOU } from "./needsYou";
 
 let fake: FakeLinear;
 beforeEach(() => {
@@ -17,9 +18,12 @@ beforeEach(() => {
   resetLinearClient();
   resetLinearReads();
   resetLinearActivity();
+  // The shapes are tested with every notification; "only what needs you" has its own test.
+  ACTIVITY_NEEDS_YOU.only = false;
 });
 const realNow = ACTIVITY_MARKS.now;
 afterEach(() => {
+  ACTIVITY_NEEDS_YOU.only = true;
   ACTIVITY_MARKS.now = realNow;
   fake.restore();
 });
@@ -198,4 +202,29 @@ test("a partial Inbox exposes its page limit instead of claiming an exact unread
   const result=await readLinearInbox();
   assert.equal(result.limited,true);
   assert.ok(result.items.length > 0);
+});
+
+test("only what needs you: mentions and comments, not assignments, reactions, updates or subscriptions", async () => {
+  ACTIVITY_NEEDS_YOU.only = true;
+  // ENG-3: a mention, read, before the unread assignment; only the mention counts, so the row is read and says it.
+  const assigned = fake.ws.notifications.find((n) => n.id === I.notifications.eng3Assigned)!;
+  const before = new Date(Date.parse(assigned.createdAt) - 60_000).toISOString();
+  fake.ws.notifications.push({
+    ...assigned,
+    id: "90000002-0000-4000-8000-000000000001",
+    type: "issueCommentMention",
+    subtitle: "Sam Rivera mentioned you",
+    createdAt: before,
+    updatedAt: before,
+    readAt: before,
+  });
+  assigned.readAt = null;
+  const items = await readLinearActivity();
+  assert.deepEqual(
+    items.map((i) => [i.key, i.kind, i.unread]),
+    [
+      [`linear:issue:${I.issues["ENG-1"]}`, "issueNewComment", true],
+      [`linear:issue:${I.issues["ENG-3"]}`, "issueCommentMention", false],
+    ],
+  );
 });
