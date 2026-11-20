@@ -20,7 +20,8 @@ import {
   terminalOpenSetting,
   useTerminalOpen,
 } from "./browser/settings";
-import { browserDo, browserKey, onBrowserEvent, postBrowserHost, tabLabel, useBoardBrowsers } from "./browser/browserBridge";
+import { browserDo, browserKey, browserStateKnown, onBrowserEvent, postBrowserHost, tabLabel, useBoardBrowsers } from "./browser/browserBridge";
+import { takeWorktreeOpen, useWorkspaceUrl } from "./browser/workspaceUrl";
 import { focusEditor } from "./files/editorBridge";
 import { useAsks } from "./useAsks";
 import { useWorkingOn } from "./useWorkingOn";
@@ -955,6 +956,23 @@ function App() {
       }),
     [],
   );
+  // A Diagonal workspace's own app (`bin/worktree status`'s URL): opened by itself in the open agent's browser while that
+  // has no tab, once an agent and address (`browser/workspaceUrl.ts`).
+  const agentWorkspace = agent ? workspaceOf(agent) : undefined;
+  const worktreeUrl = useWorkspaceUrl(
+    agentWorkspace ? { id: agentWorkspace.workspaceId, ...(agentWorkspace.host ? { host: agentWorkspace.host } : {}), ...(agentWorkspace.repo ? { repo: agentWorkspace.repo } : {}) } : undefined,
+    crewBrowsing,
+  );
+  const agentTabs = agentBrowser?.tabs.length ?? 0;
+  const browsersKnown = browserStateKnown();
+  useEffect(() => {
+    if (!crewBrowsing || !agent || !worktreeUrl || agentTabs > 0 || !browserStateKnown()) return;
+    const host = agent.host || "local";
+    const id = daemonAgentId(agent);
+    if (!takeWorktreeOpen(browserKey(agent.host, id), worktreeUrl)) return;
+    browserDo("open", { host, agent: id, ...(agent.workspaceId ? { workspace: agent.workspaceId } : {}), url: worktreeUrl });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crewBrowsing, agent?.id, worktreeUrl, agentTabs, browsersKnown]);
   // An open subagent conversation; gone (archived) falls back to the agent's.
   const subagent = selection?.subagent
     ? agent?.subagents?.find((s) => s.id === selection.subagent)

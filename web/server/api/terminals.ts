@@ -37,6 +37,7 @@ import { resolveHost, sdk, timed, type Remote } from "./hosts";
 import { allowedOrigin } from "./http";
 import { aggregate } from "./reads";
 import { id } from "./validate";
+import { WORKTREE_TERMINAL } from "../worktreeUrl";
 
 type Body = Record<string, unknown>;
 type TerminalInfo = { id: string; name: string; title?: string; editor?: true };
@@ -60,7 +61,7 @@ const terminalOf = (t: { id: string; name: string; title?: string }): TerminalIn
   id: t.id,
   name: t.name,
   ...(t.title ? { title: t.title } : {}),
-  ...(editors.has(t.id) || t.name.startsWith(WORKSPACE_EDITOR) ? { editor: true as const } : {}),
+  ...(editors.has(t.id) || t.name.startsWith(WORKSPACE_EDITOR) || t.name === WORKTREE_TERMINAL ? { editor: true as const } : {}),
 });
 
 export async function listTerminals(url: URL) {

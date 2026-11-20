@@ -39,6 +39,7 @@ import { draftGet } from "./drafts";
 import { presets, savePresets } from "../presets";
 import { appSettings, saveAppSettings } from "../settings";
 import { saveSecret, secretsStatus } from "../secrets";
+import { workspaceUrl } from "../worktreeUrl";
 import { createEditorTerminal, createTerminal, createWorkspaceEditor, killTerminal, listTerminals, sendToEditor } from "./terminals";
 import {
   addProject,
@@ -239,6 +240,9 @@ export async function handleApi(
           }
           case "terminals":
             result = await listTerminals(url);
+            break;
+          case "workspace-url":
+            result = await workspaceUrl(url);
             break;
           case "changes":
             result = await changesFor(url.searchParams);

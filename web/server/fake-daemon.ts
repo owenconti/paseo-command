@@ -139,6 +139,8 @@ export class FakeDaemon {
    * `"dir"` for an empty one; `"outside"` a symlink that resolves out of the workspace).
    */
   trees = new Map<string, Map<string, string | Uint8Array | "dir" | "outside">>();
+  /** What `bin/worktree status` prints in a folder (Diagonal's worktrees, `worktreeUrl.ts`); a folder without is "no bin/worktree". */
+  worktreeStatus = new Map<string, string>();
   /** Terminals: what each has printed, the input it was sent, and who watches. */
   terminals = new Map<
     string,
@@ -268,6 +270,8 @@ export class FakeDaemon {
     title?: string | null;
     /** The daemon's forge facts (its PR for the branch), as Paseo reports them. */
     githubRuntime?: unknown;
+    /** Its checkout's remote (the fleet's `repo`). */
+    remoteUrl?: string;
   }) {
     const project = this.projects.get(w.projectId);
     const ws = {
@@ -282,7 +286,7 @@ export class FakeDaemon {
       title: w.title ?? null,
       background: false,
       status: "done",
-      gitRuntime: { currentBranch: w.branch ?? "main" },
+      gitRuntime: { currentBranch: w.branch ?? "main", ...(w.remoteUrl ? { remoteUrl: w.remoteUrl } : {}) },
       ...(w.githubRuntime !== undefined
         ? { githubRuntime: w.githubRuntime }
         : {}),
@@ -1292,10 +1296,22 @@ export class FakeClient {
     const id = `term-${++ids}`;
     // A command (an editor) shows what it runs instead of a prompt.
     const command = typeof options.command === "string" ? { command: options.command, args: options.args ?? [] } : {};
-    const printed = command.command ? `[${(command.args as string[]).at(-1) ?? command.command}]\r\n` : "$ ";
+    // Diagonal's `bin/worktree status` (worktreeUrl.ts's script) prints the folder's status, then its end mark.
+    const status = command.command && String((command.args as string[]).at(-1) ?? "").includes("bin/worktree status")
+      ? `${this.daemon.worktreeStatus.get(cwd) ?? "no bin/worktree"}\r\n__paseo_worktree_status_done__\r\n`
+      : null;
+    const printed = status ?? (command.command ? `[${(command.args as string[]).at(-1) ?? command.command}]\r\n` : "$ ");
     const t = { id, name: name ?? `Terminal ${this.daemon.terminals.size + 1}`, cwd, workspaceId: options.workspaceId, printed, input: [], watchers: new Set<(e: any) => void>(), ...command };
     this.daemon.terminals.set(id, t);
     return { terminal: { id, name: t.name, cwd, workspaceId: t.workspaceId }, error: null, requestId: "r" };
+  }
+  /** The terminal's lines so far (its printed text, without escapes when `stripAnsi`). */
+  async captureTerminal(terminalId: string, options: { stripAnsi?: boolean } = {}) {
+    await this.gate("captureTerminal", terminalId, options);
+    const t = this.daemon.terminals.get(terminalId);
+    const text = t?.printed ?? "";
+    const lines = (options.stripAnsi ? text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "") : text).split(/\r?\n/);
+    return { terminalId, lines, totalLines: lines.length, requestId: "r" };
   }
   async killTerminal(terminalId: string) {
     await this.gate("killTerminal", terminalId);

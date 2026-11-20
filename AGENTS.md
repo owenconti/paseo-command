@@ -894,6 +894,18 @@ requests, answers to `<info>.browser.out`) and `browserfocus`; `native/scripts/f
 (the fake daemon's `browserExecute`), `web/e2e/crew.e2e.ts`, `native/tests/BrowserAutomationTests.swift` (the
 policy, keys, and the page script on a page in a web view).
 
+A Diagonal workspace's own app opens by itself in its agents' browsers (the user's ask): for a workspace whose remote is
+on GitHub under `Diagonal-HQ` (`isDiagonalRepo`, `web/src/worktree.ts`), `GET /api/workspace-url?workspace=&host=`
+(`web/server/worktreeUrl.ts`) runs the repository's `bin/worktree status` in the workspace's folder on its host (a short
+daemon terminal, `paseo · worktree status`, under the host's login shell, listed as an editor so terminal lists leave it out;
+it only reads: `status` never claims a slot), reads its `URL:` line (https only; `Slot:` and `Setup:` too), ends the terminal
+and keeps the answer 10 minutes (a miss one). A checkout without the script answers `no-script`, other repositories
+`not-diagonal` without running anything. The page (`web/src/browser/workspaceUrl.ts`, main's `worktreeUrl`) asks while an
+agent is open beside its tools (`crewBrowsing`) and, once the app has said its browsers and that agent's has no tab, opens the
+address there (`browserDo` `open`, in the background: the Browser tab counts it), once an agent and address
+(`browser:worktreeOpened`), so a tab you close stays closed. Tests: `server/worktreeUrl.test.ts` (the fake daemon's
+`worktreeStatus` and `captureTerminal`), `e2e/worktree-url.e2e.ts`.
+
 ### The maps (removed)
 
 The Islands (the hex Atlas), Overworld and Dungeon Board map styles were removed at the user's request, with everything

@@ -102,6 +102,8 @@ export function useBoardBrowsers(): BoardBrowserState {
   );
 }
 export const boardBrowsers = () => state;
+/** Whether the app has said its browsers' state yet (until then no browser is known to be empty). */
+export const browserStateKnown = () => state !== EMPTY;
 
 export function onBrowserEvent(handler: (event: BrowserEvent) => void) {
   listen();
