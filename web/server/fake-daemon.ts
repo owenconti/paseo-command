@@ -139,6 +139,8 @@ export class FakeDaemon {
    * `"dir"` for an empty one; `"outside"` a symlink that resolves out of the workspace).
    */
   trees = new Map<string, Map<string, string | Uint8Array | "dir" | "outside">>();
+  /** The client's transport has gone: its sends throw (the relay must close its socket, not crash). */
+  transportGone = false;
   /** What `bin/worktree status` prints in a folder (Diagonal's worktrees, `worktreeUrl.ts`); a folder without is "no bin/worktree". */
   worktreeStatus = new Map<string, string>();
   /** Terminals: what each has printed, the input it was sent, and who watches. */
@@ -1323,6 +1325,8 @@ export class FakeClient {
   /** Input is recorded and typed text echoed, as a shell's line discipline would. */
   sendTerminalInput(terminalId: string, message: any) {
     this.daemon.calls.push({ method: "sendTerminalInput", args: [terminalId, message], target: this.target });
+    // As the SDK's client throws once its transport has been disposed (the daemon reconnected under it).
+    if (this.daemon.transportGone) throw new Error("Transport not connected (status: disposed)");
     const t = this.daemon.terminals.get(terminalId);
     if (!t) return;
     t.input.push(message);

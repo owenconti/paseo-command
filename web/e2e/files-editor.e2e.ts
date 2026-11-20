@@ -176,7 +176,9 @@ test("an agent's workspace in your editor beside its conversation on Crew (F): o
     await page.evaluate(() => document.querySelector(".test-menu")?.remove());
     await waitFor(() => lastPlacement(page), (p) => (p?.holes?.length ?? 1) === 0, "the hole goes with the menu");
     // Show changes: Settings → Files' command, in it.
-    await pane.getByRole("button", { name: "Show changes" }).click();
+    // No header of its own: nvim fills the pane (⇧⌘G and ⌘K ask for the changes).
+    assert.equal(await pane.getByRole("button").count(), 0);
+    await appEvent(page, "paseo:command", "branch-changes");
     await waitFor(() => Promise.resolve(sentToEditor.length), (n) => n === 1, "show changes sent");
     assert.deepEqual(sentToEditor[0], { workspace: "wks_a", id: "term-1", changes: true });
     // B swaps in the browser, the editor put away (still running); F brings the same one back, not another.

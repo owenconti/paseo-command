@@ -303,6 +303,16 @@ async function relay(ws: WebSocket, url: URL) {
     },
     error: (error) => close(1011, error instanceof Error ? error.message : "The terminal stream failed"),
   });
+  // The daemon's connection can go under the relay (a reconnect disposes its transport): its send throws, and an
+  // error thrown in this socket's handler would end the whole server. The socket closes instead; the app attaches
+  // again and resends its size.
+  const toDaemon = (input: { type: "input"; data: string } | { type: "resize"; rows: number; cols: number }) => {
+    try {
+      client.sendTerminalInput(terminalId, input);
+    } catch (error) {
+      close(1011, error instanceof Error ? error.message : "The daemon's connection went");
+    }
+  };
   ws.on("message", (raw, binary) => {
     if (binary) return;
     let message: { type?: unknown; data?: unknown; rows?: unknown; cols?: unknown; reply?: unknown };
@@ -314,11 +324,12 @@ async function relay(ws: WebSocket, url: URL) {
     if (message.type === "input" && typeof message.data === "string" && message.data.length <= 64 * 1024) {
       const stale = typeof message.reply === "number" && prompted > message.reply;
       trace?.({ dir: "in", data: message.data, ...(typeof message.reply === "number" ? { reply: message.reply } : {}), ...(stale ? { dropped: true } : {}) });
-      if (!stale) client.sendTerminalInput(terminalId, { type: "input", data: message.data });
+      if (!stale) toDaemon({ type: "input", data: message.data });
     }
     else if (message.type === "resize") {
       const s = size(message as Body);
-      if (s) client.sendTerminalInput(terminalId, { type: "resize", ...s });
+      trace?.({ dir: "in", resize: s ?? message });
+      if (s) toDaemon({ type: "resize", ...s });
     }
   });
   ws.on("close", () => void observation.release().catch(() => {}));

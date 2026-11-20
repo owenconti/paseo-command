@@ -68,7 +68,11 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
                 // The relay marks its replay of the screen: `replay` before it, `live` after.
                 switch (try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])?["type"] as? String {
                 case "replay": self.answers.beginReplay()
-                case "live": self.answers.replaying = false
+                case "live":
+                    self.answers.replaying = false
+                    // Its size again once the screen is in, as the view has it now: a program the daemon kept running
+                    // (your editor, reattached) then redraws to fill it.
+                    self.sendSize()
                 default: break
                 }
                 self.receive()
@@ -81,7 +85,13 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
-        if let size { send(["type": "resize", "rows": size.rows, "cols": size.cols]) }
+        sendSize()
+    }
+
+    /// The view's size (its rows and columns, as SwiftTerm last said them), to the daemon.
+    private func sendSize() {
+        guard let size, size.cols > 0, size.rows > 0 else { return }
+        send(["type": "resize", "rows": size.rows, "cols": size.cols])
     }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {

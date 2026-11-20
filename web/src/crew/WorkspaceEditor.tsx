@@ -7,10 +7,11 @@
  * placed for the Command tab). It keeps running while you step away, and its terminal is kept per workspace across
  * launches (`editor:workspaces`), found again on the daemon or started anew. A chat's file link opens the file in it at
  * its line and Show changes (⇧⌘G, ⌘K) runs Settings → Files' changes command in it (`POST /api/terminals/editor-send`,
- * `workspaceEditorAsks.ts`). If the editor quits, Start again.
+ * `workspaceEditorAsks.ts`). If the editor quits, Start again. Nothing else: no header of its own (the user's call), the
+ * pane is the editor's, full height.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GitCompare, Play, SquareTerminal } from "lucide-react";
+import { Play } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "../api";
 import { focusEditor, hideEditor, onEditorEvent, postEditorPlacement } from "../files/editorBridge";
 import { MODAL_EVENT, modalOpen } from "../focus";
@@ -141,19 +142,8 @@ export function WorkspaceEditor({ workspace, onNotice, kind = "editor" }: { work
     return () => window.removeEventListener(ASK_EVENT, take);
   }, [state.phase, workspace.id, workspace.host, send, kind]);
 
-  const where = workspace.branch && workspace.branch !== workspace.name ? `${workspace.name} · ${workspace.branch}` : workspace.name;
   return (
     <section className="crew-files crew-editor beside" data-tool={kind} aria-label={`${workspace.name}: ${kind === "editor" ? "your editor" : "terminal"}`}>
-      <header className="crew-editor-head">
-        <SquareTerminal size={14} aria-hidden="true" />
-        <span className="crew-files-where">{where}</span>
-        <span className="crew-files-tools">
-          {kind === "editor" && <button className="page-btn" disabled={state.phase !== "running"} onClick={() => void send({ changes: true })} data-tip="Run Settings → Files’ changes command in the editor (⇧⌘G)">
-            <GitCompare size={13} aria-hidden="true" />
-            Show changes
-          </button>}
-        </span>
-      </header>
       <div className="crew-files-body">
         {state.phase === "running" && (
           <Slot key={state.terminal} terminal={state.terminal} label={kind === "editor" ? "Your editor" : "Terminal"} {...(workspace.host ? { host: workspace.host } : {})} />

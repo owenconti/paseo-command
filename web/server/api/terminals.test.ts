@@ -223,3 +223,20 @@ test("a cell snapshot becomes the bytes that draw it", () => {
   assert.ok(bytes.includes("\x1b[0;48;5;200mc"), JSON.stringify(bytes));
   assert.ok(bytes.endsWith("\x1b[1;3H"));
 });
+
+test("a send the daemon's gone connection refuses closes the terminal's socket, not the server", async () => {
+  const made = await post("terminals/create", { workspace: "wks_app" });
+  const id = made.data.terminal.id;
+  const t = await attach(id);
+  await until(() => t.frames.includes("{live}"), 3000, "attached");
+  local.transportGone = true;
+  try {
+    t.ws.send(JSON.stringify({ type: "resize", rows: 50, cols: 120 }));
+    await until(() => t.closed() !== null, 3000, "the socket closed");
+    assert.match(t.closed()!, /Transport not connected/);
+  } finally {
+    local.transportGone = false;
+  }
+  // The server is still up.
+  assert.equal((await get("terminals?workspace=wks_app")).status, 200);
+});

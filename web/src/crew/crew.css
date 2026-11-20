@@ -1331,7 +1331,6 @@ button.crew-pool-name:hover {
 }
 /* In focus the tools' tabs are their one head: the panes' own close, fill and title go, as does the conversation's
    "← Fleet" (the strip's Crew goes back). */
-.crew-map[data-focus] ~ .crew-files .crew-files-head,
 .crew-map[data-focus] ~ .board-browser.crew .bb-fill,
 .crew-map[data-focus] ~ .board-browser.crew .bb-hide,
 .crew-map[data-focus] .crew-drawer .session-back {
