@@ -795,7 +795,9 @@ the component Crew's drawer is.
 The open agent's workspace opens in the user's own editor (Settings → Files' command; nvim for the user) in its browser's
 place, right of its conversation on Crew (`web/src/crew/WorkspaceEditor.tsx`, `crew-files.css`; the user's ask: their nvim
 manages everything about viewing, editing and diffing files). One editor per workspace: `POST /api/terminals/workspace-editor`
-(`createWorkspaceEditor` in `web/server/api/terminals.ts`) runs the command on `.` in the workspace's folder as a daemon
+(`createWorkspaceEditor` in `web/server/api/terminals.ts`) runs the command in the workspace's folder without its file and line
+(`workspaceEditorCommandLine`: the words holding `{file}` or `{line}` left out, so `nvim` starts as typed there, the user's nvim-tree and
+dashboard opening; given `.`, their `VimEnter` toggle closed the tree nvim-tree had just opened for the folder) as a daemon
 terminal named `paseo editor · <program>` (`WORKSPACE_EDITOR`, listed with `editor: true`, so terminal lists can leave it out);
 the page keeps its id per workspace (`editor:workspaces` in localStorage) and finds it again while the daemon lists it, else
 starts another (a module-level `starting` map, so React's double effects start one). It keeps running while you step away;

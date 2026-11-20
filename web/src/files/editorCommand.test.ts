@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { DEFAULT_FILES_SETTINGS, changesCommandProblem, editorCommandLine, editorCommandProblem, editorLaunch, exCommandKeys, filesSettings, openFileKeys, shellQuote } from "./editorCommand";
+import { DEFAULT_FILES_SETTINGS, changesCommandProblem, workspaceEditorCommandLine, workspaceEditorLaunch, editorCommandLine, editorCommandProblem, editorLaunch, exCommandKeys, filesSettings, openFileKeys, shellQuote } from "./editorCommand";
 
 test("an editor command: {file} required, {line} allowed, nothing else", () => {
   assert.equal(editorCommandProblem("nvim {file}"), null);
@@ -69,4 +69,13 @@ test("what the workspace's editor is sent: a file at its line, or the changes co
   assert.equal(changesCommandProblem(":DiffviewOpen origin/main"), null);
   assert.ok(changesCommandProblem("DiffviewOpen"));
   assert.ok(changesCommandProblem(":a\n:b"));
+});
+
+test("the workspace's editor starts as its program does on its own, in the folder: no file or line", () => {
+  assert.equal(workspaceEditorCommandLine("nvim {file}"), "nvim");
+  assert.equal(workspaceEditorCommandLine("nvim +{line} {file}"), "nvim");
+  assert.equal(workspaceEditorCommandLine("hx {file}:{line}"), "hx");
+  assert.equal(workspaceEditorCommandLine("cd sub && vim {file}"), "cd sub && vim");
+  assert.deepEqual(workspaceEditorLaunch("nvim {file}").args.at(-1), "nvim");
+  assert.throws(() => workspaceEditorCommandLine("nvim"), /\{file\}/);
 });

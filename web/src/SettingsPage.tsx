@@ -579,9 +579,10 @@ function FilesSettings() {
             <label htmlFor={id}>
               <b>Command</b>
               <small>
-                <code>{"{file}"}</code> is the path it opens (the workspace’s folder, <code>.</code>), <code>{"{line}"}</code> its line. It
-                runs under your login shell; its terminal ends when the editor quits. A conversation’s file links open in it with{" "}
-                <code>:e</code>, so it should be Vim or Neovim.
+                It starts in the workspace’s folder as you’d start it there, without the words holding <code>{"{file}"}</code> and{" "}
+                <code>{"{line}"}</code> (<code>nvim</code>: your own start, its file tree and dashboard), under your login shell; its
+                terminal ends when the editor quits. A conversation’s file links open in it with <code>:e</code>, so it should be Vim or
+                Neovim.
               </small>
             </label>
             <div className="files-command-field">

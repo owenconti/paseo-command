@@ -65,11 +65,13 @@ export function editorCommandLine(template: string, file: string, line = 1): str
  * running the command and ending with it, so the terminal ends when the editor does. `/bin/sh` only
  * finds that shell (`$SHELL`); the command reaches it as an argument, never as text sh reads. */
 export function editorLaunch(template: string, file: string, line?: number): { command: string; args: string[] } {
-  return {
-    command: "/bin/sh",
-    args: ["-c", 'exec "${SHELL:-/bin/sh}" -l -i -c "$1"', "paseo-editor", editorCommandLine(template, file, line)],
-  };
+  return loginShell(editorCommandLine(template, file, line));
 }
+
+const loginShell = (commandLine: string) => ({
+  command: "/bin/sh",
+  args: ["-c", 'exec "${SHELL:-/bin/sh}" -l -i -c "$1"', "paseo-editor", commandLine],
+});
 
 /** The settings file's `files` object, read leniently: anything odd is the default. */
 export function filesSettings(raw: unknown): FilesSettings {
@@ -80,8 +82,19 @@ export function filesSettings(raw: unknown): FilesSettings {
 }
 
 // ── The workspace's own editor (crew/WorkspaceEditor.tsx): one per workspace, in its folder ──────────────────────
-/** The shell text that starts the workspace's editor in its folder: the command with `{file}` as `.`. */
-export const workspaceEditorLaunch = (template: string) => editorLaunch(template, ".", 1);
+/** The command as the workspace's editor runs it, in the workspace's folder: without its file and line (each word
+ * holding `{file}` or `{line}` left out), so it starts as it does when you type its name there (`nvim`: its own start,
+ * a file tree or dashboard; given `.`, a plugin that opens a tree for a folder can open and close it again). */
+export function workspaceEditorCommandLine(template: string): string {
+  const problem = editorCommandProblem(template);
+  if (problem) throw new Error(problem);
+  const words = template.trim().split(/\s+/).filter((w) => !/\{(?:file|line)\}/.test(w));
+  if (!words.length) throw new Error("The editor command needs a program to run.");
+  return words.join(" ");
+}
+
+/** What the daemon starts for the workspace's editor, in its folder (`workspaceEditorCommandLine`). */
+export const workspaceEditorLaunch = (template: string) => loginShell(workspaceEditorCommandLine(template));
 
 /** What's wrong with the Show changes command, or null: one Ex command line, starting with ":". */
 export function changesCommandProblem(command: string): string | null {

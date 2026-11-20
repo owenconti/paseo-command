@@ -183,7 +183,7 @@ test("a workspace's own editor: the command on its folder; opens a file or shows
   assert.equal(made.status, 200, JSON.stringify(made.data));
   const created = local.calls.find((c) => c.method === "createTerminal")!;
   assert.equal(created.args[0], "/home/review/code");
-  assert.equal(created.args[1].args[3], "nvim '.'", "the folder, from the settings file only");
+  assert.equal(created.args[1].args[3], "nvim", "in the folder (its cwd), as you'd start it there: no file argument; the command from the settings file only");
   assert.equal(made.data.terminal.name, "paseo editor · nvim");
   const id = made.data.terminal.id;
   assert.ok((await get("terminals?workspace=wks_app")).data.terminals.some((t: { id: string; editor?: boolean }) => t.id === id && t.editor === true));
