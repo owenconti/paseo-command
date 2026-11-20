@@ -834,7 +834,8 @@ function App() {
       : undefined;
   // Its workspace's pending diff comments, for ⌘K's Apply and Show.
   // On Crew (the macOS app's: it draws the pages) the open agent's browser stands beside its conversation.
-  const crewBrowsing = crewShown && crewPlace !== "map" && macApp() && !!agent && !selection?.subagent;
+  // Only while the agent's own conversation shows: not New agent or Add project, which open over it while it stays selected.
+  const crewBrowsing = crewShown && crewPlace !== "map" && macApp() && !!agent && !selection?.subagent && !dispatchTarget && !addingProject;
   const filesShown = crewBrowsing && filesOpen;
   // A file link or Show changes for a workspace: its editor shows beside the open agent's conversation (Command).
   const editorAsks = useRef({ agentOpen: false });

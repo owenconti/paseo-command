@@ -722,6 +722,12 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   await palette(page).getByRole("combobox").fill("browser");
   await palette(page).getByRole("option", { name: /Show .*’s browser/ }).click();
   await page.locator(".board-browser.crew").waitFor();
+  // New agent (⌘N) opens over the agent: no tools beside it, the web page's box told gone.
+  await page.locator(".crew-stage-state").click();
+  await page.keyboard.press("Meta+n");
+  await page.locator(".crew-detail .new-agent-form").waitFor();
+  await page.locator(".board-browser").waitFor({ state: "detached" });
+  assert.equal(await page.locator(".crew-tool-tabs").count(), 0, "no Editor, Terminal or Browser tabs for a new agent");
   await page.context().close();
 });
 
