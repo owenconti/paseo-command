@@ -378,7 +378,17 @@ and GitHub publication; report the published version and release link.
   the workspace, the Inbox and its writes; `installFakeLinear` enables Linear in the test settings file and writes a fake key to the
   test `secrets.json`, and `restore()` puts both files back).
 - Activity (the mode bar's last tab, after GitHub, while GitHub or Linear is enabled; its tab shows the unread count, the page's
-  `activity` message): GitHub and Linear notifications in one feed the page draws (`web/src/activity/ActivityView.tsx`), newest
+  `activity` message): GitHub and Linear notifications in one feed the page draws, only those that need you (the user's call;
+  `web/server/activity/needsYou.ts`: GitHub's mention, team_mention, author, comment, security_alert, approval_requested and
+  invitation; Linear's mentions, new comments, due dates, reminders and project update prompts, filtered before the Inbox's
+  grouping, so a row says and is unread for its newest such notification; review requests and assignments are the GitHub tab's
+  lists', and watching, state changes, CI, reactions and Linear's pull request notifications are left out). Each row says
+  who did what (`headline` in `web/src/activity/rows.ts`: Linear's own sentence, `what`; GitHub's from the comment) and two lines
+  of what they said (`said`; the preview beside the feed all of it): GitHub's from the thread (`web/server/activity/said.ts`: its
+  latest comment when that fits the reason, else the newest comment, line comment or review since you last read it that
+  mentions you (or your team), or for activity on your threads, isn't yours; a mention in the description too; plain text,
+  1,000 characters; kept per thread until its `updated_at` changes, the newest 40, six at a time), Linear's the notification's
+  comment. A GitHub issue opens at that comment (`openUrl`); a pull request still opens in the GitHub tab (`web/src/activity/ActivityView.tsx`), newest
   first, grouped by day, filtered by source or unread, with the selected one's preview beside it from 1,100 px; the sidebar's and the preview's edges resize them (`web/src/ResizeEdge.tsx`; arrow keys too, double-click restores the default; kept in localStorage). Opening one
   (`open.ts`, by its address) goes where it lives: pull requests in the GitHub tab ("Review in GitHub", through the app's link routing), Linear issues and projects in Linear's desktop app ("Open in Linear"; your browser without it), other GitHub in your default browser ("Open in browser"), in a browser a new tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–3 all and the sources; each with
   its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
