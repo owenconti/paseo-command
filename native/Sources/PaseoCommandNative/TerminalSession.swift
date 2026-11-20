@@ -91,8 +91,14 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     /// The view's size (its rows and columns, as SwiftTerm last said them), to the daemon.
     private func sendSize() {
         guard let size, size.cols > 0, size.rows > 0 else { return }
+        sizeSent = Date()
         send(["type": "resize", "rows": size.rows, "cols": size.cols])
     }
+    private var sizeSent = Date.distantPast
+
+    /// The daemon sizes a terminal as whichever client last asked (the Paseo app showing the same terminal can make it
+    /// its own pane's size): this view's size again, as it shows, takes the keyboard, and as you type (a second apart).
+    func reclaimSize() { sendSize() }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
         finish(reason.flatMap { String(data: $0, encoding: .utf8) }.flatMap { $0.isEmpty ? nil : $0 } ?? "closed")
@@ -122,7 +128,9 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
         let text = String(decoding: data, as: UTF8.self)
         switch answers.sent(data) {
-        case .key: send(["type": "input", "data": text])
+        case .key:
+            if Date().timeIntervalSince(sizeSent) > 1 { sendSize() }
+            send(["type": "input", "data": text])
         case .reply(let frame): send(["type": "input", "data": text, "reply": frame])
         case .drop: break
         }

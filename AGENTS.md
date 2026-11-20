@@ -804,7 +804,9 @@ terminal named `paseo editor · <program>` (`WORKSPACE_EDITOR`, listed with `edi
 the page keeps its id per workspace (`editor:workspaces` in localStorage) and finds it again while the daemon lists it, else
 starts another (a module-level `starting` map, so React's double effects start one). It keeps running while you step away;
 if it quits, Start again. Its terminal's size goes to the daemon as the socket opens and again once the screen replay is
-in (`TerminalSession.sendSize`), so a reattached nvim redraws to the pane's full height; the relay closes the socket, never the
+in (`TerminalSession.sendSize`), so a reattached nvim redraws to the pane's full height, and again as it shows, takes the keyboard and as you type (a second
+apart; `reclaimSize`): the daemon sizes a terminal as whichever client last asked, and the Paseo app showing the same terminal
+sizes it to its own pane; the relay closes the socket, never the
 server, when the daemon's connection has gone under it (`toDaemon` in `terminals.ts`), and the page reattaches. The macOS app lays the terminal over the pane's `.crew-editor-slot` (`EditorOverlay.swift`, placements
 with `mode: "command"`, `setEditorMode` in a layout effect; the app shows an editor only while its placement's mode shows,
 `EditorPlacement.mode`, `visible(showing:)`). The page's own things over the pane (tooltips, menus such as the top bar's

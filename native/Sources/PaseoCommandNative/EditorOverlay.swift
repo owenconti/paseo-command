@@ -76,6 +76,8 @@ final class EditorOverlay: EditorStage {
                 s.view.frame = bounds.insetBy(dx: 6, dy: 4)
                 s.view.autoresizingMask = [.width, .height]
                 addSubview(s.view)
+                // Another client of the daemon's (the Paseo app showing this terminal) may have sized it to its own pane.
+                s.reclaimSize()
                 if hadKeys { window?.makeFirstResponder(s.view) }
             }
         }
@@ -96,6 +98,7 @@ final class EditorOverlay: EditorStage {
     func focus() {
         guard let id = shown, let s = sessions[id], s.view.window != nil else { return }
         window?.makeFirstResponder(s.view)
+        s.reclaimSize()
     }
 
     /// ⌘K while the editor has the keyboard: the page's palette, the keyboard coming back once it closes.
