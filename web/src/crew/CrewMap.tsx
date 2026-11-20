@@ -259,7 +259,7 @@ export function CrewMap(props: Props) {
   const node = (a: RosterAgent) => {
     const running = a.state === "running";
     return (
-      <button key={a.key} className="crew-node" data-key={a.key} data-state={a.state} aria-current={selected === a.key ? "true" : undefined} onClick={() => pick("agent", a.key)}>
+      <button key={a.key} className="crew-node" data-key={a.key} data-state={a.state} aria-current={marked === a.key ? "true" : undefined} onClick={() => pick("agent", a.key)}>
         <Portrait agent={a} size={NODE} />
         <span className="crew-node-text">
           <span className="crew-node-name">
@@ -296,6 +296,9 @@ export function CrewMap(props: Props) {
 
   // The macOS app's Crew tab is the map alone, full width: what is open is the Command tab's.
   const open = !props.empty && place !== "map";
+  // What is open is marked on the map only while it shows beside it (a browser): on the macOS app's Crew tab it's the Command
+  // tab's, so no card stays marked as you come back.
+  const marked = place === "map" ? null : selected;
   return (
     <div
       ref={root}
@@ -485,7 +488,7 @@ export function CrewMap(props: Props) {
                           <button className="crew-fold small" aria-expanded={!shut} aria-label={`${shut ? "Show" : "Hide"} ${p.name}`} onClick={() => toggle(p.key)}>
                             <ChevronDown size={14} aria-hidden="true" />
                           </button>
-                          <button className="crew-head project" data-key={p.key} aria-current={selected === p.key ? "true" : undefined} onClick={() => pick("project", p.key)}>
+                          <button className="crew-head project" data-key={p.key} aria-current={marked === p.key ? "true" : undefined} onClick={() => pick("project", p.key)}>
                             {p.name}
                           </button>
                           {shut && <Tally agents={projectAgents(p)} />}
@@ -495,7 +498,7 @@ export function CrewMap(props: Props) {
                             {p.workspaces.map((w) => (
                               <article key={w.key} className="crew-ws" aria-label={w.name} style={{ "--crew-n": Math.max(1, w.agents.length), gridColumn: `span ${Math.min(cols, Math.max(1, w.agents.length))}` } as CSSProperties}>
                                 <div className="crew-ws-top">
-                                  <button className="crew-head workspace" data-key={w.key} aria-current={selected === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
+                                  <button className="crew-head workspace" data-key={w.key} aria-current={marked === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
                                     <span className="crew-ws-name">{w.name}</span>
                                     {medals(w, 24)}
                                   </button>

@@ -686,7 +686,7 @@ the Crew or Command tab, Settings not showing). In the macOS app the map is the 
 the open conversation the Command tab (⌘2; main's `crewPlace`, CrewMap's `place`: `map`, `conversation`; the user's
 ask, in place of focus's strip of the other robots). What is open (an agent, a workspace, a project, New agent, Add
 project) is the Command tab's only, the user's call: the Crew, GitHub and Activity tabs take the full width, with no drawer or
-session panel beside them (main's `panelAbsent` includes `macApp()`; CrewMap's `open` is false on `map`). Opening anything
+session panel beside them (main's `panelAbsent` includes `macApp()`; CrewMap's `open` is false on `map`, and no card or head is marked there, `marked`). Opening anything
 from another tab (a node or head, J/K, ⌘K, a notification, ⌘N, GitHub's Open Paseo agent) moves to Command (main's
 `openKey`); Esc on Command goes back to Crew, an agent's conversation kept there, anything else closed; and the Command tab
 with nothing open says so (`.crew-command-empty`, Show the crew). A browser has both at once (`both`): an agent opens over the
