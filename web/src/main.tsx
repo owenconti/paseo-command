@@ -851,10 +851,14 @@ function App() {
     const ask = (event: Event) => {
       if (!macApp()) return;
       if (!editorAsks.current.agentOpen) return setNotice("Open one of its agents to use the workspace’s editor.");
-      // While the Files tab shows, a file link opens there instead.
+      // A file link opens in the Files tab (the user's call), shown for it; Show changes stays your editor's.
       const detail = (event as CustomEvent<EditorAsk>).detail;
-      if (codeOpenSetting() && detail?.open) {
+      if (detail?.open) {
         takeEditorAsk(detail.workspace, detail.host);
+        setFilesOpen(false);
+        setBrowserOpen(false);
+        setTerminalOpen(false);
+        setCodeOpen(true);
         void import("./code/FilesPane").then((m) => m.askFilesOpen({ workspace: detail.workspace, ...(detail.host ? { host: detail.host } : {}), ...detail.open! }));
         postAppMenu("command");
         return;

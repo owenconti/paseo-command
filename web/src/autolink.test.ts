@@ -164,7 +164,7 @@ test("Markdown destinations become file links before URL filtering, without perm
   assert.match(html, /data-file-path="\/tmp\/My File.mp4" data-file-reveal="true">Open the animated diagram \(MP4\)<\/a>/);
   assert.match(html, /data-file-path="\/tmp\/scene.json" data-file-reveal="true">Editable scene JSON<\/a>/);
   assert.match(html, /data-file-path="\/tmp\/scene.json" data-file-reveal="true">Reference file<\/a>/);
-  assert.match(html, /title="Open in your editor" data-file-path="src\/autolink.ts" data-file-line="12">Workspace source<\/a>/);
+  assert.match(html, /title="Open in Files" data-file-path="src\/autolink.ts" data-file-line="12">Workspace source<\/a>/);
   assert.match(html, /data-file-reveal="true"><code>\/tmp\/Another File.json<\/code><\/a>/);
   assert.match(html, /<span class="md-link-text">Unsafe<\/span>/);
   assert.match(html, /href="https:\/\/example.com\/tmp\/file.mp4" target="_blank"/);
@@ -242,9 +242,9 @@ test("Markdown links file paths in prose and exact inline code, never in code bl
   assert.deepEqual(links, [
     [
       "<code>docs/reports/resource-reference-approaches.md</code>",
-      'href="#files:docs/reports/resource-reference-approaches.md" class="file-link" title="Open in your editor" data-file-path="docs/reports/resource-reference-approaches.md"',
+      'href="#files:docs/reports/resource-reference-approaches.md" class="file-link" title="Open in Files" data-file-path="docs/reports/resource-reference-approaches.md"',
     ],
-    ["src/autolink.ts#L12", 'href="#files:src/autolink.ts:12" class="file-link" title="Open in your editor" data-file-path="src/autolink.ts" data-file-line="12"'],
+    ["src/autolink.ts#L12", 'href="#files:src/autolink.ts:12" class="file-link" title="Open in Files" data-file-path="src/autolink.ts" data-file-line="12"'],
     ["src/index.ts", 'href="https://example.com/a" target="_blank" rel="noopener noreferrer"'],
   ]);
   assert.match(html, /<code>npm test src\/index.ts<\/code>/);

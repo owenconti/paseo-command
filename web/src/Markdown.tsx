@@ -134,7 +134,7 @@ function components(imageHost?: string): Components {
           <a
             href={href}
             className="file-link"
-            title={reveal ? "Show in Finder" : "Open in your editor"}
+            title={reveal ? "Show in Finder" : "Open in Files"}
             data-file-path={file}
             {...(reveal ? { "data-file-reveal": "true" } : {})}
             {...(imageHost ? { "data-file-host": imageHost } : {})}

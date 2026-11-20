@@ -641,10 +641,8 @@ and GitHub publication; report the published version and release link.
   `revealFile` to `WorldWindow.swift`, which reveals the local path with `NSWorkspace.activateFileViewerSelecting`. Remote-host paths
   carry `data-file-host` and show a notice instead of revealing this Mac's same-named file; plain browsers explain the app requirement.
   A file link is `#files:<path>` with `data-file-path`/`-line`/`-end` and the title "Open in Files"; the session's click
-  (`openFileLink` in `Session.tsx`) sends `openFilesFile` (`web/src/files/open.ts`: kept as `files:openFile` for the page as it mounts,
-  and `files-open-at`) and `postAppMenu("files")`: the agent's workspace (the one Files shows for it) opens the file as a kept tab
-  (in the editor too when that's set), scrolled to the line and marked as a find's match is; in a browser a notice says the tab is the
-  macOS app's. Tests: `src/autolink.test.ts`, `e2e/autolink-files.e2e.ts`, `e2e/world-chat.e2e.ts`.
+  (`openFileLink` in `Session.tsx`) asks main, which shows the Files tab beside the conversation (on the Command tab) and opens the
+  file there as a tab, at its line (`askFilesOpen`, see The Files tab); in a browser a notice says the tab is the macOS app's. Tests: `src/autolink.test.ts`, `e2e/autolink-files.e2e.ts`, `e2e/world-chat.e2e.ts`.
   Only text is wrapped (it copies as written); other clicks take the link path below.
 - Images in the chat named by absolute path (a screenshot an agent took, a file it read; `![…](/tmp/…png)`) load through
   `GET /api/attachments/image?path=` (`resolveImage` in `web/src/imageSource.ts`, the bounded loader in `imageLoad.ts`). A local
@@ -832,11 +830,12 @@ glance menus, the bar's popovers: `OVERLAYS` in `web/src/overlays.ts`, shared wi
 `holes`, which `EditorStage` cuts out of the terminal (a layer mask; clicks there reach the page), as `BrowserStage` does. Main's `filesShown` (`crewBrowsing` and `world:filesOpen`): F outside a field,
 the tools' Editor tab, ⇧⌘E, ⌘K "Show …’s workspace in your editor" / "Hide the editor beside the
 conversation" (`crew-files`, page Command). It and the browser share the place. Asks go to it (`workspaceEditorAsks.ts`:
-`askWorkspaceEditor`, kept until its editor runs): a chat's file link (`openFileLink` in `Session.tsx`, title "Open in your
-editor"; while the Files tab shows, main hands it to the Files tab instead, `askFilesOpen`) opens the editor and sends `:e +<line> <path>` from Normal mode (`openFileKeys`, the path Ex-escaped by `exPath`);
+`askWorkspaceEditor`, kept until its editor runs), but a chat's file link (`openFileLink` in `Session.tsx`, title "Open in
+Files"), which main hands to the Files tab, shown for it (`askFilesOpen`; the user's call: links open in the Files tab, not
+the editor; `openFileKeys`'s `:e +<line> <path>`, the path Ex-escaped by `exPath`, stays for asks that open a file there):
 Show changes (⇧⌘G from anywhere; the pane has no header or button of its own, nvim filling it, the user's call; ⌘K "Show …’s changes in your editor", `files-workspace-changes`) sends the
 changes command (`exCommandKeys`). Both through `POST /api/terminals/editor-send` (`sendToEditor`: only to a terminal the daemon
-lists as that workspace's editor, the path `checkPath`ed). In a browser a file link says the editor is the macOS app's. Tests:
+lists as that workspace's editor, the path `checkPath`ed). Tests:
 `e2e/files-editor.e2e.ts`, `e2e/autolink-files.e2e.ts`, `server/api/terminals.test.ts`, `src/files/editorCommand.test.ts`,
 `native/tests/EditorEmbedTests.swift`.
 
@@ -881,7 +880,7 @@ doesn't answer (`workspace/configuration`, `client/registerCapability`, progress
 server's Markdown is sanitized. Usages (`gr`, ⇧F12) and rename (F2, `<space>rn`: every file edited, left unsaved) are the
 tab's own (the client's skip files not open); usages list under the editor by file. Hover on the pointer is the
 client's; `K` asks for the cursor's. ⌘-click and F12 go to a definition, ⌃O/⌃I (⌥←/⌥→) through where you've been. A
-chat's file link opens there while the tab shows. Tests: `server/lsp.test.ts` (a fake plugin), `server/api/files.test.ts`
+chat's file link opens there, the tab shown for it (main's `ASK_EVENT` handler); in a browser it says the tab is the macOS app's. Tests: `server/lsp.test.ts` (a fake plugin), `server/api/files.test.ts`
 (write, conflict, version), `src/code/code.test.ts`, `e2e/files-tab.e2e.ts` (a fake `/api/lsp` socket).
 
 ### The agent's browser

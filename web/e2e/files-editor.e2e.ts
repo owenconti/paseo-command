@@ -2,8 +2,8 @@
  * Your editor (Settings → Files' command, nvim for the user): in the macOS app
  * an agent's workspace opens in it beside the conversation on Crew (`POST
  * /api/terminals/workspace-editor`, answered here by a fake daemon terminal),
- * one per workspace and kept; the page tells the app where to lay it, and a
- * chat's file links and Show changes (⇧⌘G) are sent to it (`POST
+ * one per workspace and kept; the page tells the app where to lay it, and
+ * Show changes (⇧⌘G) is sent to it (`POST
  * /api/terminals/editor-send`). Settings edits the commands. Nothing reaches a daemon.
  */
 import { after, before, test } from "node:test";
@@ -136,7 +136,7 @@ test("Settings → Files edits your editor's command and its changes command", a
   }
 });
 
-test("an agent's workspace in your editor beside its conversation on Crew (F): one nvim in its folder, kept; file links and Show changes go to it", async () => {
+test("an agent's workspace in your editor beside its conversation on Crew (F): one nvim in its folder, kept; Show changes goes to it", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1500, height: 900 });
@@ -190,29 +190,18 @@ test("an agent's workspace in your editor beside its conversation on Crew (F): o
     await page.keyboard.press("f");
     await page.locator(".crew-editor-slot[data-terminal=term-1]").waitFor();
     assert.equal(created.length, 1, "no second editor");
-    // ⌘K hides it; a file link in the chat shows it again and opens the file in it, at its line.
+    // ⌘K hides it; ⇧⌘G (the app's View menu asks the page) shows it again with the changes. (A chat's file link opens
+    // in the Files tab instead: autolink-files.e2e.ts.)
     await blur();
     await page.keyboard.press("Meta+k");
     const palette = page.getByRole("dialog", { name: "Command palette" });
     await palette.getByRole("combobox").fill("Hide the editor");
     await palette.getByRole("option", { name: /Hide the editor beside the conversation/ }).click();
     await page.locator(".crew-editor-slot").waitFor({ state: "detached" });
-    await page.evaluate(() => {
-      const a = document.createElement("a");
-      a.href = "#files:src/app.ts";
-      a.dataset.filePath = "src/app.ts";
-      a.dataset.fileLine = "7";
-      a.textContent = "src/app.ts:7";
-      document.querySelector(".crew-drawer .session .timeline")!.appendChild(a);
-    });
-    await page.locator('.crew-drawer a[data-file-path="src/app.ts"]').click();
-    await page.locator(".crew-editor-slot[data-terminal=term-1]").waitFor();
-    await waitFor(() => Promise.resolve(sentToEditor.length), (n) => n === 2, "the file sent to the editor");
-    assert.deepEqual(sentToEditor[1], { workspace: "wks_a", id: "term-1", open: { path: "src/app.ts", line: 7 } });
-    // ⇧⌘G (the app's View menu asks the page) shows the changes in it too.
     await appEvent(page, "paseo:command", "branch-changes");
-    await waitFor(() => Promise.resolve(sentToEditor.length), (n) => n === 3, "⇧⌘G sent");
-    assert.equal(sentToEditor[2].changes, true);
+    await page.locator(".crew-editor-slot[data-terminal=term-1]").waitFor();
+    await waitFor(() => Promise.resolve(sentToEditor.length), (n) => n === 2, "⇧⌘G sent");
+    assert.equal(sentToEditor[1].changes, true);
   } finally {
     await context.close();
   }

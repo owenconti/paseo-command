@@ -3,8 +3,8 @@
  * (src/autolink.ts): in its replies (prose and inline code that is exactly a
  * path) and your messages, checked against the workspace's file list; code
  * blocks, links and missing paths stay plain. In the macOS app a click opens
- * the file in your editor beside the conversation, at its line; a browser says
- * the editor is the app's. Every /api request is answered in the
+ * the file in the Files tab beside the conversation, at its line; a browser says
+ * the tab is the app's. Every /api request is answered in the
  * browser; nothing reaches a daemon.
  */
 import { after, before, test } from "node:test";
@@ -160,7 +160,7 @@ test("Finder links in a plain browser explain where they can open", async () => 
   } finally { await context.close(); }
 });
 
-test("file paths in the conversation link, and open in your editor at their line", async () => {
+test("file paths in the conversation link, and open in the Files tab at their line", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1600, height: 1000 });
@@ -172,8 +172,8 @@ test("file paths in the conversation link, and open in your editor at their line
     const reply = page.locator(".msg.assistant");
     await reply.locator("a.file-link").first().waitFor();
     assert.deepEqual(await fileLinks(page, ".msg.assistant"), [
-      [REPORT, REPORT, null, "Open in your editor", true],
-      ["/work/atlas/a/src/long.ts:2700", "src/long.ts", "2700", "Open in your editor", false],
+      [REPORT, REPORT, null, "Open in Files", true],
+      ["/work/atlas/a/src/long.ts:2700", "src/long.ts", "2700", "Open in Files", false],
     ]);
     // The missing path and the code block stay plain; the text reads as written.
     assert.equal(await reply.locator("pre a").count(), 0);
@@ -182,23 +182,24 @@ test("file paths in the conversation link, and open in your editor at their line
       REPLY.split("\n\n").slice(0, 2).join(" ").replace(/`/g, ""),
     );
     assert.deepEqual(await fileLinks(page, ".msg.user"), [
-      ["src/app.ts", "src/app.ts", null, "Open in your editor", false],
-      ["src/long.ts", "src/long.ts", null, "Open in your editor", false],
+      ["src/app.ts", "src/app.ts", null, "Open in Files", false],
+      ["src/long.ts", "src/long.ts", null, "Open in Files", false],
     ]);
     await page.screenshot({ path: "/tmp/autolink-files-chat.png" });
 
-    // A click: the workspace's editor opens beside the conversation and is sent the file, at its line.
+    // A click: the Files tab shows beside the conversation with the file, at its line; your editor isn't started.
     await reply.getByRole("link", { name: "/work/atlas/a/src/long.ts:2700" }).click();
-    await page.locator(".crew-editor-slot[data-terminal=term-1]").waitFor();
-    await waitFor(() => Promise.resolve(sentToEditor.length), (n) => n === 1, "the file sent to the editor");
-    assert.deepEqual(started, [{ workspace: "wks_a" }]);
-    assert.deepEqual(sentToEditor[0], { workspace: "wks_a", id: "term-1", open: { path: "src/long.ts", line: 2700 } });
+    await page.locator(".files-view").waitFor();
+    assert.equal(await page.locator(".crew-tool-tabs [role=tab][aria-selected=true]").textContent(), "Files");
+    await page.locator(".files-tab[aria-selected=true]").getByText("long.ts").waitFor();
+    await page.locator(".files-editor .cm-line").getByText("const needle = true;").waitFor();
     assert.equal(new URL(page.url()).hash, "", "the page stays where it is");
-    // The other link goes to the same editor.
+    // The other link opens beside it, as another tab.
     await reply.getByRole("link", { name: REPORT }).click();
-    await waitFor(() => Promise.resolve(sentToEditor.length), (n) => n === 2, "the second file sent");
-    assert.deepEqual(sentToEditor[1], { workspace: "wks_a", id: "term-1", open: { path: REPORT } });
-    assert.equal(started.length, 1, "one editor");
+    await page.locator(".files-tab[aria-selected=true]").getByText("resource-reference-approaches.md").waitFor();
+    assert.equal(await page.locator(".files-tab").count(), 2);
+    assert.deepEqual(started, [], "your editor isn't started");
+    assert.deepEqual(sentToEditor, []);
     assert.equal(listAsks(), 1, "the file list is asked once");
     assert.deepEqual(errors, []);
   } finally {
@@ -206,7 +207,7 @@ test("file paths in the conversation link, and open in your editor at their line
   }
 });
 
-test("in a browser a file link says the editor is the macOS app's", async () => {
+test("in a browser a file link says the Files tab is the macOS app's", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1600, height: 1000 });
@@ -215,7 +216,7 @@ test("in a browser a file link says the editor is the macOS app's", async () => 
     await page.goto(`${app.url}?agent=a-idle`);
     const link = page.locator(".msg.assistant a.file-link").first();
     await link.click();
-    await page.locator(".toast[role=status]", { hasText: "Your editor, where files open, is the macOS app’s." }).waitFor();
+    await page.locator(".toast[role=status]", { hasText: "The Files tab, where files open, is the macOS app’s." }).waitFor();
     assert.equal(new URL(page.url()).hash, "");
   } finally {
     await context.close();

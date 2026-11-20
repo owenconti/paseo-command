@@ -130,11 +130,11 @@ export function openFileLink(e: React.MouseEvent, workspace: Workspace | undefin
     return true;
   }
   if (!macApp()) {
-    onNotice("Your editor, where files open, is the macOS app’s.");
+    onNotice("The Files tab, where files open, is the macOS app’s.");
     return true;
   }
   if (!workspace) return true;
-  // In the workspace's own editor (crew/WorkspaceEditor.tsx), at its line, beside the agent's conversation.
+  // In the Files tab beside the agent's conversation (main shows it and hands it the file), at its line.
   const line = Number(link.dataset.fileLine) || undefined;
   askWorkspaceEditor({
     workspace: workspace.workspaceId,
