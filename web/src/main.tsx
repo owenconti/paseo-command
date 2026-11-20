@@ -864,15 +864,6 @@ function App() {
   const toggleBrowser = () => showTool(browserShown ? null : "browser");
   const toggleFiles = () => showTool(filesShown ? null : "editor");
   const toggleTerminal = () => showTool(terminalShown ? null : "terminal");
-  // An agent opened on the Crew tab (a node, J/K, ⌘K, a notification): its conversation is the Command tab's.
-  const agentKey = selection?.type === "agent" ? `${selection.id}|${selection.subagent ?? ""}` : "";
-  const openedAgent = useRef(agentKey);
-  useEffect(() => {
-    if (agentKey === openedAgent.current) return;
-    openedAgent.current = agentKey;
-    if (macApp() && agentKey && appMode === "crew") postAppMenu("command");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentKey]);
   // ⇧⌘E, ⇧⌘T and ⇧⌘B (the macOS app's View menu, from anywhere, ahead of the editor, terminal and browser): the open
   // agent's editor, workspace terminal or browser beside its conversation, on the Command tab, with the keyboard.
   // ⇧⌘D: back to its message box.
@@ -987,7 +978,20 @@ function App() {
       : undefined;
   // Nothing is open: Crew shows its map alone, and the session panel isn't shown beside the other tabs.
   const detailEmpty = !addingProject && !dispatchTarget && !agent && !workspace && !project;
-  const panelAbsent = crewShown || detailEmpty;
+  // In the macOS app what is open (an agent, a workspace, a project, New agent, Add project) is the Command tab's only
+  // (the user's call): Crew, GitHub and Activity take the full width, with no session panel or drawer beside them.
+  const panelAbsent = crewShown || detailEmpty || macApp();
+  // So opening something from another tab (a node, J/K, ⌘K, a notification, New agent ⌘N) moves to the Command tab.
+  const openKey = detailEmpty
+    ? ""
+    : JSON.stringify([selection ?? null, dispatchTarget ? "dispatch" : "", addingProject ? "add" : ""]);
+  const opened = useRef(openKey);
+  useEffect(() => {
+    if (openKey === opened.current) return;
+    opened.current = openKey;
+    if (macApp() && openKey && appMode !== "command") postAppMenu("command");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openKey]);
   // The open project's repository on GitHub, for G: its workspaces' remote.
   const projectRepo = project
     ? listedWorkspaces.find(
@@ -1240,8 +1244,11 @@ function App() {
       ) {
         e.preventDefault();
         if (selection?.subagent) return select({ ...selection, subagent: undefined });
-        // The macOS app's Command tab: back to the Crew tab, the conversation kept for the Command tab.
-        if (crewPlace === "conversation" && selection?.type === "agent") return postAppMenu("crew");
+        // The macOS app's Command tab: back to the Crew tab, an agent's conversation kept for the Command tab.
+        if (crewPlace === "conversation") {
+          postAppMenu("crew");
+          if (selection?.type === "agent") return;
+        }
         setDispatchTarget(null);
         setAddingProject(false);
         select(null);

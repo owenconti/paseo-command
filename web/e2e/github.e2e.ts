@@ -1062,7 +1062,8 @@ test("A PR whose branch a Paseo workspace has checked out opens its most recent 
     await view.locator(".gh-pr-title", { hasText: "Fix the shoreline" }).waitFor();
     await view.getByRole("button", { name: "Open Paseo agent" }).click();
     await waitFor(() => page.evaluate(() => location.search), (q) => q.includes("agent=a-done"), "Finisher selected");
-    await waitFor(commandAsked, (n) => n === 1, "the map asked for");
+    // The Command tab asked for (by the button, and as anything opened moves there in the app).
+    const asked1 = await waitFor(commandAsked, (n) => n >= 1, "the map asked for");
 
     // #12: two workspaces on its branch; a menu chooses, host · project · workspace.
     await view.locator(".gh-nav-item", { hasText: "Review requests" }).click();
@@ -1073,7 +1074,7 @@ test("A PR whose branch a Paseo workspace has checked out opens its most recent 
     assert.deepEqual(await menu.getByRole("menuitem").allTextContents(), ["local · atlas · Map polish", "macmini · infra · Deploy"]);
     await menu.getByRole("menuitem", { name: "local · atlas · Map polish" }).click();
     await waitFor(() => page.evaluate(() => location.search), (q) => q.includes("agent=a-running"), "Runner selected");
-    await waitFor(commandAsked, (n) => n === 2, "the map asked for again");
+    await waitFor(commandAsked, (n) => n > asked1, "the map asked for again");
 
     // ⌘K has one entry for each.
     await page.keyboard.press("Meta+k");

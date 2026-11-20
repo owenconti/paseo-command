@@ -34,7 +34,6 @@ const GROUPS: Group[] = [
     title: "Act",
     rows: [
       { keys: [["⌘", "N"], ["D"]], label: "New agent" },
-      { keys: [["⌘", "B"]], label: "Show or hide the session panel beside the other tabs (Crew's drawer is on Command)" },
       { keys: [["⇧", "⌘", "D"], ["Enter"]], label: "Focus the message box (⇧⌘D from anywhere, your editor and the agent's browser too)" },
       { keys: [["R"]], label: "Reply to the selected agent" },
       {

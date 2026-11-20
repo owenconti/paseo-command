@@ -702,6 +702,16 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   await page.locator('.crew-node[data-state="running"]').first().click();
   await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "conversation", "on the Command tab");
   await page.locator(".crew-detail .session").waitFor();
+  // A workspace opened on the Crew tab goes there too: the Crew tab is the map alone, full width.
+  await appEvent(page, "paseo:mode", { mode: "crew" });
+  await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "map", "on the Crew tab, a third time");
+  await page.locator(".crew-head.workspace").first().click();
+  await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "conversation", "the workspace on the Command tab");
+  await appEvent(page, "paseo:mode", { mode: "crew" });
+  await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "map", "back on the Crew tab");
+  assert.equal(await page.locator(".crew-drawer").count(), 0, "nothing beside the map");
+  await page.locator('.crew-node[data-state="running"]').first().click();
+  await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "conversation", "the agent on the Command tab again");
   await showBrowser();
   await page.locator(".board-browser.crew").waitFor();
   // B hides it (outside a field), and ⌘K shows it again.

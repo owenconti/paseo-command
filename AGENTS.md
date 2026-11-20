@@ -684,10 +684,12 @@ Crew (`web/src/crew/`) is the only map (the user's call: the Islands, Overworld 
 It is the fleet as a chat app, drawn by the page itself, in a plain browser as in the macOS app (main's `crewShown`:
 the Crew or Command tab, Settings not showing). In the macOS app the map is the Crew tab (the mode bar's first, ⌘1) and
 the open conversation the Command tab (⌘2; main's `crewPlace`, CrewMap's `place`: `map`, `conversation`; the user's
-ask, in place of focus's strip of the other robots): opening an agent on the Crew tab moves to Command (main's
-`openedAgent`), Esc in the conversation goes back to Crew keeping it open there, and the Command tab with nothing open
-says so (`.crew-command-empty`, Show the crew). On the Crew tab an open agent's conversation isn't drawn (its node marked);
-workspaces, projects and New agent still open beside the map. A browser has both at once (`both`): an agent opens over the
+ask, in place of focus's strip of the other robots). What is open (an agent, a workspace, a project, New agent, Add
+project) is the Command tab's only, the user's call: the Crew, GitHub and Activity tabs take the full width, with no drawer or
+session panel beside them (main's `panelAbsent` includes `macApp()`; CrewMap's `open` is false on `map`). Opening anything
+from another tab (a node or head, J/K, ⌘K, a notification, ⌘N, GitHub's Open Paseo agent) moves to Command (main's
+`openKey`); Esc on Command goes back to Crew, an agent's conversation kept there, anything else closed; and the Command tab
+with nothing open says so (`.crew-command-empty`, Show the crew). A browser has both at once (`both`): an agent opens over the
 map with a strip whose ← Crew goes back. ⌘K "Show the crew" (`crew-show`) and "Show the conversation with …"
 (`command-show`). The app opens on Crew (`Mode.crew`, the page's first `useAppMode`) unless the saved mode says otherwise. It began as the user's ask for a simpler, more traditional
 chat/AI interface that keeps the robots, their progress animations and the status medallions; then: no left sidebar,
@@ -775,9 +777,9 @@ the component Crew's drawer is.
   on the map's frame, which the tools read; at least 380 px, the tools 360). In focus the panes' own close, fill and title
   rows and the conversation's "← Fleet" are hidden (the tab bar and the strip have them). Under 900 px the tools lie over
   the conversation. Tests: `e2e/crew.e2e.ts`, `e2e/files-editor.e2e.ts`.
-- Beside the other tabs (GitHub, Activity) the session panel (`FloatingPanel`, one column) shows
-  what is open as the same `CrewDetail`, only while something is (main's `panelAbsent` = `crewShown || detailEmpty`: the
-  panel takes no width and the bar's panel buttons go). It keeps its side, width and ⌘B; choosing something (J/K, ⌘K, a
+- The session panel (`FloatingPanel`, one column; what is open as the same `CrewDetail`) no longer shows anywhere: in the
+  macOS app what is open is the Command tab's (above), and a browser's page is always Crew (main's `panelAbsent` =
+  `crewShown || detailEmpty || macApp()`: the panel takes no width, the bar's panel buttons go, and ⌘B does nothing). It keeps its side, width and ⌘B; choosing something (J/K, ⌘K, a
   notification, the GitHub tab's Open in agent) opens it. There are no lists (the Agents, Workspaces, Projects and Hosts
   tabs, their filters and the host filter were removed: Crew is the list). The bar's "need you" opens the next agent
   that needs you.

@@ -32,7 +32,7 @@ type Props = CrewFleet & {
   detail: ReactNode;
   /** Nothing is open: the overview shows in the detail's place. */
   empty: boolean;
-  /** Which of Crew shows: the map (the macOS app's Crew tab: an open agent's conversation waits for the Command tab), the
+  /** Which of Crew shows: the map (the macOS app's Crew tab, full width: what is open waits for the Command tab), the
    *  open conversation (its Command tab: the map aside), or both (a browser: an agent opens over the map, ← Crew goes back). */
   place: "map" | "conversation" | "both";
   /** The Command tab with nothing open: back to the Crew tab. */
@@ -170,8 +170,8 @@ export function CrewMap(props: Props) {
   }, [drawerWidth]);
   // Focus: an agent open (in the macOS app, the Command tab). The map steps aside (kept, with its scroll), the
   // conversation stands on the left and its tools (your editor and browser: main's WorkspaceEditor and BoardBrowser, beside
-  // it) fill the right. On the Command tab whatever is open takes the window; on the Crew tab an agent's conversation waits
-  // for the Command tab (what else is open shows beside the map). In a browser a strip's ← Crew goes back to the map.
+  // it) fill the right. On the Command tab whatever is open takes the window; the Crew tab is the map alone (what is open
+  // waits for the Command tab). In a browser a strip's ← Crew goes back to the map.
   const isAgent = props.selection?.type === "agent";
   const place = props.place;
   const focus = !props.empty && (place === "conversation" || (isAgent && place === "both"));
@@ -294,7 +294,8 @@ export function CrewMap(props: Props) {
   const running = roster.counts.running ?? 0;
   const need = (["failed", "approval", "question", "asking"] as State[]).reduce((n, s) => n + (roster.counts[s] ?? 0), 0);
 
-  const open = !props.empty && !(place === "map" && isAgent);
+  // The macOS app's Crew tab is the map alone, full width: what is open is the Command tab's.
+  const open = !props.empty && place !== "map";
   return (
     <div
       ref={root}
