@@ -509,7 +509,7 @@ export function CrewMap(props: Props) {
                         {!shut && (
                           <div className="crew-workspaces">
                             {p.workspaces.map((w) => (
-                              <article key={w.key} className="crew-ws" aria-label={w.name} style={{ "--crew-n": Math.max(1, w.agents.length), gridColumn: `span ${Math.min(cols, Math.max(1, w.agents.length))}` } as CSSProperties}>
+                              <article key={w.key} className={`crew-ws${w.probe?.state === "reviewing" ? " probe-reviewing" : ""}`} aria-label={w.name} style={{ "--crew-n": Math.max(1, w.agents.length), gridColumn: `span ${Math.min(cols, Math.max(1, w.agents.length))}` } as CSSProperties}>
                                 <div className="crew-ws-top">
                                   <button className="crew-head workspace" data-key={w.key} aria-current={marked === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
                                     <span className="crew-ws-name">{w.name}</span>

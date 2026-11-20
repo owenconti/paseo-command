@@ -483,6 +483,55 @@
   gap: 3px;
   flex: none;
 }
+/* While Probe reviews the workspace's pull request: a ring turning around its medallion, the card's edge in Probe's
+   blue, its head tinted and a light sweeping across it as a scanner's. Reduced motion keeps the ring, tint and edge, still. */
+.crew-probe-reviewing {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.crew-probe-reviewing::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgb(95 184 240 / 0.15) 0 40%, rgb(95 184 240 / 0.6) 70%, #8fd0ff 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px));
+  animation: crew-spin 1.2s linear infinite;
+  pointer-events: none;
+}
+.crew-ws.probe-reviewing {
+  border-color: rgb(44 143 208 / 0.7);
+  box-shadow: 0 0 0 1px rgb(44 143 208 / 0.25), 0 0 22px -4px rgb(44 143 208 / 0.55);
+}
+.crew-ws.probe-reviewing .crew-ws-top {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgb(44 143 208 / 0.16), rgb(44 143 208 / 0.06));
+  border-bottom-color: rgb(44 143 208 / 0.45);
+}
+/* The sweep: a band of light crossing the head, and its bright edge along the head's foot. */
+.crew-ws.probe-reviewing .crew-ws-top::before,
+.crew-ws.probe-reviewing .crew-ws-top::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 35%;
+  pointer-events: none;
+  animation: crew-slide 2s ease-in-out infinite;
+}
+.crew-ws.probe-reviewing .crew-ws-top::before {
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgb(95 184 240 / 0.22), transparent);
+}
+.crew-ws.probe-reviewing .crew-ws-top::after {
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #8fd0ff, transparent);
+}
 .crew-ws-empty {
   margin: 0;
   padding: 18px 12px;
@@ -914,8 +963,15 @@
   .crew-map .crew-drone *,
   .crew-map .crew-shimmer,
   .crew-map .crew-progress i,
-  .crew-map .crew-stage-state i {
+  .crew-map .crew-stage-state i,
+  .crew-probe-reviewing::before,
+  .crew-ws.probe-reviewing .crew-ws-top::before,
+  .crew-ws.probe-reviewing .crew-ws-top::after {
     animation: none !important;
+  }
+  .crew-ws.probe-reviewing .crew-ws-top::before,
+  .crew-ws.probe-reviewing .crew-ws-top::after {
+    display: none;
   }
   .crew-bot .crew-f:first-child,
   .crew-drone .crew-f:first-child {

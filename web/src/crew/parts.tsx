@@ -124,7 +124,17 @@ export function Medals({ workspace: w, pr, size }: { workspace: RosterWorkspace 
     <span className="crew-medals">
       {list.map((m) => {
         const tip = flagTip(m.flag, pr, w.probe);
-        return <Status key={m.kind} frame={m.frame} size={size} tip={`${tip.title}: ${tip.facts || tip.description}`} />;
+        // Probe's line names it already ("Probe: 2 findings open."); the PR medallions' are their facts under their name.
+        const text = m.kind === "probe" && tip.facts ? tip.facts : `${tip.title}: ${tip.facts || tip.description}`;
+        const status = <Status key={m.kind} frame={m.frame} size={size} tip={text} />;
+        // While Probe reviews, a ring turns around its medallion.
+        return m.kind === "probe" && w.probe?.state === "reviewing" ? (
+          <span key={m.kind} className="crew-probe-reviewing">
+            {status}
+          </span>
+        ) : (
+          status
+        );
       })}
       {w.autoMerge && <Status frame="seal-automerge" size={size} tip={autoMergeLine(pr) || `${AUTO_MERGE.name}: ${AUTO_MERGE.description}`} />}
     </span>

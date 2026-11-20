@@ -785,3 +785,14 @@ test("in the macOS app: the page lifts the splash and reports the map's place", 
   await page.context().close();
 });
 
+
+test("while Probe reviews a workspace's pull request, its card says so: a ring round the medallion, a blue edge and a scan", async () => {
+  const ws = dungeon.workspaces[0]!;
+  const page = await open({ lists: { probe: { [`${ws.host || "local"}:${ws.workspaceId}`]: { state: "reviewing" } } } });
+  const card = map(page).locator(".crew-ws.probe-reviewing");
+  await card.waitFor();
+  assert.equal(await card.count(), 1, "only the reviewed workspace");
+  const medal = card.locator(".crew-probe-reviewing .crew-status");
+  assert.equal(await medal.getAttribute("data-tip"), "Probe: reviewing the pull request now.");
+  await page.context().close();
+});

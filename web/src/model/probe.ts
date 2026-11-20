@@ -72,7 +72,7 @@ export function probeLine(v: ProbeVerdict): string {
   const at = v.head ? ` (review of ${v.head.slice(0, 7)})` : "";
   switch (v.state) {
     case "reviewing":
-      return "Probe: reviewing.";
+      return "Probe: reviewing the pull request now.";
     case "approved":
       return `Probe: approved${at}.`;
     case "findings":

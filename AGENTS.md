@@ -257,7 +257,10 @@ and GitHub publication; report the published version and release link.
 - `web/server/probe.ts`: Probe's verdict (Diagonal's `diagonalprobe` review bot) on each workspace's open PR, from one
   read-only GitHub GraphQL query per PR (`githubApi.ts`, the GitHub token) (`GET /api/probe`, polled by `web/src/useProbe.ts`): reviewing, approved,
   findings open (with their count), stale (new commits since, or deferred) or failed. Crew shows it as a medallion on the
-  workspace's head (`web/src/model/probe.ts`, `medalsOf` in `crew/sheets.ts`), its tooltip saying the verdict.
+  workspace's head (`web/src/model/probe.ts`, `medalsOf` in `crew/sheets.ts`), its tooltip saying the verdict (`probeLine`). While Probe
+  reviews (the user's ask: more visible), a ring turns around the medallion (`.crew-probe-reviewing`, `Medals` in `crew/parts.tsx`,
+  the conversation's strip too) and the workspace's card has Probe's blue edge, its head tinted with a light sweeping across it
+  (`.crew-ws.probe-reviewing`; reduced motion keeps the ring, tint and edge still).
   `native:mock -- --probe` shows each.
 - Pool boxes (`web/src/pool.ts`, pure; `web/server/pool.ts`): warm-pool Sprites the user's paseo-boxes scripts on this Mac claim and
   release. Opt-in (`integrations.pool`, Settings → Integrations → Pool boxes), with `pool: {dir}` in `settings.json` (the scripts'
