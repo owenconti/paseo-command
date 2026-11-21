@@ -13,9 +13,6 @@ import {
   useBrowserFollows,
   useBrowserOpen,
   useBrowserTools,
-  useFilesOpen,
-  setFilesOpen,
-  filesOpenSetting,
   codeOpenSetting,
   setCodeOpen,
   useCodeOpen,
@@ -132,7 +129,7 @@ import { CrewDetail } from "./crew/CrewDetail";
 import { useGlanceData } from "./crew/Glance";
 import { toggleWrapSetting, useWrapSetting } from "./code/wrapSetting";
 import { SIDE_GROUPS, SIDE_SORTS, setCrewSideGroup, setCrewSideSort, useCrewSide } from "./crew/sideStore";
-import { ASK_EVENT, askWorkspaceEditor, takeEditorAsk, type EditorAsk } from "./crew/workspaceEditorAsks";
+import { FILES_ASK_EVENT, askFilesTab, type FilesAsk } from "./code/filesAsks";
 import { useOpenAgentMode } from "./agentModeStore";
 import { CrewMap } from "./crew/CrewMap";
 import { Session } from "./Session";
@@ -212,7 +209,7 @@ const GitHubView = React.lazy(() =>
 );
 // The Files tab (the selected workspace's files, read only), likewise.
 const FilesPane = React.lazy(() => import("./code/FilesPane").then((module) => ({ default: module.FilesPane })));
-const WorkspaceEditor = React.lazy(() => import("./crew/WorkspaceEditor").then((module) => ({ default: module.WorkspaceEditor })));
+const WorkspaceTerminal = React.lazy(() => import("./crew/WorkspaceTerminal").then((module) => ({ default: module.WorkspaceTerminal })));
 
 /** Keeps the mode bar's Activity tab showing the feed's unread count (macOS app only). */
 function ActivityBadge() {
@@ -686,7 +683,6 @@ function App() {
   // from agent to agent.
   const browserOpen = useBrowserOpen();
   // Its workspace's files beside its conversation (src/crew/CrewFiles.tsx): F; the files and the browser share the place.
-  const filesOpen = useFilesOpen();
   const terminalOpen = useTerminalOpen();
   // The Files tab (src/code/FilesPane.tsx): the workspace's changes and files in the app's own editor.
   const codeOpen = useCodeOpen();
@@ -851,77 +847,61 @@ function App() {
   // Only while the agent's own conversation shows: not New agent or Add project, which open over it while it stays selected.
   const crewBrowsing = crewShown && crewPlace !== "map" && macApp() && !!agent && !selection?.subagent && !dispatchTarget && !addingProject;
   const codeShown = crewBrowsing && codeOpen;
-  const filesShown = crewBrowsing && filesOpen && !codeShown;
-  // A file link or Show changes for a workspace: its editor shows beside the open agent's conversation (Command).
-  const editorAsks = useRef({ agentOpen: false });
-  editorAsks.current.agentOpen = !!agent && !selection?.subagent;
+  // A file link, or ⇧⌘G's branch changes, for a workspace: the Files tab shows beside the open agent's conversation (Command)
+  // and takes the ask (`code/filesAsks.ts`).
+  const filesAsks = useRef({ agentOpen: false });
+  filesAsks.current.agentOpen = !!agent && !selection?.subagent;
   useEffect(() => {
     const ask = (event: Event) => {
       if (!macApp()) return;
-      if (!editorAsks.current.agentOpen) return setNotice("Open one of its agents to use the workspace’s editor.");
-      // A file link opens in the Files tab (the user's call), shown for it; Show changes stays your editor's.
-      const detail = (event as CustomEvent<EditorAsk>).detail;
-      if (detail?.open) {
-        takeEditorAsk(detail.workspace, detail.host);
-        setFilesOpen(false);
-        setBrowserOpen(false);
-        setTerminalOpen(false);
-        setCodeOpen(true);
-        void import("./code/FilesPane").then((m) => m.askFilesOpen({ workspace: detail.workspace, ...(detail.host ? { host: detail.host } : {}), ...detail.open! }));
-        postAppMenu("command");
-        return;
-      }
-      setCodeOpen(false);
+      if (!filesAsks.current.agentOpen) return setNotice("Open one of its agents to see the workspace’s files.");
+      if (!(event as CustomEvent<FilesAsk>).detail) return;
       setBrowserOpen(false);
       setTerminalOpen(false);
-      setFilesOpen(true);
+      setCodeOpen(true);
       postAppMenu("command");
     };
-    window.addEventListener(ASK_EVENT, ask);
-    return () => window.removeEventListener(ASK_EVENT, ask);
+    window.addEventListener(FILES_ASK_EVENT, ask);
+    return () => window.removeEventListener(FILES_ASK_EVENT, ask);
   }, []);
-  const terminalShown = crewBrowsing && terminalOpen && !filesShown && !codeShown;
-  const browserShown = crewBrowsing && browserOpen && !filesShown && !terminalShown && !codeShown;
+  const terminalShown = crewBrowsing && terminalOpen && !codeShown;
+  const browserShown = crewBrowsing && browserOpen && !terminalShown && !codeShown;
   const agentBrowser = agent ? boardBrowsers.browsers[browserKey(agent.host, daemonAgentId(agent))] : undefined;
   const browserTab = agentBrowser?.tabs.find((t) => t.id === agentBrowser.current) ?? agentBrowser?.tabs[0];
-  // One of the four (files, editor, terminal, browser) shows in the place beside the conversation: opening one closes the others.
-  const showTool = (tool: "files" | "editor" | "terminal" | "browser" | null) => {
+  // One of the three (files, terminal, browser) shows in the place beside the conversation: opening one closes the others.
+  const showTool = (tool: "files" | "terminal" | "browser" | null) => {
     setCodeOpen(tool === "files");
-    setFilesOpen(tool === "editor");
     setTerminalOpen(tool === "terminal");
     setBrowserOpen(tool === "browser");
   };
   const toggleBrowser = () => showTool(browserShown ? null : "browser");
-  const toggleFiles = () => showTool(filesShown ? null : "editor");
   const toggleTerminal = () => showTool(terminalShown ? null : "terminal");
   const toggleCode = () => showTool(codeShown ? null : "files");
   // The tool last shown beside a conversation: ⌥⌘B (`tools-toggle`) brings it back once the panel is hidden.
-  const shownTool = codeShown ? "files" : filesShown ? "editor" : terminalShown ? "terminal" : browserShown ? "browser" : null;
+  const shownTool = codeShown ? "files" : terminalShown ? "terminal" : browserShown ? "browser" : null;
   useEffect(() => {
     if (shownTool) writeStore("world:lastTool", shownTool);
   }, [shownTool]);
-  // ⇧⌘E, ⇧⌘T and ⇧⌘B (the macOS app's View menu, from anywhere, ahead of the editor, terminal and browser): the open
-  // agent's editor, workspace terminal or browser beside its conversation, on the Command tab, with the keyboard.
+  // ⇧⌘F, ⇧⌘T and ⇧⌘B (the macOS app's View menu, from anywhere, ahead of the terminal and browser): the open
+  // agent's Files tab, workspace terminal or browser beside its conversation, on the Command tab, with the keyboard.
   // ⇧⌘D: back to its message box.
-  const toolKeys = useRef({ agentOpen: false, codeShown, filesShown, terminalShown, browserShown, shownTool });
-  Object.assign(toolKeys.current, { agentOpen: !!agent && !selection?.subagent, codeShown, filesShown, terminalShown, browserShown, shownTool });
+  const toolKeys = useRef({ agentOpen: false, codeShown, terminalShown, browserShown, shownTool });
+  Object.assign(toolKeys.current, { agentOpen: !!agent && !selection?.subagent, codeShown, terminalShown, browserShown, shownTool });
   useEffect(() => {
-    const show = (tool: "files" | "editor" | "terminal" | "browser") => {
+    const show = (tool: "files" | "terminal" | "browser") => {
       const now = toolKeys.current;
       if (!macApp()) return setNotice(`The ${tool} beside a conversation ${tool === "files" ? "are" : "is"} the macOS app’s.`);
       if (!now.agentOpen) return setNotice(`Open an agent to show its ${tool}.`);
       postAppMenu("command");
       setCodeOpen(tool === "files");
-      setFilesOpen(tool === "editor");
       setTerminalOpen(tool === "terminal");
       setBrowserOpen(tool === "browser");
       // Already shown: give it the keyboard (a new one takes it as it's placed).
-      if ((tool === "editor" && now.filesShown) || (tool === "terminal" && now.terminalShown)) focusEditor();
+      if (tool === "terminal" && now.terminalShown) focusEditor();
       if (tool === "browser" && now.browserShown) browserDo("focus");
       if (tool === "files" && now.codeShown) (document.querySelector(".files-view .cm-content") as HTMLElement | null)?.focus();
     };
     const offFiles = onAppCommand("tools-files", () => show("files"));
-    const offEditor = onAppCommand("tools-editor", () => show("editor"));
     const offTerminal = onAppCommand("tools-terminal", () => show("terminal"));
     const offBrowser = onAppCommand("tools-browser", () => show("browser"));
     // ⌥⌘B: the panel of tools hidden (the conversation taking the width, the keyboard back to the page), or shown
@@ -933,13 +913,13 @@ function App() {
       if (now.shownTool) {
         postAppMenu("command");
         setCodeOpen(false);
-        setFilesOpen(false);
         setTerminalOpen(false);
         setBrowserOpen(false);
         return;
       }
+      // The Editor tab's "editor" (removed) brings back Files.
       const last = readStore<string>("world:lastTool", "files");
-      show(last === "editor" || last === "terminal" || last === "browser" ? last : "files");
+      show(last === "terminal" || last === "browser" ? last : "files");
     });
     const offComposer = onAppCommand("focus-composer", () => {
       if (macApp() && toolKeys.current.agentOpen) postAppMenu("command");
@@ -955,7 +935,6 @@ function App() {
     window.addEventListener("keydown", key);
     return () => {
       offFiles();
-      offEditor();
       offTerminal();
       offBrowser();
       offToggle();
@@ -963,9 +942,9 @@ function App() {
       window.removeEventListener("keydown", key);
     };
   }, []);
-  // B and F, outside a text field: the open agent's browser, or its workspace's files, shown or hidden.
-  const boardKeys = useRef({ crew: crewBrowsing, browserShown, toggleBrowser, toggleFiles });
-  Object.assign(boardKeys.current, { crew: crewBrowsing, browserShown, toggleBrowser, toggleFiles });
+  // B and F, outside a text field: the open agent's browser, or its workspace's Files tab, shown or hidden.
+  const boardKeys = useRef({ crew: crewBrowsing, browserShown, toggleBrowser, toggleCode });
+  Object.assign(boardKeys.current, { crew: crewBrowsing, browserShown, toggleBrowser, toggleCode });
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const now = boardKeys.current;
@@ -976,7 +955,7 @@ function App() {
       if ((e.target as HTMLElement | null)?.closest?.(".crew-files")) return;
       e.preventDefault();
       if (k === "b") now.toggleBrowser();
-      else now.toggleFiles();
+      else now.toggleCode();
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
@@ -994,7 +973,7 @@ function App() {
         if (!opener) return;
         if (now.open?.id === opener.id) {
           // While its files show, the Browser button counts the tab instead of taking their place.
-          if (!browserFollowsSetting() || filesOpenSetting() || terminalOpenSetting() || codeOpenSetting()) return;
+          if (!browserFollowsSetting() || terminalOpenSetting() || codeOpenSetting()) return;
           browserDo("select", { tab: event.tab });
           setBrowserOpen(true);
           return;
@@ -1217,16 +1196,16 @@ function App() {
       }),
     [choose, openDispatch],
   );
-  // The workspace's changes: Settings → Files' changes command in its editor, beside the open agent's conversation.
+  // The workspace's changes: the Files tab's Branch view, beside the open agent's conversation.
   const showWorkspaceChanges = useCallback(() => {
-    if (githubWorkspace) askWorkspaceEditor({ workspace: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), changes: true });
+    if (githubWorkspace) askFilesTab({ workspace: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), side: "branch" });
   }, [githubWorkspace]);
   // ⇧⌘G (the macOS app's View → Show Branch Changes, from anywhere; in a browser, the page's own key):
-  // the selected workspace's, or agent's, changes in its editor.
+  // the selected workspace's, or agent's, branch changes in the Files tab.
   const branchChanges = useRef(() => {});
   branchChanges.current = () => {
     if (!githubWorkspace) setNotice("Select a workspace or agent to see its branch's changes.");
-    else if (!macApp()) setNotice("Your editor, where changes show, is the macOS app’s.");
+    else if (!macApp()) setNotice("The Files tab, where changes show, is the macOS app’s.");
     else showWorkspaceChanges();
   };
   useEffect(() => {
@@ -1768,15 +1747,6 @@ function App() {
             ]
           : []),
         {
-          id: "crew-files",
-          group: "Actions",
-          page: "Command" as const,
-          label: filesShown ? "Hide the editor beside the conversation" : `Show ${agentName(agent, workspaceOf(agent)?.branch)}’s workspace in your editor`,
-          keys: [["F"], ["⇧", "⌘", "E"]],
-          keywords: "crew files editor nvim vim tree workspace code open file changes diff beside conversation",
-          run: toggleFiles,
-        },
-        {
           id: "crew-terminal",
           group: "Actions",
           page: "Command" as const,
@@ -2068,12 +2038,12 @@ function App() {
       ? [
           ...(
             [
-              // Your editor's text size (its terminal's font, Settings → Terminal), while it's open beside a conversation.
-              ...(filesShown
+              // The terminal's text size (its font, Settings → Terminal), while it's open beside a conversation.
+              ...(terminalShown
                 ? ([
-                    ["terminal-bigger", "Bigger text in your editor", "terminal zoom font size larger nvim", ["⌘", "+"]],
-                    ["terminal-smaller", "Smaller text in your editor", "terminal zoom font size nvim", ["⌘", "−"]],
-                    ["terminal-actual", "Actual text size in your editor", "terminal zoom font reset nvim", ["⌘", "0"]],
+                    ["terminal-bigger", "Bigger text in the terminal", "terminal zoom font size larger", ["⌘", "+"]],
+                    ["terminal-smaller", "Smaller text in the terminal", "terminal zoom font size", ["⌘", "−"]],
+                    ["terminal-actual", "Actual text size in the terminal", "terminal zoom font reset", ["⌘", "0"]],
                   ] as const)
                 : []),
               [
@@ -2221,9 +2191,9 @@ function App() {
             id: "files-workspace-changes",
             group: "Actions",
             page: "Command" as const,
-            label: `Show ${githubWorkspace.name}’s changes in your editor`,
+            label: `Show ${githubWorkspace.name}’s branch changes in Files`,
             keys: [["⇧", "⌘", "G"]],
-            keywords: "files diff changes branch main compare git review workspace nvim diffview fugitive editor",
+            keywords: "files diff changes branch main compare git review workspace base",
             run: showWorkspaceChanges,
           },
         ]
@@ -3004,7 +2974,6 @@ function App() {
                   ? {
                       browser: { shown: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser },
                       code: { shown: codeShown, toggle: toggleCode },
-                      files: { shown: filesShown, toggle: toggleFiles },
                       terminal: { shown: terminalShown, toggle: toggleTerminal },
                     }
                   : {})}
@@ -3023,22 +2992,9 @@ function App() {
             {terminalShown && agent && githubWorkspace && (
               <CrashBoundary label="the terminal" className="crew-files beside">
               <React.Suspense fallback={null}>
-                <WorkspaceEditor
+                <WorkspaceTerminal
                   key="terminal"
-                  kind="terminal"
                   workspace={{ id: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), name: githubWorkspace.name, ...(githubWorkspace.branch ? { branch: githubWorkspace.branch } : {}) }}
-                  onNotice={setNotice}
-                />
-              </React.Suspense>
-              </CrashBoundary>
-            )}
-            {filesShown && agent && githubWorkspace && (
-              <CrashBoundary label="your editor" className="crew-files beside">
-              <React.Suspense fallback={null}>
-                <WorkspaceEditor
-                  key="editor"
-                  workspace={{ id: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), name: githubWorkspace.name, ...(githubWorkspace.branch ? { branch: githubWorkspace.branch } : {}) }}
-                  onNotice={setNotice}
                 />
               </React.Suspense>
               </CrashBoundary>

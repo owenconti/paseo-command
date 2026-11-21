@@ -3,7 +3,7 @@ import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
 import { clearAgentMode, publishAgentMode } from "./agentModeStore";
-import { askWorkspaceEditor } from "./crew/workspaceEditorAsks";
+import { askFilesTab } from "./code/filesAsks";
 import { onOwnedAppCommand } from "./appCommands";
 import { macApp, postAppMenu, postAppReveal } from "./worldBridge";
 import { openChatLink, openInAgentBrowser } from "./chatLinks";
@@ -136,10 +136,11 @@ export function openFileLink(e: React.MouseEvent, workspace: Workspace | undefin
   if (!workspace) return true;
   // In the Files tab beside the agent's conversation (main shows it and hands it the file), at its line.
   const line = Number(link.dataset.fileLine) || undefined;
-  askWorkspaceEditor({
+  askFilesTab({
     workspace: workspace.workspaceId,
     ...(workspace.host ? { host: workspace.host } : {}),
-    open: { path, ...(line ? { line } : {}) },
+    path,
+    ...(line ? { line } : {}),
   });
   return true;
 }

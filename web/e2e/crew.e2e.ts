@@ -693,17 +693,13 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   const [chat2, browser2] = await Promise.all([".crew-drawer", ".board-browser.crew"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
   assert.ok(chat2.right > chat.right + 100, "wider");
   assert.ok(Math.abs(browser2.left - chat2.right) <= 2, `conversation to ${chat2.right}, browser from ${browser2.left}`);
-  // The tools' Editor tab swaps your editor in; × hides the tools, the conversation taking the width.
-  await page.locator(".crew-tool-tabs").getByRole("tab", { name: "Editor" }).click();
-  await page.locator(".crew-files").waitFor();
-  assert.equal(await page.locator(".board-browser").count(), 0);
-  // The Terminal tab: a shell in the workspace, in the same place.
+  // The tools: Files, Terminal, Browser (the Editor tab was removed at the user's request).
+  assert.deepEqual((await page.locator(".crew-tool-tabs [role=tab]").allInnerTexts()).map((t) => t.replace(/ · \d+$/, "")), ["Files", "Terminal", "Browser"]);
+  // The Terminal tab: a shell in the workspace, in the same place; × hides the tools, the conversation taking the width.
   await page.locator(".crew-tool-tabs").getByRole("tab", { name: "Terminal" }).click();
   await page.locator('.crew-editor[data-tool="terminal"]').waitFor();
-  assert.equal(await page.locator('.crew-editor[data-tool="editor"]').count(), 0);
-  // ⇧⌘E, ⇧⌘B, ⇧⌘T (the app's View menu asks the page): each tool in turn; ⇧⌘D the message box.
-  await appEvent(page, "paseo:command", "tools-editor");
-  await page.locator('.crew-editor[data-tool="editor"]').waitFor();
+  assert.equal(await page.locator(".board-browser").count(), 0);
+  // ⇧⌘B, ⇧⌘T (the app's View menu asks the page): each tool in turn; ⇧⌘D the message box.
   await appEvent(page, "paseo:command", "tools-browser");
   await page.locator(".board-browser.crew").waitFor();
   await appEvent(page, "paseo:command", "tools-terminal");

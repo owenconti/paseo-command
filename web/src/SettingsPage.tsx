@@ -19,10 +19,8 @@ import { usePool } from "./poolStore";
 import { closeSettings, useSettingsRequest } from "./settingsStore";
 import { macApp } from "./worldBridge";
 import { plainText } from "./ui";
-import { DEFAULT_CHANGES_COMMAND, DEFAULT_EDITOR_COMMAND, changesCommandProblem, editorCommandProblem } from "./files/editorCommand";
 import { setVimSetting, useVimSetting } from "./code/vimSetting";
 import { setWrapSetting, useWrapSetting } from "./code/wrapSetting";
-import { saveFilesSettings, useFilesSettings } from "./files/filesSettings";
 import { Picker } from "./Picker";
 import { familyCss, familyLabel, parseLineHeight, setTerminalFont, useTerminalFont, type TerminalFontValues } from "./terminalFont";
 
@@ -258,9 +256,6 @@ export function SettingsPage({
             <>
               <SettingsGroup note="The Files tab beside an agent’s conversation: its workspace’s changes and files in the app’s own editor.">
                 <FilesTabSettings />
-              </SettingsGroup>
-              <SettingsGroup note="Your editor, beside an agent’s conversation (its Editor tab), where its workspace’s files and changes open.">
-                <FilesSettings />
               </SettingsGroup>
             </>
           )}
@@ -576,139 +571,6 @@ function FilesTabSettings() {
         onChange={setWrapSetting}
       />
     </>
-  );
-}
-
-/** Settings → Files: your editor's command, run in a terminal on the workspace's host, beside an agent's conversation. */
-function FilesSettings() {
-  const { settings, saving, error } = useFilesSettings();
-  const [command, setCommand] = useState(settings.editorCommand);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const id = useId();
-  useEffect(() => setCommand(settings.editorCommand), [settings.editorCommand]);
-  const problem = editorCommandProblem(command);
-  const dirty = command.trim() !== settings.editorCommand;
-  const save = async () => {
-    if (problem || !dirty) return;
-    setSaveError(await saveFilesSettings({ editorCommand: command }));
-  };
-  return (
-    <div className="files-settings">
-      <div className="settings-row">
-        <span className="settings-row-text">
-          <b>Your editor</b>
-          <small>
-            Every file, edit and diff opens in it: a terminal on the workspace’s host, in its folder, with its own config and
-            language servers, beside an agent’s conversation (F){macApp() ? "" : " in the macOS app"}
-          </small>
-        </span>
-      </div>
-        <div className="integration-fields">
-          <div className="linear-setting files-command-setting">
-            <label htmlFor={id}>
-              <b>Command</b>
-              <small>
-                It starts in the workspace’s folder as you’d start it there, without the words holding <code>{"{file}"}</code> and{" "}
-                <code>{"{line}"}</code> (<code>nvim</code>: your own start, its file tree and dashboard), under your login shell; its
-                terminal ends when the editor quits. A conversation’s file links open in it with <code>:e</code>, so it should be Vim or
-                Neovim.
-              </small>
-            </label>
-            <div className="files-command-field">
-              <input
-                id={id}
-                value={command}
-                placeholder={DEFAULT_EDITOR_COMMAND}
-                spellCheck={false}
-                {...plainText}
-                aria-invalid={!!problem}
-                aria-describedby={problem || saveError ? `${id}-problem` : undefined}
-                onChange={(e) => {
-                  setCommand(e.target.value);
-                  setSaveError(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void save();
-                  if (e.key === "Escape" && dirty) {
-                    e.preventDefault();
-                    setCommand(settings.editorCommand);
-                  }
-                }}
-              />
-              <button className="secondary" disabled={!dirty || !!problem || saving} onClick={() => void save()}>
-                Save
-              </button>
-            </div>
-            {(problem || saveError) && (
-              <small id={`${id}-problem`} className="files-command-problem" role="alert">
-                {problem ?? saveError}
-              </small>
-            )}
-          </div>
-        </div>
-      <ChangesCommandSetting />
-      {error && !saveError && (
-        <p className="integration-error" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** Settings → Files: the Ex command the workspace's editor runs to show its changes (Show changes, ⇧⌘G). */
-function ChangesCommandSetting() {
-  const { settings, saving } = useFilesSettings();
-  const [command, setCommand] = useState(settings.changesCommand);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const id = useId();
-  useEffect(() => setCommand(settings.changesCommand), [settings.changesCommand]);
-  const problem = changesCommandProblem(command);
-  const dirty = command.trim() !== settings.changesCommand;
-  const save = async () => {
-    if (problem || !dirty) return;
-    setSaveError(await saveFilesSettings({ changesCommand: command }));
-  };
-  return (
-    <div className="linear-setting files-command-setting">
-      <label htmlFor={id}>
-        <b>Show changes with</b>
-        <small>
-          The command your editor runs when you ask for the workspace’s changes (Show changes, ⇧⌘G), as you’d type it there:
-          <code>:DiffviewOpen</code> (diffview.nvim), <code>:Git difftool</code> (fugitive)…
-        </small>
-      </label>
-      <div className="files-command-field">
-        <input
-          id={id}
-          value={command}
-          placeholder={DEFAULT_CHANGES_COMMAND}
-          spellCheck={false}
-          {...plainText}
-          aria-invalid={!!problem}
-          aria-describedby={problem || saveError ? `${id}-problem` : undefined}
-          onChange={(e) => {
-            setCommand(e.target.value);
-            setSaveError(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void save();
-            if (e.key === "Escape" && dirty) {
-              e.preventDefault();
-              setCommand(settings.changesCommand);
-            }
-          }}
-        />
-        <button className="secondary" disabled={!dirty || !!problem || saving} onClick={() => void save()}>
-          Save
-        </button>
-      </div>
-      {(problem || saveError) && (
-        <small id={`${id}-problem`} className="files-command-problem" role="alert">
-          {problem ?? saveError}
-        </small>
-      )}
-    </div>
   );
 }
 

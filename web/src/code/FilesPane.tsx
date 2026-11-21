@@ -54,6 +54,7 @@ import {
   type SideView,
   type Usage,
 } from "./store";
+import { FILES_ASK_EVENT, takeFilesAsk } from "./filesAsks";
 import "../crew/crew-files.css";
 import "./files-pane.css";
 
@@ -68,14 +69,6 @@ const HIDDEN_KEY = "files:sidebarHidden";
 const name = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 const dir = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
 
-/** Opens a file in the Files tab from elsewhere (a chat's file link): its workspace, path and line. */
-export const FILES_OPEN_EVENT = "paseo:files-open";
-export type FilesOpenAsk = { workspace: string; host?: string; path: string; line?: number };
-let pendingAsk: FilesOpenAsk | null = null;
-export function askFilesOpen(ask: FilesOpenAsk) {
-  pendingAsk = ask;
-  window.dispatchEvent(new CustomEvent(FILES_OPEN_EVENT));
-}
 
 export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
   useFilesStore();
@@ -123,17 +116,21 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
   useEffect(() => {
     if (mode) void loadChanges(f, mode);
   }, [f, mode]);
-  // Asks from elsewhere: a chat's file link.
+  // Asks from elsewhere (`filesAsks.ts`): a chat's file link, or a sidebar view (⇧⌘G: the branch's changes, the sidebar shown).
   useEffect(() => {
     const take = () => {
-      const ask = pendingAsk;
-      if (!ask || ask.workspace !== workspace.id || (ask.host ?? "") !== (workspace.host ?? "")) return;
-      pendingAsk = null;
-      void openFile(f, ask.path, { ...(ask.line ? { line: ask.line } : {}) });
+      const ask = takeFilesAsk(workspace.id, workspace.host);
+      if (!ask) return;
+      if (ask.side) {
+        setSide(f, ask.side);
+        setSideHidden(false);
+        writeStore(HIDDEN_KEY, false);
+      }
+      if (ask.path) void openFile(f, ask.path, { ...(ask.line ? { line: ask.line } : {}) });
     };
     take();
-    window.addEventListener(FILES_OPEN_EVENT, take);
-    return () => window.removeEventListener(FILES_OPEN_EVENT, take);
+    window.addEventListener(FILES_ASK_EVENT, take);
+    return () => window.removeEventListener(FILES_ASK_EVENT, take);
   }, [f, workspace.id, workspace.host]);
   // ⌘P (and :e, ⌃P in vim) goes to a file; ⌘S saves, from anywhere in the pane.
   useEffect(() => {

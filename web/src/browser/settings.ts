@@ -69,12 +69,7 @@ export const browserOpenSetting = browserOpen.get;
 export const setBrowserOpen = browserOpen.set;
 export const useBrowserOpen = browserOpen.use;
 
-/** Whether the open agent's workspace files show beside its conversation on Crew (F, the strip's Files button, ⌘K;
- * kept as you step from agent to agent and across launches). The files and the browser share the place: one shows. */
-const filesOpen = setting("world:filesOpen", false);
-export const filesOpenSetting = filesOpen.get;
-export const setFilesOpen = filesOpen.set;
-export const useFilesOpen = filesOpen.use;
+// `world:filesOpen` (the removed Editor tab's shown setting) stays in localStorage, ignored.
 
 /** Whether the Files tab (the workspace's changes and files, in the app's own editor: src/code/FilesPane.tsx) shows
  * beside the open agent's conversation (⇧⌘F, its tab; kept as the others are). One of the four tools shows at a time. */

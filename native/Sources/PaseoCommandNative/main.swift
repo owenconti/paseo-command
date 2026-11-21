@@ -348,9 +348,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.representedObject = mode.rawValue
             return item
         }
-        // ⇧⌘G: the selected workspace's changes, in your editor beside its conversation, from anywhere.
+        // ⇧⌘G: the selected workspace's branch changes, in the Files tab beside its conversation, from anywhere.
         AppKeys.addBranchChanges(to: view, target: self, action: #selector(showBranchChanges))
-        // ⇧⌘E, ⇧⌘T, ⇧⌘B: the open agent's editor, terminal or browser, with the keyboard; ⇧⌘D its message box.
+        // ⇧⌘F, ⇧⌘T, ⇧⌘B: the open agent's Files tab, terminal or browser, with the keyboard; ⇧⌘D its message box.
         AppKeys.addTools(to: view, target: self, action: #selector(tool(_:)))
         // ⌘R while GitHub or Activity shows: the page's shown view refreshes (never a reload of the web view).
         AppKeys.addRefreshPage(to: view, target: self, action: #selector(refreshPage))
@@ -399,7 +399,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func showSettings() { main?.toggleSettings() }
     @objc func toggleCapture() { capture.toggle() }
     @objc func sendLastCapture() { capture.sendLast() }
-    @objc private func showBranchChanges() { main?.pageCommand(AppKeys.branchChangesCommand) }
+    /// The Files tab is the page's: the keyboard goes back to the web view first (the terminal may have had it).
+    @objc private func showBranchChanges() {
+        guard let main else { return }
+        main.window.makeFirstResponder(main.web)
+        main.pageCommand(AppKeys.branchChangesCommand)
+    }
     @objc private func tool(_ sender: NSMenuItem) {
         guard let main, let command = sender.representedObject as? String else { return }
         // The message box and the Files tab are the page's, and the tools hidden leave the keyboard to it: the keyboard

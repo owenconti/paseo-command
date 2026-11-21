@@ -35,7 +35,7 @@ const GROUPS: Group[] = [
     title: "Act",
     rows: [
       { keys: [["⌘", "N"], ["D"]], label: "New agent" },
-      { keys: [["⇧", "⌘", "D"], ["Enter"]], label: "Focus the message box (⇧⌘D from anywhere, your editor and the agent's browser too)" },
+      { keys: [["⇧", "⌘", "D"], ["Enter"]], label: "Focus the message box (⇧⌘D from anywhere, the terminal and the agent's browser too)" },
       { keys: [["R"]], label: "Reply to the selected agent" },
       {
         keys: [["G"]],
@@ -77,7 +77,6 @@ const NATIVE: Group = {
     },
     { keys: [["⇧", "⌘", "F"]], label: "From anywhere: the open agent's Files tab beside its conversation, with the keyboard" },
     { keys: [["⌥", "⌘", "B"]], label: "From anywhere: hide the tools beside the conversation, or show them again with the last one shown" },
-    { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the open agent's editor beside its conversation, with the keyboard" },
     { keys: [["⇧", "⌘", "B"]], label: "From anywhere: the open agent's browser beside its conversation, with the keyboard" },
     { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },
     // The screen capture hotkey works from any app; its keys are the app's (`captureHotkey`).
@@ -110,7 +109,7 @@ const CREW: Group = {
     { keys: [["Esc"]], label: "In a browser: back to the crew from the conversation, once out of its message box (the macOS app's Command tab stays: ⌘1 shows the Crew tab)" },
     { keys: [["←"], ["→"]], label: "On the conversation's left edge: make it wider or narrower (⇧ for bigger steps; drag it, double-click for the default)" },
     { keys: [["B"]], label: "Show or hide the open robot's browser beside its conversation (the macOS app's)" },
-    { keys: [["F"]], label: "Show or hide its workspace in your editor (Settings → Files), beside the conversation (the macOS app's)" },
+    { keys: [["F"]], label: "Show or hide its workspace's Files tab beside the conversation (the macOS app's)" },
     { keys: [["⇧", "⌘", "W"]], label: "Hide the browser, from its page or a field too" },
     { keys: [["⌘", "R"]], label: "Reload the browser's page while it shows, from its page, its address or the conversation" },
     { keys: [["⌘", "S"]], label: "On the Command tab: show or hide the crew list on the left (in the Files tab ⌘S saves)" },
@@ -163,6 +162,8 @@ const FILES: Group = {
   title: "Files",
   note: "The Files tab beside an agent's conversation (⇧⌘F), in the macOS app",
   rows: [
+    { keys: [["⇧", "⌘", "G"]], label: "From anywhere: the workspace's branch changes (the sidebar's Branch view)" },
+    { keys: [["Click"]], label: "A file's link in the conversation: open it here, at its line" },
     { keys: [["⌘", "B"]], label: "Hide or show the sidebar (its changes and files)" },
     { keys: [["⌘", "P"]], label: "Go to any file in the workspace (name:line goes to a line; :e path and ⌃P in vim too)" },
     { keys: [["⌘", "S"]], label: "Save (:w; :wa saves every file): only over the version read, so an agent's edit is never overwritten" },
@@ -178,21 +179,19 @@ const FILES: Group = {
   ],
 };
 
-/** Your editor beside an agent's conversation (`crew/WorkspaceEditor.tsx`, the macOS app's): the keys the app keeps
- * while it has the keyboard; every other key is the editor's. */
-const EDITOR: Group = {
-  title: "Your editor",
-  note: "Beside an agent's conversation (F), in the macOS app",
+/** The workspace's terminal beside an agent's conversation (`crew/WorkspaceTerminal.tsx`, the macOS app's): the keys
+ * the app keeps while it has the keyboard; every other key is the terminal's. */
+const TERMINAL: Group = {
+  title: "The terminal",
+  note: "Beside an agent's conversation (⇧⌘T), in the macOS app",
   rows: [
-    { keys: [["⇧", "⌘", "G"]], label: "From anywhere: the workspace's changes, Settings → Files' changes command run in the editor" },
-    { keys: [["Click"]], label: "A file's link in the conversation: open it in the editor, at its line" },
     {
       keys: [["⌘", "K"], ["⌘", "1…3"], ["⌘", "`"]],
-      label: "In the editor: the palette, the mode bar's tabs, ⇧⌘G too. Every other key, Esc and ⌃ keys included, is the editor's",
+      label: "In the terminal: the palette, the mode bar's tabs, ⇧⌘F and ⇧⌘G too. Every other key, Esc and ⌃ keys included, is the terminal's",
     },
     {
       keys: [["⌘", "+"], ["⌘", "−"], ["⌘", "0"]],
-      label: "In the editor: bigger, smaller or actual text size (its font, line height and spacing: Settings → Terminal)",
+      label: "In the terminal: bigger, smaller or actual text size (its font, line height and spacing: Settings → Terminal)",
     },
   ],
 };
@@ -288,7 +287,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           ...(integrations.github ? [GITHUB] : []),
           FILES,
-          EDITOR,
+          TERMINAL,
         ]
       : [...GROUPS, { ...CREW, rows: CREW.rows.filter((r) => !/browser/i.test(r.label)) }]
   ).map((group) => ({

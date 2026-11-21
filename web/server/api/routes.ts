@@ -40,7 +40,7 @@ import { presets, savePresets } from "../presets";
 import { appSettings, saveAppSettings } from "../settings";
 import { saveSecret, secretsStatus } from "../secrets";
 import { workspaceUrl } from "../worktreeUrl";
-import { createEditorTerminal, createTerminal, createWorkspaceEditor, killTerminal, listTerminals, sendToEditor } from "./terminals";
+import { createTerminal, killTerminal, listTerminals } from "./terminals";
 import {
   addProject,
   removeProject,
@@ -455,14 +455,8 @@ export async function handleApi(
           result = await saveProfiles(body, mark);
         else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "create")
           result = await createTerminal(body);
-        else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "editor")
-          result = await createEditorTerminal(body);
         else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "kill")
           result = await killTerminal(body);
-        else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "workspace-editor")
-          result = await createWorkspaceEditor(body);
-        else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "editor-send")
-          result = await sendToEditor(body);
         else if (parts[0] === "files" && parts.length === 2 && parts[1] === "write")
           result = await filesWrite(body);
         else if (parts[0] === "projects" && parts.length === 2) {

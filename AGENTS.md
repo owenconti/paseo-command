@@ -30,7 +30,7 @@
 
 Paseo Command visualizes hosts, projects, workspaces and agents from the Paseo daemon.
 The React app and official SDK API are in `web/`; the macOS app (`native/`, the React app in a WKWebView) adds the
-top bar, your editor beside an agent's conversation and the agent's browser. The map is Crew (below), which the page
+top bar, the workspace's terminal beside an agent's conversation and the agent's browser. The map is Crew (below), which the page
 draws itself, in a plain browser too; the other maps (Islands, Overworld, the Dungeon Board) were removed at the user's
 request, their art kept in `rendering/` (no code). Do not add further worlds unless asked.
 Robots keep model colours (Claude orange, ChatGPT/Codex white; other providers keep a stable colour of their own).
@@ -42,7 +42,7 @@ question, failure and offline. Test daemon mutations against fake daemons only.
 The command palette (⌘K, `web/src/CommandPalette.tsx`) lists what the app can do. Its entries are
 `paletteCommands` in `web/src/main.tsx` (the open agent's own in `agentCommands`), ranked by `web/src/palette.ts`.
 Every entry has a `page`, the part of Paseo Command it belongs to (`PAGES`): Command (the map, agents, workspaces,
-projects, hosts, dispatch, your editor and the agent's browser), Activity, GitHub, Settings (its toggles and editors too),
+projects, hosts, dispatch, the tools beside a conversation and the agent's browser), Activity, GitHub, Settings (its toggles and editors too),
 else App (the window, updates, text size, ⌘` stepping, what's new, games). A "Show …" entry for a tab names that tab's page.
 The palette shows it on the row's right before any keys; found things add their `kind` ("Command · Agent"). Among equal
 matches the page on screen (`shown`) ranks first. Write it `page: "GitHub" as const` (spreads widen strings).
@@ -181,7 +181,7 @@ and GitHub publication; report the published version and release link.
   back to the side before, the gear and ⌘, opening it again; ⌘` steps on from that side; the palette's Settings asks with `menu` `settings`; a saved
   `settings` mode still shows it), in a browser the page's own state (its bar's gear; Esc or its × closes it). Laid out as the other pages (a resizable sidebar of its
   sections, the chosen one beside it under its heading, kept in localStorage; ↑/↓ step through them; Manage … key opens Integrations): sound and music (a
-  volume only while its sound is on), notifications, integrations, New agent (presets, profiles), Files (your editor's command and its changes command),
+  volume only while its sound is on), notifications, integrations, New agent (presets, profiles), Files (the Files tab's vim keys and wrapping),
   Terminal (the macOS app's terminal font: family from a searchable `Picker`, size, line height (a typed number: any value above 0 up to 100,
   applied as it parses, ↑/↓ stepping 0.05; what can't work is said beside it and the last good value stays), letter spacing, a preview and Restore defaults; ⌘K
   "Terminal settings…", `openSettings("terminal")`; in a browser it says it's the app's). Rows put what a setting is on the left and
@@ -192,10 +192,10 @@ and GitHub publication; report the published version and release link.
   `web/server/settings.ts`), which the page once kept in localStorage and moves into the file on load.
 - Terminals: the mode bar's Terminal tab (`TerminalDrawer.swift`: its tabs, splits and panes) was removed at the user's
   request, as the side and bottom terminal panels were before it; don't add it back unless asked. The app's terminals are
-  your editor's and the workspace's Terminal tab beside a conversation (see Focus, below; `TerminalSession.swift`, laid over
+  the workspace's Terminal tab beside a conversation (see Focus, below; `TerminalSession.swift`, laid over
   its pane by `EditorOverlay`). The old tab's and panel's
   saved state (`terminalOpen`, `terminalDock`, `terminalWidth|Height`, a saved `terminal` mode) is ignored.
-  Your editor's font (`TerminalFont.swift`): `TerminalFontSettings` (family, "" the system monospace; size, the ⌘+/⌘− value;
+  The terminals' font (`TerminalFont.swift`): `TerminalFontSettings` (family, "" the system monospace; size, the ⌘+/⌘− value;
   line height above 0 up to 100, SwiftTerm's `lineSpacing`, which takes any positive value but keeps a cell within 1…8,192 pt (100× at 32 pt
   stays under it); the app refuses others, and an unusable kept one reads as 1; letter spacing −1…4 pt, a fixed advance on the font, as SwiftTerm sizes cells by "W"),
   kept in the app's preferences (`terminalFontFamily|Size|LineHeight|LetterSpacing`; workspace builds share the Dev app's, so checks restore
@@ -208,7 +208,7 @@ and GitHub publication; report the published version and release link.
   (the values, defaults, ranges and, when asked, the installed monospaced families; `web/src/terminalFont.ts`); the editor follows at once
   (`WorldWindow.terminalFont`, `setTerminalFont`). A `TerminalSession` talks to `web/server/api/terminals.ts`: `GET /api/terminals`, `POST /api/terminals/create|kill`, and the
   `/api/terminal` socket relaying a terminal's bytes (screen replay first, between `{type:"replay"}` and `{type:"live"}` text frames) and its keys and size.
-  Terminal queries (`TerminalQueries.swift`, your editor's `TerminalSession`): the daemon's own headless terminal
+  Terminal queries (`TerminalQueries.swift`, the Terminal tab's `TerminalSession`): the daemon's own headless terminal
   already answers DA1, `CSI 5n`/`6n`/`?6n`, `OSC 10/11/12;?` and kitty's `CSI ?u` at the pty, so `TerminalQueryFilter` takes those out
   of the bytes before SwiftTerm sees them (its second answer arrived a round trip late: nvim asks DA1 as it quits and leaves on the
   daemon's, and SwiftTerm's `?65;…c` was typed at the shell's prompt); in a replay it takes out every query (DA2/DA3, DSRs, DECRQM,
@@ -249,6 +249,15 @@ and GitHub publication; report the published version and release link.
   "Drafting answers…" ends within `ANSWERS_MS` (90 s): a helper that fails or doesn't finish leaves the question without answers;
   the page (`web/src/useAsks.ts`) keeps polling while `answering`.
   Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
+- Crashes (`web/src/CrashBoundary.tsx`, `crashReport.ts`): React removes the whole page when nothing catches an error, so
+  every lazily loaded pane in main (the Files tab, the terminal, the browser, GitHub, Activity) and the app itself
+  sit in a `CrashBoundary`: what failed shows a word in its place with Try again and Reload, the rest standing. A pane whose
+  module is gone (`isChunkLoadError`: the Dev app rebuilt under a page still running the old build, whose hashed chunks it
+  loads only when first shown) says the app was updated, with Reload. Each crash, and errors nothing caught
+  (`installCrashReports`: `error`, `unhandledrejection`), goes to the console and the macOS app's `logs/native.log` as
+  "page: crash in …" with its stack and components (`postAppLog`, the `log` message; at most 20 a minute). Dev builds keep
+  earlier builds' `ui/assets` (`bundle.sh`; those unchanged for 14 days go), so such a page still finds its chunks; the
+  release ships only its own. Tests: `src/crashReport.test.ts`, `e2e/files-tab.e2e.ts`.
 - `web/src/urlState.ts`: what is open (the selection and any subagent) kept in the page's query, so a refresh returns
   there; a new selection pushes history, a subagent's opening or closing replaces it.
 - Screen captures for agents (the user's ask, after Kit Langton's Scrawl, MIT; no code copied): the macOS app's global hotkey
@@ -351,8 +360,8 @@ and GitHub publication; report the published version and release link.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `ModeBar.swift`, its height an empty unified-compact toolbar's, which centres the traffic
   lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Crew, Command, GitHub, Activity, those enabled;
   ⌘1…⌘4 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
-  whose items `numberModes` keys, ahead of the page, your editor and the agent's browser, as ⇧⌘G Show Branch Changes (the workspace's changes in your editor) and View's tools are (⇧⌘F Show Files, ⇧⌘E Show Editor, ⇧⌘T Show
-  Terminal, ⇧⌘B Show Browser, ⇧⌘D Focus Message Box: `AppKeys.tools`, asking the page's `tools-files|editor|terminal|browser` and
+  whose items `numberModes` keys, ahead of the page, the terminal and the agent's browser, as ⇧⌘G Show Branch Changes (the workspace's branch changes in the Files tab, the web view taking the keyboard first) and View's tools are (⇧⌘F Show Files, ⇧⌘T Show
+  Terminal, ⇧⌘B Show Browser, ⇧⌘D Focus Message Box: `AppKeys.tools`, asking the page's `tools-files|terminal|browser` and
   `focus-composer`, the web view taking the keyboard first for the first and last), `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`;
   the glance, `GlanceBar`, between the usage meters and the gear). The page lies below the bar
@@ -360,7 +369,7 @@ and GitHub publication; report the published version and release link.
   (`postAppBarState` → `barState`: attention, usage meters, What's new unseen, the radio connecting, panel side, layout and visibility), and a tool's click
   comes to the page as `paseo:bar` (`onAppBar`) with the button's rectangle in page coordinates, so usage, What's new, games and shortcuts open beneath it.
   In a browser the page keeps its own `.app-bar` (name, tools, gear). The page's other content keeps to `content`, the window below the bar (`--workspace-width`/
-  `--workspace-height`, `layoutWorkspace`). The map and page are `command`'s; `content` (your editor and the agent's browser) is the window root's, over `command` and
+  `--workspace-height`, `layoutWorkspace`). The map and page are `command`'s; `content` (the terminal and the agent's browser) is the window root's, over `command` and
   below the bar, passing other events through (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is
   hidden and shown again. Check such layout with `.windowshot` (the screen's pixels), not `.snapshot`. Bar controls must be `NSButton`s: the title bar's
   toolbar passes clicks through only to controls. The panel has no header of its own and, hidden (⌘B), takes no width.
@@ -369,7 +378,7 @@ and GitHub publication; report the published version and release link.
   a check run, `--info`, only notes them in `openedOutside`), but those the agent's browser takes while it shows beside a
   conversation, a GitHub pull request's (the GitHub tab) and a Linear issue's (Linear's app). Its saved data stays, ignored:
   `conquerState`, its cookie store and `conquer-history.json` in the data folder. ⌘W is no app key now (Window → Close has
-  none: closing the one window quits); your editor and the agent's browser keep it.
+  none: closing the one window quits); the agent's browser keeps it.
 - Pages: GitHub, Activity and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
   app's sizes plus `--page-text`, 2 px by default), one width scale (`--lz`, from `--page-scale`, for columns, rows, controls and icons) and, in dark, one
   neutral near-black palette; each is a sidebar headed by its name beside its content, the same rows and heads. A content head is a
@@ -443,7 +452,7 @@ and GitHub publication; report the published version and release link.
   `slack-activity.json`.
 - GitHub (the mode bar's tab after Terminal; View menu; palette "Show GitHub"; all only while `integrations.github` is on): pull
   requests the page draws (`web/src/github/GitHubView.tsx`) over the map's frame while the app reports `paseo:mode`
-  `github`, as Activity is (a workspace's changes are your editor's: Show changes, below). Its sidebar:
+  `github`, as Activity is (a workspace's changes are the Files tab's: ⇧⌘G, below). Its sidebar:
   Pull requests (Review requests, Your pull requests, Involving you, each counted), then Repositories (`RepoNav.tsx`, `GET /api/github/q/repos`:
   one GraphQL query for your, your organizations' and collaborations' repositories, those of PRs involving you and of your favourites, each
   counting its open PRs): only Favourites (starred repositories, and those of starred organizations, whose heads show even with none open),
@@ -600,10 +609,8 @@ and GitHub publication; report the published version and release link.
   comments) was removed at the user's request; don't add that page back unless asked. The Files *tool tab* beside a conversation
   ("The Files tab", below) is its successor, at the user's later ask. A GitHub pull request's diff still renders read only in the
   GitHub tab (`DiffView`). What stays: `web/server/api/files.ts` (`GET /api/files/tree|read|all|changed|version|image`, `POST
-  /api/files/write`; the chat's autolinks read `files/all` through `web/src/files/api.ts`), `web/server/api/changes.ts`, and Settings → Files: the editor command (`files.editorCommand`, `{file}` and
-  `{line}`, checked by `editorCommandProblem` and run by `editorLaunch` under the host's login shell, `web/src/files/editorCommand.ts`)
-  and the changes command (`files.changesCommand`, an Ex command, `:DiffviewOpen` by default, `changesCommandProblem`). The user's old
-  data stays as it is, ignored: `files.openIn`, `diff-comments.json`, the old page's `files:*` and `github:changesMode` localStorage keys.
+  /api/files/write`; the chat's autolinks read `files/all` through `web/src/files/api.ts`), and `web/server/api/changes.ts`. The user's old
+  data stays as it is, ignored: `settings.json`'s `files` (`openIn`, and the removed Editor tab's `editorCommand` and `changesCommand`), `diff-comments.json`, the old page's `files:*` and `github:changesMode` localStorage keys.
 - Chat Markdown renders fenced `mermaid` blocks (`web/src/mermaid/`), in every conversation (Crew's drawer and the
   session panel). The engine loads near the viewport, with serialized strict-mode renders and each view's
   palette; its SVG is shown as an isolated image. Source/copy, zoom/reset and an expanded focus-trapped view have
@@ -672,7 +679,7 @@ and GitHub publication; report the published version and release link.
   carry `data-file-host` and show a notice instead of revealing this Mac's same-named file; plain browsers explain the app requirement.
   A file link is `#files:<path>` with `data-file-path`/`-line`/`-end` and the title "Open in Files"; the session's click
   (`openFileLink` in `Session.tsx`) asks main, which shows the Files tab beside the conversation (on the Command tab) and opens the
-  file there as a tab, at its line (`askFilesOpen`, see The Files tab); in a browser a notice says the tab is the macOS app's. Tests: `src/autolink.test.ts`, `e2e/autolink-files.e2e.ts`, `e2e/world-chat.e2e.ts`.
+  file there as a tab, at its line (`askFilesTab` in `code/filesAsks.ts`, see The Files tab); in a browser a notice says the tab is the macOS app's. Tests: `src/autolink.test.ts`, `e2e/autolink-files.e2e.ts`, `e2e/world-chat.e2e.ts`.
   Only text is wrapped (it copies as written); other clicks take the link path below.
 - Images in the chat named by absolute path (a screenshot an agent took, a file it read; `![…](/tmp/…png)`) load through
   `GET /api/attachments/image?path=` (`resolveImage` in `web/src/imageSource.ts`, the bounded loader in `imageLoad.ts`). A local
@@ -746,7 +753,7 @@ the component Crew's drawer is.
 - The macOS app draws nothing in the map's place (its SpriteKit world is gone): `useMapBridge` (`web/src/mapBridge.ts`,
   always mounted) sets the Galaxy theme while dark (the pages' near-black palette keys on it) and tells the app `loaded`
   (the splash lifts) and `viewport`, the map's place in CSS px (`.native-world-frame`, posted as it resizes or moves: the
-  panel opening, resizing or changing sides), on which the app lays your editor and the agent's browser over their boxes again.
+  panel opening, resizing or changing sides), on which the app lays the terminal and the agent's browser over their boxes again.
 - The map (`CrewMap.tsx`, `.crew-board`, `buildRoster` in `roster.ts`, pure): "Your crew" with its counts (no filter, Add
   project or New agent on it: the user's call, as ⌘K has New agent ⌘N and Add project, and its search finds agents,
   workspaces, projects and hosts); then each host (its
@@ -812,14 +819,14 @@ the component Crew's drawer is.
   (CrewMap's `focus`: an agent selected, not a workspace, project or New agent, which still open in the drawer beside the
   map) puts the map aside (kept mounted, its scroll too, `visibility: hidden`) and gives the agent the window (in a browser under a strip, `FocusStrip`, `.crew-focus-strip`: only ← Crew,
   which with Esc goes back; the macOS app has no strip, `--crew-strip` 0, its Crew tab going back; the strip's tabs for the
-  other robots were dropped at the user's ask): the conversation on the left and its tools on the right (your editor and
-  the workspace's terminal, `WorkspaceEditor` with `kind` `editor` or `terminal`, and the browser, `BoardBrowser`, main's,
-  the map's siblings, and the Files tab, `FilesPane`, below) under one tab bar (`.crew-tool-tabs`: Files, Editor, Terminal, Browser, × hides them and the conversation
-  takes the width; F (your editor) and B still toggle; ⇧⌘F, ⇧⌘E, ⇧⌘T and ⇧⌘B show each from anywhere with the keyboard, ⇧⌘D gives the
+  other robots were dropped at the user's ask): the conversation on the left and its tools on the right (the Files tab, `FilesPane`, below;
+  the workspace's terminal, `WorkspaceTerminal`; and the browser, `BoardBrowser`; main's, the map's siblings) under one tab bar
+  (`.crew-tool-tabs`: Files, Terminal, Browser; the Editor tab was removed, above; × hides them and the conversation
+  takes the width; F (Files) and B still toggle; ⇧⌘F, ⇧⌘T and ⇧⌘B show each from anywhere with the keyboard, ⇧⌘D gives the
   message box the keyboard again; ⌥⌘B, View → Show or Hide Tools (`AppKeys.toggleTools`, offered the menu ahead of the views;
   the page's `tools-toggle`, ⌘K "Show / Hide the tools beside the conversation"), hides the panel (the conversation taking the
-  width, the keyboard back to the page) or shows it again with the tool last shown, `world:lastTool`, Files the first time). One shows at a time (main's `showTool`; `world:codeOpen|filesOpen|terminalOpen|browserOpen`: `codeOpen` is
-  the Files tab's, `filesOpen` your editor's, as it was named before the Files tab).
+  width, the keyboard back to the page) or shows it again with the tool last shown, `world:lastTool`, Files the first time). One shows at a time (main's `showTool`; `world:codeOpen|terminalOpen|browserOpen`: `codeOpen` is
+  the Files tab's).
   The Terminal tab is one shell per workspace (`POST /api/terminals/create` in the workspace's folder, kept as
   `terminal:workspaces` and found again while the daemon lists it; Start again once it ends), laid over its pane as the
   editor is (`EditorOverlay`). It is named "Paseo Command terminal" (`WORKSPACE_TERMINAL` in `web/server/agentPrompt.ts`),
@@ -848,7 +855,7 @@ the component Crew's drawer is.
   (0 hidden), which `.crew-map[data-focus]`'s padding and the tools' and their tabs' `left` add, the default chat width 42%
   of what's left. ⌘S hides or shows it anywhere on the Command tab but the Files tab (where ⌘S saves: FilesPane takes it only
   with the keyboard in the pane) and dialogs; its head's button hides it; ⌘K "Show / Hide the crew list beside the
-  conversation" (`crew-sidebar`); kept as `crew:sideHidden`. While your editor's terminal or the agent's browser has the
+  conversation" (`crew-sidebar`); kept as `crew:sideHidden`. While the terminal or the agent's browser has the
   keyboard the app keeps ⌘ keys, so ⌘S doesn't reach it there. Tests: `e2e/crew.e2e.ts`, `src/crew/sideList.test.ts`.
 - The session panel (`FloatingPanel`, one column; what is open as the same `CrewDetail`) no longer shows anywhere: in the
   macOS app what is open is the Command tab's (above), and a browser's page is always Crew (main's `panelAbsent` =
@@ -865,42 +872,33 @@ the component Crew's drawer is.
 - Tests: `web/src/crew/roster.test.ts`, `web/e2e/crew.e2e.ts`, `web/e2e/pool.e2e.ts` (Release and Archive on the heads).
   `npm run native:mock -- --dungeon --probe --pr-flags` serves a fleet for it (the `dungeon` fleet is a test fixture).
 
-### Your editor beside its conversation
+### The terminal beside its conversation (and the removed Editor tab)
 
-The open agent's workspace opens in the user's own editor (Settings → Files' command; nvim for the user) in its browser's
-place, right of its conversation on Crew (`web/src/crew/WorkspaceEditor.tsx`, `crew-files.css`; the user's ask: their nvim
-manages everything about viewing, editing and diffing files). One editor per workspace: `POST /api/terminals/workspace-editor`
-(`createWorkspaceEditor` in `web/server/api/terminals.ts`) runs the command in the workspace's folder without its file and line
-(`workspaceEditorCommandLine`: the words holding `{file}` or `{line}` left out, so `nvim` starts as typed there, the user's nvim-tree and
-dashboard opening; given `.`, their `VimEnter` toggle closed the tree nvim-tree had just opened for the folder) as a daemon
-terminal named `paseo editor · <program>` (`WORKSPACE_EDITOR`, listed with `editor: true`, so terminal lists can leave it out);
-the page keeps its id per workspace (`editor:workspaces` in localStorage) and finds it again while the daemon lists it, else
-starts another (a module-level `starting` map, so React's double effects start one). It keeps running while you step away;
-if it quits, Start again. Its terminal's size goes to the daemon as the socket opens and again once the screen replay is
-in (`TerminalSession.sendSize`), so a reattached nvim redraws to the pane's full height, and again as it shows, takes the keyboard, as you type (a second
-apart) and every 2 s while it shows (`reclaimSize`, `EditorOverlay`'s `reclaim` timer; the same size changes nothing for the program): the daemon sizes a terminal as whichever client last asked, and the Paseo app showing the same terminal
-sizes it to its own pane; the relay closes the socket, never the
-server, when the daemon's connection has gone under it (`toDaemon` in `terminals.ts`), and the page reattaches. The macOS app lays the terminal over the pane's `.crew-editor-slot` (`EditorOverlay.swift`, placements
-with `mode: "command"`, `setEditorMode` in a layout effect; the app shows an editor only while its placement's mode shows,
-`EditorPlacement.mode`, `visible(showing:)`). The page's own things over the pane (tooltips, menus such as the top bar's
-glance menus, the bar's popovers: `OVERLAYS` in `web/src/overlays.ts`, shared with the agent's browser) go with each placement as
-`holes`, which `EditorStage` cuts out of the terminal (a layer mask; clicks there reach the page), as `BrowserStage` does. Main's `filesShown` (`crewBrowsing` and `world:filesOpen`): F outside a field,
-the tools' Editor tab, ⇧⌘E, ⌘K "Show …’s workspace in your editor" / "Hide the editor beside the
-conversation" (`crew-files`, page Command). It and the browser share the place. Asks go to it (`workspaceEditorAsks.ts`:
-`askWorkspaceEditor`, kept until its editor runs), but a chat's file link (`openFileLink` in `Session.tsx`, title "Open in
-Files"), which main hands to the Files tab, shown for it (`askFilesOpen`; the user's call: links open in the Files tab, not
-the editor; `openFileKeys`'s `:e +<line> <path>`, the path Ex-escaped by `exPath`, stays for asks that open a file there):
-Show changes (⇧⌘G from anywhere; the pane has no header or button of its own, nvim filling it, the user's call; ⌘K "Show …’s changes in your editor", `files-workspace-changes`) sends the
-changes command (`exCommandKeys`). Both through `POST /api/terminals/editor-send` (`sendToEditor`: only to a terminal the daemon
-lists as that workspace's editor, the path `checkPath`ed). Tests:
-`e2e/files-editor.e2e.ts`, `e2e/autolink-files.e2e.ts`, `server/api/terminals.test.ts`, `src/files/editorCommand.test.ts`,
-`native/tests/EditorEmbedTests.swift`.
+The Editor tab (your own editor, nvim, in a daemon terminal beside the conversation: `WorkspaceEditor`, `POST
+/api/terminals/workspace-editor|editor-send|editor`, Settings → Files' editor and changes commands, ⇧⌘E, ⌘K "Show …’s
+workspace in your editor") was removed at the user's request; don't add it back unless asked. Its keys went to the Files tab:
+F shows or hides it, ⇧⌘G (View → Show Branch Changes) shows its Branch view, and a chat's file link opens there
+(`code/filesAsks.ts`, below). The user's data stays, ignored: `settings.json`'s `files` (kept on save), `editor:workspaces`
+and `world:filesOpen` in localStorage (a `world:lastTool` of `editor` brings back Files); editors still running on a daemon
+(named `paseo editor · …`, `WORKSPACE_EDITOR`) stay listed with `editor: true`, so terminal lists leave them out.
+The Terminal tab's shell (`web/src/crew/WorkspaceTerminal.tsx`, `crew-files.css`) is laid over its pane as the editor was:
+the page keeps its id per workspace (`terminal:workspaces`) and finds it again while the daemon lists it, else starts another
+(a module-level `starting` map, so React's double effects start one); if it ends, Start again. Its size goes to the daemon as
+the socket opens and again once the screen replay is in (`TerminalSession.sendSize`), and again as it shows, takes the
+keyboard, as you type and every 2 s while it shows (`reclaimSize`, `EditorOverlay`'s `reclaim` timer): the daemon sizes a
+terminal as whichever client last asked. The relay closes the socket, never the server, when the daemon's connection has gone
+under it (`toDaemon` in `terminals.ts`), and the page reattaches. The macOS app lays it over the pane's `.crew-editor-slot`
+(`EditorOverlay.swift`, placements with `mode: "command"`; shown only while its placement's mode shows, `EditorPlacement.mode`,
+`visible(showing:)`). The page's own things over the pane (tooltips, menus, the bar's popovers: `OVERLAYS` in
+`web/src/overlays.ts`, shared with the agent's browser) go with each placement as `holes`, which `EditorStage` cuts out of
+the terminal (a layer mask; clicks there reach the page), as `BrowserStage` does. Tests: `e2e/crew.e2e.ts`,
+`server/api/terminals.test.ts`, `native/tests/EditorEmbedTests.swift`.
 
 ### The Files tab
 
 The first of the tools beside an agent's conversation (the user's ask: a native Files tab with the branch's diff, the
 uncommitted changes and the full source, going straight to any file, a language server's go to definition and usages, and
-editing with vim keys), drawn by the page (`web/src/code/`), unlike your editor's terminal. Main's `codeShown`
+editing with vim keys), drawn by the page (`web/src/code/`), unlike the terminal. Main's `codeShown`
 (`crewBrowsing` and `world:codeOpen`): its tab, ⇧⌘F (View → Show Files; the web view takes the keyboard first), ⌘K "Show
 …’s files and changes" (`crew-code-files`, page Command; while it shows, "Go to file…" and the sidebar's three views).
 `FilesPane.tsx`: a sidebar (resizable, `files:sidebarWidth`; ⌘B hides or shows it, the file bar's button and ⌘K "Show or
@@ -948,7 +946,7 @@ Telescope's way, the user's ask: no panel to close from vim): the field narrows 
 `Usage`), Enter or a click opens it and closes the picker (`pickUsage`), Esc or a click outside closes it where you were; it
 holds the keyboard while open. Go to file and it are as tall as what they list (`align-self: flex-start`). Hover on the pointer is the
 client's; `K` asks for the cursor's. ⌘-click and F12 go to a definition, ⌃O/⌃I (⌥←/⌥→) through where you've been. A
-chat's file link opens there, the tab shown for it (main's `ASK_EVENT` handler); in a browser it says the tab is the macOS app's. Tests: `server/lsp.test.ts` (a fake plugin), `server/api/files.test.ts`
+chat's file link opens there, and ⇧⌘G (View → Show Branch Changes, ⌘K "Show …’s branch changes in Files", a workspace's Show changes) its Branch view with the sidebar shown, the tab shown for either (`code/filesAsks.ts`: `askFilesTab`, main's `FILES_ASK_EVENT` handler, `takeFilesAsk` in `FilesPane`); in a browser it says the tab is the macOS app's. Tests: `server/lsp.test.ts` (a fake plugin), `server/api/files.test.ts`
 (write, conflict, version), `src/code/code.test.ts`, `e2e/files-tab.e2e.ts` (a fake `/api/lsp` socket).
 
 ### The agent's browser

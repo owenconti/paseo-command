@@ -171,14 +171,14 @@ const editor = (page: Page) => page.locator(".files-editor .cm-content");
 const docText = (page: Page) =>
   page.locator(".files-editor .cm-content").evaluate((el) => [...el.children].filter((c) => c.classList.contains("cm-line")).map((c) => c.textContent).join("\n"));
 
-test("the Files tab: first of the four tools, the branch's changes with a file's diff, every file, and ⌘P", async () => {
+test("the Files tab: first of the three tools, the branch's changes with a file's diff, every file, and ⌘P", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1600, height: 950 });
   try {
     await openFilesTab(page);
     const tabs = page.locator(".crew-tool-tabs [role=tab]");
-    assert.deepEqual(await tabs.allInnerTexts(), ["Files", "Editor", "Terminal", "Browser"]);
+    assert.deepEqual(await tabs.allInnerTexts(), ["Files", "Terminal", "Browser"]);
     assert.equal(await tabs.first().getAttribute("aria-selected"), "true");
     // Branch (the default): the changed file, its counts and the base.
     await page.getByText("1 file · +1 −1 · against main").waitFor();
@@ -385,6 +385,40 @@ test("a Files tab whose module is gone (the app rebuilt under the page) says so 
       "the crash logged",
     );
     assert.match(logged.find((m) => m.text?.startsWith("crash in the Files tab"))!.text!, /dynamically imported module/);
+  } finally {
+    await context.close();
+  }
+});
+
+test("⇧⌘G shows the branch's changes in the Files tab, and F shows or hides the tab", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 950 });
+  try {
+    await openFilesTab(page);
+    // Another view first, and the sidebar hidden.
+    await page.getByRole("radio", { name: "All files" }).click();
+    await page.locator(".files-tree").waitFor();
+    await appEvent(page, "paseo:command", "files-sidebar");
+    await page.locator(".files-side").waitFor({ state: "detached" });
+    // ⇧⌘G (the app's View → Show Branch Changes): the Branch view, the sidebar shown again.
+    await appEvent(page, "paseo:command", "branch-changes");
+    await page.locator(".files-side").waitFor();
+    assert.equal(await page.getByRole("radio", { name: "Branch" }).getAttribute("aria-checked"), "true");
+    await page.getByText("1 file · +1 −1 · against main").waitFor();
+    // From another tool too: the Files tab comes back for it.
+    await appEvent(page, "paseo:command", "tools-browser");
+    await page.locator(".files-view").waitFor({ state: "detached" });
+    await appEvent(page, "paseo:command", "branch-changes");
+    await page.locator(".files-view").waitFor();
+    assert.equal(await page.getByRole("radio", { name: "Branch" }).getAttribute("aria-checked"), "true");
+    // F (outside a field and the tab) hides it, and again shows it; the tools have no Editor tab.
+    assert.deepEqual((await page.locator(".crew-tool-tabs [role=tab]").allInnerTexts()).map((t) => t.replace(/ · \d+$/, "")), ["Files", "Terminal", "Browser"]);
+    await page.locator(".crew-detail .session").click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("f");
+    await page.locator(".files-view").waitFor({ state: "detached" });
+    await page.keyboard.press("f");
+    await page.locator(".files-view").waitFor();
   } finally {
     await context.close();
   }

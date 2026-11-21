@@ -52,13 +52,13 @@ assert(bar.performKeyEquivalent(with: shiftG))
 assert(menus.ran == ["branchChanges"], "\(menus.ran)")
 
 // ⌃` is no app key now (the Terminal tab went). View's tools are, from anywhere, ahead of the views (your editor, its
-// terminal and the agent's browser's pages too): ⇧⌘E the editor, ⇧⌘T the terminal, ⇧⌘B the browser, ⇧⌘D the message box.
+// terminal and the agent's browser's pages too): ⇧⌘F the Files tab, ⇧⌘T the terminal, ⇧⌘B the browser, ⇧⌘D the message box.
 assert(!AppKeys.offeredToMenu(key("`", .control, code: 50)))
 assert(view.item(withTitle: "Show Files") == nil)
 final class Tools: NSObject { var ran: [String] = []; @objc func tool(_ sender: NSMenuItem) { ran.append(sender.representedObject as! String) } }
 let tools = Tools()
 AppKeys.addTools(to: view, target: tools, action: #selector(Tools.tool(_:)))
-for (letter, command) in [("F", "tools-files"), ("E", "tools-editor"), ("T", "tools-terminal"), ("B", "tools-browser"), ("D", "focus-composer")] {
+for (letter, command) in [("F", "tools-files"), ("T", "tools-terminal"), ("B", "tools-browser"), ("D", "focus-composer")] {
     let event = key(letter, [.command, .shift])
     assert(AppKeys.offeredToMenu(event), letter)
     tools.ran = []
@@ -66,6 +66,8 @@ for (letter, command) in [("F", "tools-files"), ("E", "tools-editor"), ("T", "to
     assert(!AppKeys.offeredToMenu(key(letter.lowercased(), .command)), "⌘\(letter) alone isn't one")
 }
 assert(view.item(withTitle: "Show Terminal")?.keyEquivalent == "t")
+// ⇧⌘E was the removed Editor tab's: no View item, not offered to the menu.
+assert(view.item(withTitle: "Show Editor") == nil && !AppKeys.offeredToMenu(key("E", [.command, .shift])))
 // ⌥⌘B: Show or Hide Tools, the panel beside the conversation, from anywhere too.
 let optB = key("b", [.command, .option])
 assert(AppKeys.offeredToMenu(optB), "⌥⌘B is offered to the menu")

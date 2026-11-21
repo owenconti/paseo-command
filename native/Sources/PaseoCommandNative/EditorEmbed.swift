@@ -1,6 +1,6 @@
 import AppKit
 
-/// Where the page shows your editor's terminal (Settings → Files' command, beside an agent's conversation):
+/// Where the page shows a workspace terminal beside an agent's conversation (the Terminal tab; once also your editor's):
 /// the page reports the pane's frame in its own coordinates (CSS pixels, top-left origin) with the editor's
 /// terminal, as `editor` messages, and the app lays the terminal exactly over it (`EditorOverlay`). Nothing
 /// here needs SwiftTerm, so the native checks run it.
@@ -16,7 +16,7 @@ struct EditorPlacement: Equatable {
     /// coordinates: cut out of the terminal, so they show and take their clicks.
     var holes: [CGRect] = []
     /// The app's mode it shows in (a `Mode`'s raw value): "command", beside an agent's conversation on Crew
-    /// (`web/src/crew/WorkspaceEditor.tsx`).
+    /// (`web/src/crew/WorkspaceTerminal.tsx`).
     var mode: String
 
     static let nothing = EditorPlacement(terminal: nil, host: "", rect: .zero, covered: false)
@@ -121,7 +121,7 @@ class EditorStage: NSView {
 }
 
 /// Keys while an editor (or the Terminal tab's terminal) has the keyboard. As the Terminal tab's, the
-/// app keeps only the window's own keys there (`AppKeys.offeredToMenu`: ⌘1…⌘6, ⇧⌘E, ⇧⌘G, and ⌘W, which closes
+/// app keeps only the window's own keys there (`AppKeys.offeredToMenu`: ⌘1…⌘6, ⇧⌘G and View's tools, and ⌘W, which closes
 /// the file's tab with its confirmation) and the menu's (⌘`, ⌃`, ⌘, ⌘Q, ⌘C/⌘V as the terminal does them, the
 /// terminal text size); ⌘K, which no menu item has, opens the page's command palette. Everything else, Esc, ⌃
 /// keys, arrows and ⌘ keys no menu item has, goes to the editor.

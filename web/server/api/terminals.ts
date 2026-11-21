@@ -7,11 +7,8 @@
  * - `POST /api/terminals/create` `{ workspace, host?, rows?, cols? }`: a new
  *   terminal in that workspace, the Terminal tab's shell beside a conversation, named `WORKSPACE_TERMINAL` so the
  *   workspace's agents can find it with Paseo's terminal tools (`agentPrompt.ts`, `<paseo_command_terminal>`).
- * - `POST /api/terminals/editor` `{ workspace, host?, path, line?, rows?, cols? }`:
- *   a new terminal in that workspace (listed with `editor: true` while this server runs) running Settings → Files' editor command
- *   on `path` (`web/src/files/editorCommand.ts`), for the Files page. The command
- *   comes from the settings file, never the request; the path is checked as the
- *   Files page's reads check theirs, and quoted.
+ * - Terminals that aren't a workspace's shell are listed with `editor: true`, so terminal lists can leave them out: the
+ *   removed Editor tab's (`WORKSPACE_EDITOR`, still running where they were started) and `bin/worktree status`'s.
  * - `POST /api/terminals/kill` `{ id, host? }`: end one.
  * - `GET /api/terminal?id=<terminalId>[&host=…]` (upgrade): one terminal's
  *   bytes as binary frames, its recent screen first, between text frames
@@ -30,11 +27,8 @@ import type { IncomingMessage } from "node:http";
 import { appendFileSync } from "node:fs";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, type WebSocket } from "ws";
-import { editorLaunch, exCommandKeys, filesSettings, openFileKeys, workspaceEditorLaunch } from "../../src/files/editorCommand";
 import { WORKSPACE_TERMINAL } from "../agentPrompt";
 import { admissionClosed } from "../proc";
-import { readSettings } from "../settings";
-import { checkPath } from "./files";
 import { resolveHost, sdk, timed, type Remote } from "./hosts";
 import { allowedOrigin } from "./http";
 import { aggregate } from "./reads";
@@ -43,8 +37,6 @@ import { WORKTREE_TERMINAL } from "../worktreeUrl";
 
 type Body = Record<string, unknown>;
 type TerminalInfo = { id: string; name: string; title?: string; editor?: true };
-/** Terminals started by the editor route, the Files page's: listed as `editor`, so the terminal panel leaves them out of its tabs. */
-const editors = new Set<string>();
 
 /** The workspace's row on that host, or an error. */
 async function workspaceOf(raw: unknown, host?: Remote) {
@@ -57,13 +49,13 @@ async function workspaceOf(raw: unknown, host?: Remote) {
   return { workspaceId, cwd: row.cwd };
 }
 
-/** A workspace's own editor (`createWorkspaceEditor`) is named so, which marks it as an editor across restarts too. */
+/** The removed Editor tab's terminals were named so; any still running stay out of terminal lists. */
 export const WORKSPACE_EDITOR = "paseo editor · ";
 const terminalOf = (t: { id: string; name: string; title?: string }): TerminalInfo => ({
   id: t.id,
   name: t.name,
   ...(t.title ? { title: t.title } : {}),
-  ...(editors.has(t.id) || t.name.startsWith(WORKSPACE_EDITOR) || t.name === WORKTREE_TERMINAL ? { editor: true as const } : {}),
+  ...(t.name.startsWith(WORKSPACE_EDITOR) || t.name === WORKTREE_TERMINAL ? { editor: true as const } : {}),
 });
 
 export async function listTerminals(url: URL) {
@@ -95,75 +87,10 @@ export async function createTerminal(body: Body) {
   return { terminal: terminalOf(r.terminal) };
 }
 
-export async function createEditorTerminal(body: Body) {
-  const path = checkPath(typeof body.path === "string" ? body.path : null);
-  if (!path) throw new Error("A file is required");
-  const line = body.line === undefined ? 1 : Number(body.line);
-  if (!Number.isInteger(line) || line < 1 || line >= 10_000_000) throw new Error("Invalid line");
-  const settings = readSettings();
-  if (!settings) throw new Error("settings.json can't be read.");
-  const { editorCommand } = filesSettings(settings.files);
-  const host = await resolveHost(body.host, "write");
-  const { workspaceId, cwd } = await workspaceOf(body.workspace, host);
-  const client = await sdk(host);
-  const { command, args } = editorLaunch(editorCommand, path, line);
-  const name = `${editorCommand.trim().split(/\s+/)[0]} · ${path.slice(path.lastIndexOf("/") + 1)}`.slice(0, 120);
-  const r = await timed(client.createTerminal(cwd, name, undefined, { workspaceId, command, args, size: size(body) }), undefined, client);
-  if (!r.terminal) throw new Error(r.error || "The editor didn't start");
-  editors.add(r.terminal.id);
-  return { terminal: terminalOf(r.terminal) };
-}
-
-/** `POST /api/terminals/workspace-editor {workspace, host?, rows?, cols?}`: the workspace's own editor, Settings → Files'
- *  command on the workspace's folder (`nvim .`), for the focus view's Editor tab (crew/WorkspaceEditor.tsx). */
-export async function createWorkspaceEditor(body: Body) {
-  const settings = readSettings();
-  if (!settings) throw new Error("settings.json can't be read.");
-  const { editorCommand } = filesSettings(settings.files);
-  const host = await resolveHost(body.host, "write");
-  const { workspaceId, cwd } = await workspaceOf(body.workspace, host);
-  const client = await sdk(host);
-  const { command, args } = workspaceEditorLaunch(editorCommand);
-  const name = `${WORKSPACE_EDITOR}${editorCommand.trim().split(/\s+/)[0]}`.slice(0, 120);
-  const r = await timed(client.createTerminal(cwd, name, undefined, { workspaceId, command, args, size: size(body) }), undefined, client);
-  if (!r.terminal) throw new Error(r.error || "The editor didn't start");
-  editors.add(r.terminal.id);
-  return { terminal: terminalOf(r.terminal) };
-}
-
-/** `POST /api/terminals/editor-send {workspace, host?, id, open?: {path, line?} | changes: true}`: tells the workspace's
- *  running editor to open a file at a line (`:e +12 src/a.ts`, the path checked as Files' are), or to show its changes
- *  (Settings → Files' changes command, never the request's). Only to an editor terminal the workspace lists. */
-export async function sendToEditor(body: Body) {
-  const host = await resolveHost(body.host, "write");
-  const { workspaceId, cwd } = await workspaceOf(body.workspace, host);
-  const terminalId = id(body.id);
-  const client = await sdk(host);
-  const listed = await timed(client.listTerminals(cwd, undefined, { workspaceId }), undefined, client);
-  const own = (listed.terminals ?? []).map(terminalOf).find((t) => t.id === terminalId);
-  if (!own?.editor) throw new Error("That isn't this workspace's editor");
-  let keys: string;
-  if (body.changes === true) {
-    const settings = readSettings();
-    if (!settings) throw new Error("settings.json can't be read.");
-    keys = exCommandKeys(filesSettings(settings.files).changesCommand);
-  } else {
-    const open = body.open && typeof body.open === "object" ? (body.open as Body) : null;
-    const path = checkPath(typeof open?.path === "string" ? open.path : null);
-    if (!path) throw new Error("A file is required");
-    const line = open?.line === undefined ? 1 : Number(open.line);
-    if (!Number.isInteger(line) || line < 1 || line >= 10_000_000) throw new Error("Invalid line");
-    keys = openFileKeys(path, line);
-  }
-  client.sendTerminalInput(terminalId, { type: "input", data: keys });
-  return { ok: true };
-}
-
 export async function killTerminal(body: Body) {
   const host = await resolveHost(body.host, "write");
   const client = await sdk(host);
   await timed(client.killTerminal(id(body.id)), undefined, client);
-  editors.delete(id(body.id));
   return {};
 }
 

@@ -44,8 +44,6 @@ const REPLY = [
 ].join("\n");
 
 async function setUp(page: Page, inApp: boolean, reply = REPLY) {
-  const started: Record<string, unknown>[] = [];
-  const sentToEditor: Record<string, unknown>[] = [];
   if (inApp)
     await page.addInitScript(`
       window.sentToApp = [];
@@ -59,17 +57,6 @@ async function setUp(page: Page, inApp: boolean, reply = REPLY) {
     workspaces: () => small.workspaces,
     lists: { settings: { integrations: { github: false, linear: false, typesafe: false } } },
     detail: (id: string) => detailOf(id, "idle"),
-    accept: (path: string, body: Record<string, unknown>) => {
-      if (path === "/api/terminals/workspace-editor") {
-        started.push(body);
-        return { terminal: { id: "term-1", name: "paseo editor · nvim", editor: true } };
-      }
-      if (path === "/api/terminals/editor-send") {
-        sentToEditor.push(body);
-        return { ok: true };
-      }
-      return false;
-    },
     timeline: () => ({
       items: [
         { kind: "user", text: "Look at src/app.ts and `src/long.ts`, not `npm test src/app.ts`.", messageId: "u1" },
@@ -93,7 +80,7 @@ async function setUp(page: Page, inApp: boolean, reply = REPLY) {
     if (name === "changed") return route.fulfill({ json: { files: [] } });
     return route.fulfill({ status: 404, json: { error: "not mocked" } });
   });
-  return { listAsks: () => listAsks, started, sentToEditor };
+  return { listAsks: () => listAsks };
 }
 
 const fileLinks = (page: Page, selector: string) =>
@@ -166,7 +153,7 @@ test("file paths in the conversation link, and open in the Files tab at their li
   await page.setViewportSize({ width: 1600, height: 1000 });
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  const { listAsks, started, sentToEditor } = await setUp(page, true);
+  const { listAsks } = await setUp(page, true);
   try {
     await page.goto(`${app.url}?agent=a-idle`);
     const reply = page.locator(".msg.assistant");
@@ -187,7 +174,7 @@ test("file paths in the conversation link, and open in the Files tab at their li
     ]);
     await page.screenshot({ path: "/tmp/autolink-files-chat.png" });
 
-    // A click: the Files tab shows beside the conversation with the file, at its line; your editor isn't started.
+    // A click: the Files tab shows beside the conversation with the file, at its line.
     await reply.getByRole("link", { name: "/work/atlas/a/src/long.ts:2700" }).click();
     await page.locator(".files-view").waitFor();
     assert.equal(await page.locator(".crew-tool-tabs [role=tab][aria-selected=true]").textContent(), "Files");
@@ -198,8 +185,6 @@ test("file paths in the conversation link, and open in the Files tab at their li
     await reply.getByRole("link", { name: REPORT }).click();
     await page.locator(".files-tab[aria-selected=true]").getByText("resource-reference-approaches.md").waitFor();
     assert.equal(await page.locator(".files-tab").count(), 2);
-    assert.deepEqual(started, [], "your editor isn't started");
-    assert.deepEqual(sentToEditor, []);
     assert.equal(listAsks(), 1, "the file list is asked once");
     assert.deepEqual(errors, []);
   } finally {

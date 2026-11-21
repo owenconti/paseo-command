@@ -7,7 +7,6 @@ export type AppCommand =
   | "tools-files"
   | "files-sidebar"
   | "crew-sidebar"
-  | "tools-editor"
   | "tools-terminal"
   | "tools-browser"
   | "tools-toggle"
@@ -115,7 +114,7 @@ export function onOwnedAppCommand(name: AppCommand, run: (arg?: unknown) => void
   };
 }
 
-/** ⇧⌘G: the selected workspace's branch changes, Settings → Files' changes command run in your editor. The macOS app takes it through its
+/** ⇧⌘G: the selected workspace's branch changes, the Files tab's Branch view. The macOS app takes it through its
  * View menu (Show Branch Changes) and sends `branch-changes`; a browser's page takes it itself. */
 export const isBranchChangesShortcut = (event: ShortcutKey) =>
   event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "g";

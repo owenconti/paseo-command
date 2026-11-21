@@ -2,9 +2,8 @@
  * This app's settings file, `settings.json` in its data directory beside
  * `secrets.json` (`PASEO_COMMAND_SETTINGS` overrides), so the macOS app's Dev and
  * release copies each keep their own: preset prompts (presets.ts), optional
- * integration opt-ins, the Linear workspace issue links open in and where the
- * Files page opens files (`files`: the viewer or an editor command; `GET /api/settings`,
- * `POST /api/settings`). Each save keeps the file's other keys; an
+ * integration opt-ins, the Linear workspace issue links open in and the pool boxes' folder (`GET /api/settings`,
+ * `POST /api/settings`). Each save keeps the file's other keys (the removed Editor tab's `files` among them); an
  * unreadable file is never overwritten.
  */
 import {
@@ -21,7 +20,6 @@ import {
   integrationSettings,
   type Integration,
 } from "../src/integrations";
-import { changesCommandProblem, editorCommandProblem, filesSettings } from "../src/files/editorCommand";
 import { poolDirProblem, poolSettings } from "../src/pool";
 
 export const settingsFile = () =>
@@ -69,7 +67,6 @@ export function appSettings() {
   return {
     linearWorkspace: slug ?? "",
     integrations: integrationSettings(raw?.integrations),
-    files: filesSettings(raw?.files),
     pool: poolSettings(raw?.pool),
     error: raw ? null : UNREADABLE,
   };
@@ -103,36 +100,6 @@ export function saveAppSettings(body: Record<string, unknown>) {
     const slug = value.trim() ? linearSlug(value) : "";
     if (slug === null) throw new Error("Invalid Linear workspace");
     change.linearWorkspace = slug;
-  }
-  if ("files" in body) {
-    // Settings → Files: where files open, and the editor command (checked, never run here).
-    const input = body.files;
-    if (!input || typeof input !== "object" || Array.isArray(input))
-      throw new Error("Invalid Files settings");
-    const { openIn, editorCommand, changesCommand } = input as Record<string, unknown>;
-    if (openIn !== undefined && openIn !== "viewer" && openIn !== "editor")
-      throw new Error("Invalid Files settings");
-    if (editorCommand !== undefined) {
-      if (typeof editorCommand !== "string") throw new Error("Invalid editor command");
-      const problem = editorCommandProblem(editorCommand);
-      if (problem) throw new Error(problem);
-    }
-    if (changesCommand !== undefined) {
-      if (typeof changesCommand !== "string") throw new Error("Invalid changes command");
-      const problem = changesCommandProblem(changesCommand);
-      if (problem) throw new Error(problem);
-    }
-    const existing = readSettings()?.files;
-    const kept =
-      existing && typeof existing === "object" && !Array.isArray(existing)
-        ? (existing as Record<string, unknown>)
-        : {};
-    change.files = {
-      ...kept,
-      ...(openIn !== undefined ? { openIn } : {}),
-      ...(typeof editorCommand === "string" ? { editorCommand: editorCommand.trim() } : {}),
-      ...(typeof changesCommand === "string" ? { changesCommand: changesCommand.trim() } : {}),
-    };
   }
   if ("pool" in body) {
     // Settings → Pool boxes: the paseo-boxes folder on this Mac and the checkout on a box.
