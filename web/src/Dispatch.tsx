@@ -65,6 +65,8 @@ export type DispatchTarget = {
    */
   pr?: { repo: string; number: number; title?: string; url?: string; head?: string };
   settings?: DraftSettings;
+  /** For a project: its checkout as it is, or a new worktree (a screen capture's new workspace). */
+  isolation?: "local" | "worktree";
 };
 /** Where a project agent runs: its checkout, or a new worktree and branch. */
 type Isolation = "local" | "worktree";
@@ -324,7 +326,7 @@ export function NewAgent({
   const [mode, setMode] = useState("");
   const [models, setModels] = useState<Model[]>([]);
   const [isolation, setIsolation] = useState<Isolation>(
-    forPr ? "worktree" : (kept?.isolation ?? (prefs.isolation === "worktree" ? "worktree" : "local")),
+    forPr ? "worktree" : (initial.isolation ?? kept?.isolation ?? (prefs.isolation === "worktree" ? "worktree" : "local")),
   );
   // Worktree mode needs no typing: an empty branch takes this name.
   const [suggested] = useState(randomBranchName);

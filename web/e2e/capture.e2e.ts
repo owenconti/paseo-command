@@ -83,7 +83,7 @@ test("the send panel sends the capture, with your message, to the agent chosen",
     const titles = await page.locator(".cap-target-title").allInnerTexts();
     assert.ok(titles.includes("Idler") && titles.includes("Runner"), titles.join(", "));
     // Sessions, then "New agent in" each project, in the left column.
-    assert.deepEqual(await page.locator(".cap-group").allInnerTexts(), ["SESSIONS", "NEW AGENT IN"]);
+    assert.deepEqual(await page.locator(".cap-group").allInnerTexts(), ["SESSIONS", "NEW AGENT IN A WORKSPACE", "NEW AGENT IN A NEW WORKSPACE"]);
     assert.ok(await page.locator(".cap-side .cap-target.new").count() > 0);
     // The search narrows; ↓ chooses; ⌘↩ sends from anywhere in the panel.
     await page.locator(".cap-search").fill("runn");
@@ -202,21 +202,42 @@ test("a voice without a transcript says why", async () => {
   }
 });
 
-test("a project in the send panel asks the app's window for New agent there; Esc closes", async () => {
+test("a workspace in the send panel asks for a new agent there, a project for one in a new workspace; Esc closes", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   const sent = await panel(page);
   try {
+    // The three kinds, each under its head.
+    assert.deepEqual(await page.locator(".cap-group").allInnerTexts(), ["SESSIONS", "NEW AGENT IN A WORKSPACE", "NEW AGENT IN A NEW WORKSPACE"]);
+    await page.locator(".cap-search").fill("workspace labels");
+    assert.deepEqual(await page.locator(".cap-target-title").allInnerTexts(), ["Labels"]);
+    assert.match((await page.locator("#capture-composer").getAttribute("placeholder")) ?? "", /^Message a new agent in Labels…/);
     await page.locator("#capture-composer").fill("Start on this");
-    await page.locator(".cap-search").fill("new agent atlas");
     await page.locator(".cap-search").press("Enter");
-    const ask = await waitFor(() => posted(page), (p) => p.some((m) => m.type === "app"), "the ask");
-    assert.deepEqual(ask.find((m) => m.type === "app"), { type: "app", newAgent: { projectId: "prj_atlas" }, message: "Start on this" });
+    const asked = await waitFor(() => posted(page), (p) => p.some((m) => m.type === "app"), "the workspace's ask");
+    assert.deepEqual(asked.find((m) => m.type === "app"), { type: "app", newAgent: { workspaceId: "wks_b" }, message: "Start on this" });
+    await context.close();
+  } catch (e) {
+    await context.close();
+    throw e;
+  }
+  const context2 = await newContext(browser);
+  const page2 = await context2.newPage();
+  const sent2 = await panel(page2);
+  try {
+    await page2.locator("#capture-composer").fill("Start on this");
+    await page2.locator(".cap-search").fill("new workspace atlas");
+    assert.match((await page2.locator("#capture-composer").getAttribute("placeholder")) ?? "", /^Message a new agent in a new workspace of atlas…/);
+    await page2.locator(".cap-search").press("Enter");
+    const ask = await waitFor(() => posted(page2), (p) => p.some((m) => m.type === "app"), "the ask");
+    assert.deepEqual(ask.find((m) => m.type === "app"), { type: "app", newAgent: { projectId: "prj_atlas", isolation: "worktree" }, message: "Start on this" });
+    assert.equal(sent2.length + sent.length, 0);
+    const page = page2;
     assert.equal(sent.length, 0);
     await page.keyboard.press("Escape");
     assert.ok((await posted(page)).some((m) => m.type === "close"));
   } finally {
-    await context.close();
+    await context2.close();
   }
 });
 
@@ -252,6 +273,16 @@ test("the app's window opens New agent on the project with the capture as its fi
     await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the dispatch");
     assert.match(String(dispatched[0].prompt), /^Start on this/);
     assert.deepEqual(dispatched[0].images, [{ data: SHEET.toString("base64"), mimeType: "image/png" }]);
+    // In a workspace: New agent starts there.
+    await appEvent(page, "paseo:capture", { capture: ID, newAgent: { workspaceId: "wks_b" }, message: "In Labels" });
+    await waitFor(() => mission.inputValue(), (v) => v.startsWith("Start on this"), "the next capture's draft");
+    await page.locator(".new-agent").getByRole("button", { name: "Send message" }).click();
+    await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 2, "the workspace's dispatch");
+    assert.equal(dispatched[1].workspaceId, "wks_b", JSON.stringify(dispatched[1]));
+    // In a new workspace of a project: Worktree is chosen.
+    await appEvent(page, "paseo:capture", { capture: ID, newAgent: { projectId: "prj_atlas", isolation: "worktree" }, message: "New" });
+    await page.locator(".new-agent").getByRole("radio", { name: "Worktree" }).waitFor();
+    await waitFor(() => page.locator(".new-agent").getByRole("radio", { name: "Worktree" }).getAttribute("aria-checked"), (v) => v === "true", "Worktree chosen");
   } finally {
     await context.close();
   }
@@ -313,7 +344,7 @@ test("a project in the panel asks for its folder's /skills with the provider's f
     return route.fulfill({ json: { error: null, commands: [{ name: "prep", description: "Prepare", argumentHint: "", kind: "skill" }] } });
   });
   try {
-    await page.locator(".cap-search").fill("new agent atlas");
+    await page.locator(".cap-search").fill("new workspace atlas");
     const composer = page.locator("#capture-composer");
     await composer.click();
     await composer.pressSequentially("/pre");

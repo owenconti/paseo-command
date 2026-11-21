@@ -1,7 +1,7 @@
 /**
  * What the macOS app's screen capture send panel asks of the app's window (`paseo:capture`, from `Capture.swift`'s
- * `toApp`): open an agent's conversation it sent to (`open`), or New agent on a project with the capture as its
- * first message (`newAgent`): its text and contact sheet put into New agent's draft (`draft:dispatch`, the
+ * `toApp`): open an agent's conversation it sent to (`open`), or New agent with the capture as its first message
+ * (`newAgent`: in a workspace, or in a new workspace, a worktree, of a project): its text and contact sheet put into New agent's draft (`draft:dispatch`, the
  * composer's attachments) before it opens.
  */
 import { api, writeStore } from "../api";
@@ -10,7 +10,12 @@ import { uid } from "../composer/util";
 
 export type AppCapture =
   | { open: string; capture: string }
-  | { newAgent: { projectId: string; host?: string }; message?: string; images?: string[]; transcript?: false; capture: string };
+  | { newAgent: NewAgentPlace; message?: string; images?: string[]; transcript?: false; capture: string };
+
+/** Where the capture's new agent starts: a workspace as it is, or a project (`isolation: "worktree"`: a new workspace). */
+export type NewAgentPlace =
+  | { workspaceId: string; host?: string }
+  | { projectId: string; host?: string; isolation?: "worktree" | "local" };
 
 /** An image the panel's composer had, as a data: URL of a raster type (nothing else is taken). */
 const IMAGE_URL = /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
@@ -21,9 +26,18 @@ export function readAppCapture(detail: unknown): AppCapture | undefined {
   if (typeof d.capture !== "string") return undefined;
   if (typeof d.open === "string" && d.open) return { open: d.open, capture: d.capture };
   const n = d.newAgent as Record<string, unknown> | undefined;
-  if (n && typeof n === "object" && typeof n.projectId === "string" && n.projectId)
+  const host = n && typeof n.host === "string" && n.host ? { host: n.host } : {};
+  const place: NewAgentPlace | undefined =
+    !n || typeof n !== "object"
+      ? undefined
+      : typeof n.workspaceId === "string" && n.workspaceId
+        ? { workspaceId: n.workspaceId, ...host }
+        : typeof n.projectId === "string" && n.projectId
+          ? { projectId: n.projectId, ...host, ...(n.isolation === "worktree" || n.isolation === "local" ? { isolation: n.isolation } : {}) }
+          : undefined;
+  if (place)
     return {
-      newAgent: { projectId: n.projectId, ...(typeof n.host === "string" && n.host ? { host: n.host } : {}) },
+      newAgent: place,
       ...(typeof d.message === "string" ? { message: d.message } : {}),
       ...(Array.isArray(d.images) ? { images: d.images.filter((i): i is string => typeof i === "string" && IMAGE_URL.test(i)).slice(0, 9) } : {}),
       ...(d.transcript === false ? { transcript: false as const } : {}),

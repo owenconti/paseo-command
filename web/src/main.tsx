@@ -1176,8 +1176,8 @@ function App() {
     },
     [openDispatch],
   );
-  // The screen capture send panel's asks (capture/appCapture.ts): the conversation it sent to, or New agent on a
-  // project with the capture as its first message.
+  // The screen capture send panel's asks (capture/appCapture.ts): the conversation it sent to, or New agent (in a
+  // workspace, or a new workspace of a project) with the capture as its first message.
   useEffect(
     () =>
       onAppCapture((c) => {
@@ -1188,7 +1188,12 @@ function App() {
         }
         prepareCaptureDraft(c.capture, c.message ?? "", c.newAgent.host, c.images, c.transcript !== false).then(
           () => {
-            openDispatch({ projectId: projectKey(c.newAgent) });
+            const place = c.newAgent;
+            openDispatch(
+              "workspaceId" in place
+                ? { workspaceId: workspaceKey(place) }
+                : { projectId: projectKey(place), ...(place.isolation ? { isolation: place.isolation } : {}) },
+            );
             postAppMenu("command");
           },
           (error) => setNotice(`Couldn’t open the capture in New agent: ${errorMessage(error) || "the request failed."}`),

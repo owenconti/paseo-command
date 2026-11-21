@@ -5,7 +5,7 @@
  * here, `POST /api/captures/:id/send`, joining its current turn while it works) or a project, for a new agent, which the
  * app's window opens in New agent with the capture as its first message (`paseo:capture` in main).
  * Laid out in two columns: who gets it on the left (the search over your sessions, most recently active first, then a
- * new agent in each project), the capture and your message on the right. Copy (⇧⌘C) puts the whole message on the
+ * new agent in a workspace, then a new agent in a new workspace of a project, a worktree), the capture and your message on the right. Copy (⇧⌘C) puts the whole message on the
  * clipboard instead (the draft's `copy=1`: the sheet and video named by their files, for any tool on this Mac).
  * Keys: Enter in the composer sends (as everywhere), ⌘↩ or Send from elsewhere in the panel (an empty message too: the
  * What you said while recording (the app heard it on this Mac) goes into the composer, once (`capture-tidied:<id>`): first
@@ -163,11 +163,15 @@ export function CapturePanel({ id }: { id: string }) {
       removeStore(`draft:${owner}`);
       setAttachmentDraft(owner, []);
     };
-    if (to.kind === "project") {
-      const p = to.project;
+    if (to.kind !== "agent") {
+      // A new agent: in a workspace as it is, or in a new workspace (a worktree) of a project, opened in the app's window.
+      const newAgent =
+        to.kind === "workspace"
+          ? { workspaceId: to.workspace.workspaceId, ...(to.workspace.host ? { host: to.workspace.host } : {}) }
+          : { projectId: to.project.projectId, ...(to.project.host ? { host: to.project.host } : {}), isolation: "worktree" };
       post({
         type: "app",
-        newAgent: { projectId: p.projectId, ...(p.host ? { host: p.host } : {}) },
+        newAgent,
         message: text,
         ...(images.length ? { images: images.map((i) => i.dataUrl) } : {}),
         ...(speaks ? { transcript: false } : {}),
@@ -221,7 +225,7 @@ export function CapturePanel({ id }: { id: string }) {
   // The chosen target's folder, for the composer's /skills and @files (as New agent's are, before an agent exists). The
   // daemon lists a folder's skills only for a model: an agent's own (its provider reads "claude/claude-opus-5-5"), else,
   // for a project, the provider's first, as New agent's Default does.
-  const host = target?.kind === "agent" ? target.agent.host : target?.project.host;
+  const host = target?.kind === "agent" ? target.agent.host : target?.kind === "workspace" ? target.workspace.host : target?.project.host;
   const [agentProvider, ...agentModel] = target?.kind === "agent" ? target.agent.provider.split("/") : [];
   const provider = agentProvider || "claude";
   const firstKey = `${host ?? ""}|${provider}`;
@@ -235,16 +239,20 @@ export function CapturePanel({ id }: { id: string }) {
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstKey, !!target, agentModel.length]);
-  const source = target && model ? { cwd: target.kind === "agent" ? target.agent.cwd : target.project.path, provider, model } : undefined;
+  const cwd = target?.kind === "agent" ? target.agent.cwd : target?.kind === "workspace" ? target.workspace.cwd : target?.project.path;
+  const source = target && model && cwd ? { cwd, provider, model } : undefined;
 
   // The message box says who gets it (Enter sends; ⌘↩ from elsewhere in the panel).
   const placeholder = !target
     ? "Choose who gets it on the left"
     : target.kind === "project"
-      ? `Message a new agent in ${target.project.name}… (/ for skills, @ for files)`
-      : `Message ${target.title}${target.running ? " (it's working: this joins its turn)" : ""}… (/ for skills, @ for files)`;
+      ? `Message a new agent in a new workspace of ${target.project.name}… (/ for skills, @ for files)`
+      : target.kind === "workspace"
+        ? `Message a new agent in ${target.title}… (/ for skills, @ for files)`
+        : `Message ${target.title}${target.running ? " (it's working: this joins its turn)" : ""}… (/ for skills, @ for files)`;
 
   const agents = shown.filter((t) => t.kind === "agent");
+  const workspaceRows = shown.filter((t) => t.kind === "workspace");
   const projects = shown.filter((t) => t.kind === "project");
   const row = (t: CaptureTarget) => {
     const i = shown.indexOf(t);
@@ -261,11 +269,11 @@ export function CapturePanel({ id }: { id: string }) {
         onDoubleClick={() => void send(undefined, t)}
         title={t.title}
       >
-        <span className={`cap-dot${t.kind === "agent" && t.running ? " running" : ""}${t.kind === "project" ? " plus" : ""}`} aria-hidden>
-          {t.kind === "project" ? "+" : ""}
+        <span className={`cap-dot${t.kind === "agent" && t.running ? " running" : ""}${t.kind !== "agent" ? " plus" : ""}`} aria-hidden>
+          {t.kind !== "agent" ? "+" : ""}
         </span>
         <span className="cap-target-text">
-          <span className="cap-target-title">{t.kind === "project" ? t.project.name : t.title}</span>
+          <span className="cap-target-title">{t.title}</span>
           {sub && <span className="cap-target-place">{sub}</span>}
         </span>
       </div>
@@ -298,7 +306,9 @@ export function CapturePanel({ id }: { id: string }) {
             {targets && !shown.length && <div className="cap-empty">Nothing matches “{query}”.</div>}
             {agents.length > 0 && <div className="cap-group">Sessions</div>}
             {agents.map(row)}
-            {projects.length > 0 && <div className="cap-group">New agent in</div>}
+            {workspaceRows.length > 0 && <div className="cap-group">New agent in a workspace</div>}
+            {workspaceRows.map(row)}
+            {projects.length > 0 && <div className="cap-group">New agent in a new workspace</div>}
             {projects.map(row)}
           </div>
         </div>

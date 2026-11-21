@@ -1,7 +1,8 @@
 /**
  * Who a screen capture can go to (the macOS app's send panel, `CapturePanel.tsx`; pure: `targets.test.ts`): every
  * agent that isn't archived or a subagent, the most recently active first (your last message, else its own last
- * update), then each project as "New agent in …". The search narrows both by every word typed, in the agent's
+ * update); then a new agent in each workspace (its agents' latest activity first, else the newest); then a new
+ * agent in a new workspace (a worktree) of each project. The search narrows them all by every word typed, in the
  * name, project, workspace, branch or host.
  */
 import type { Agent, Project, Workspace } from "../types";
@@ -15,6 +16,14 @@ export type CaptureTarget =
       /** Where it is: project · workspace, and the host when it isn't this Mac. */
       place: string;
       running: boolean;
+      active: number;
+    }
+  | {
+      kind: "workspace";
+      key: string;
+      workspace: Workspace;
+      title: string;
+      place: string;
       active: number;
     }
   | {
@@ -53,21 +62,45 @@ export function captureTargets(agents: Agent[], projects: Project[], workspaces:
       };
     })
     .sort((x, y) => (y.kind === "agent" && x.kind === "agent" ? y.active - x.active : 0));
+  // A workspace's last activity: its agents' latest, else when it was made.
+  const lastIn = new Map<string, number>();
+  for (const row of agentRows)
+    if (row.kind === "agent" && row.agent.workspaceId) {
+      const k = `${row.agent.host ?? ""}|${row.agent.workspaceId}`;
+      lastIn.set(k, Math.max(lastIn.get(k) ?? 0, row.active));
+    }
+  const workspaceRows: CaptureTarget[] = workspaces
+    .filter((w) => !w.stale)
+    .map((w) => {
+      const k = `${w.host ?? ""}|${w.workspaceId}`;
+      const project = (w.projectId ? projectName.get(`${w.host ?? ""}|${w.projectId}`) : undefined) ?? w.project;
+      const branch = w.branch && w.branch !== w.name ? w.branch : undefined;
+      return {
+        kind: "workspace" as const,
+        key: `workspace:${k}`,
+        workspace: w,
+        title: w.name || w.branch || "Workspace",
+        place: [project !== w.name ? project : undefined, branch, w.host ? w.hostLabel || w.host : undefined].filter(Boolean).join(" · "),
+        active: lastIn.get(k) ?? time(w.createdAt),
+      };
+    })
+    .sort((x, y) => y.active - x.active);
   const projectRows: CaptureTarget[] = [...projects]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((p) => ({
       kind: "project" as const,
       key: `project:${p.host ?? ""}|${p.projectId}`,
       project: p,
-      title: `New agent in ${p.name}`,
+      title: p.name,
       place: p.host ? p.hostLabel || p.host : "",
     }));
-  return [...agentRows, ...projectRows];
+  return [...agentRows, ...workspaceRows, ...projectRows];
 }
 
 function haystack(t: CaptureTarget) {
   if (t.kind === "agent") return [t.title, t.place, t.agent.branch, t.agent.provider].join(" ").toLowerCase();
-  return [t.title, t.place, t.project.path].join(" ").toLowerCase();
+  if (t.kind === "workspace") return ["workspace", t.title, t.place, t.workspace.branch, t.workspace.project].join(" ").toLowerCase();
+  return ["new workspace", t.title, t.place, t.project.path].join(" ").toLowerCase();
 }
 
 export function filterTargets(targets: CaptureTarget[], query: string): CaptureTarget[] {
