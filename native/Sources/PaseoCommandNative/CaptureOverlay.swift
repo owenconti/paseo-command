@@ -123,15 +123,17 @@ final class CaptureHUD {
     private let time = NSTextField(labelWithString: "0:00")
     private let hint = NSTextField(labelWithString: "")
     private let clear = PillButton()
+    let mic = MicButton()
     private var timer: Timer?
     private let started = Date()
     var onDone: (() -> Void)?
     var onCancel: (() -> Void)?
     var onClear: (() -> Void)?
+    var onMic: (() -> Void)?
 
     static let height: CGFloat = 44
     /// What the hint may say, so its width never changes as it does.
-    static let hints = ["Starting…", "Hold ⇧ and drag to draw", "Saving…"]
+    static let hints = ["Starting…", "Hold ⇧ and drag to draw", "Hearing what you said…", "Saving…"]
 
     init(screen: NSScreen, hotkey: String) {
         panel = CapturePanel(frame: CGRect(x: 0, y: 0, width: 400, height: Self.height))
@@ -184,19 +186,22 @@ final class CaptureHUD {
             b.toolTip = tip
             return b
         }
+        _ = button(mic, "", #selector(toggleMic), tip: "")
+        mic.state(.off(""))
         _ = button(clear, "Clear", #selector(clearInk), tip: "Erase what you've drawn (it stays in the frames already recorded)")
         clear.isEnabled = false
         let cancel = button(PillButton(), "Cancel", #selector(cancel), tip: "Stop and keep nothing")
         let done = button(PillButton(prominent: true), "Done", #selector(done), tip: "Finish and choose who gets it (\(hotkey))")
         done.keyEquivalent = "\r"
 
-        let row = NSStackView(views: [dot, time, divider, hint, clear, cancel, done])
+        let row = NSStackView(views: [dot, time, divider, hint, mic, clear, cancel, done])
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 8
         row.setCustomSpacing(12, after: time)
         row.setCustomSpacing(12, after: divider)
         row.setCustomSpacing(16, after: hint)
+        row.setCustomSpacing(6, after: mic)
         row.setCustomSpacing(6, after: clear)
         row.setCustomSpacing(6, after: cancel)
         row.translatesAutoresizingMaskIntoConstraints = false
@@ -229,6 +234,8 @@ final class CaptureHUD {
     }
 
     func say(_ text: String) { hint.stringValue = text }
+    /// The microphone's level, 0…1, for the meter.
+    func level(_ value: Float) { mic.level(value) }
     /// Clear is offered once there's ink to clear.
     func canClear(_ yes: Bool) { clear.isEnabled = yes }
 
@@ -240,11 +247,89 @@ final class CaptureHUD {
     @objc private func done() { onDone?() }
     @objc private func cancel() { onCancel?() }
     @objc private func clearInk() { onClear?() }
+    @objc private func toggleMic() { onMic?() }
+}
+
+/// The capsule's microphone: its icon and a small level meter in a pill. On, it shows your voice's loudness; muted,
+/// a crossed-out mic; off (no permission, an older macOS), the crossed-out mic dimmed, its tooltip saying why and a
+/// click doing what can be done (asking, System Settings).
+final class MicButton: PillButton {
+    enum State: Equatable { case on, muted, off(String) }
+    private(set) var current: State = .off("")
+    private let icon = CALayer()
+    private let bars: [CALayer] = (0..<4).map { _ in CALayer() }
+    private var shownLevel: Float = 0
+    static let meterWidth: CGFloat = 4 * 3 + 3 * 2
+    private var isOff: Bool { if case .off = current { return true }; return false }
+
+    init() {
+        super.init(prominent: false)
+        icon.contentsGravity = .resizeAspect
+        layer?.addSublayer(icon)
+        for bar in bars {
+            bar.cornerRadius = 1.5
+            bar.backgroundColor = NSColor.white.cgColor
+            layer?.addSublayer(bar)
+        }
+        state(.off(""))
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func state(_ state: State) {
+        current = state
+        switch state {
+        case .on: toolTip = "Recording your voice: click to mute"
+        case .muted: toolTip = "Muted: click to record your voice"
+        case .off(let why): toolTip = why
+        }
+        setAccessibilityLabel(state == .on ? "Mute the microphone" : isOff ? "Microphone off" : "Unmute the microphone")
+        alphaValue = isOff ? 0.6 : 1
+        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold).applying(.init(paletteColors: [.white]))
+        icon.contents = NSImage(systemSymbolName: state == .on ? "mic.fill" : "mic.slash.fill", accessibilityDescription: nil)?
+            .withSymbolConfiguration(config)
+        shownLevel = 0
+        invalidateIntrinsicContentSize()
+        needsLayout = true
+        place()
+    }
+
+    /// The bars: a fixed shape scaled by the level, low and faint while it isn't on.
+    func level(_ value: Float) {
+        shownLevel = value
+        place()
+    }
+
+    private func place() {
+        let scale = window?.backingScaleFactor ?? 2
+        icon.contentsScale = scale
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.08)
+        // Off, the icon alone, centred (the pill keeps its width, so the capsule's doesn't change).
+        icon.frame = CGRect(x: isOff ? (bounds.width - 16) / 2 : 11, y: (bounds.height - 16) / 2, width: 16, height: 16)
+        let on = current == .on
+        let shape: [CGFloat] = [0.55, 1, 0.75, 0.45]
+        for (i, bar) in bars.enumerated() {
+            let h = on ? max(3, 16 * shape[i] * CGFloat(max(0.1, shownLevel))) : 3
+            bar.frame = CGRect(x: 11 + 16 + 6 + CGFloat(i) * 5, y: (bounds.height - h) / 2, width: 3, height: h)
+            bar.opacity = on ? 0.95 : 0.35
+            bar.isHidden = isOff
+        }
+        CATransaction.commit()
+    }
+
+    override func layout() {
+        super.layout()
+        place()
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: 11 + 16 + 6 + Self.meterWidth + 11, height: 28)
+    }
 }
 
 /// The capsule's buttons, drawn the same whether or not their panel is key (it never is: a system button would draw
 /// gray and flat): a rounded pill, the accent filled for the main one, a faint one otherwise, dimmer while disabled.
-final class PillButton: NSButton {
+class PillButton: NSButton {
     private let prominent: Bool
     init(prominent: Bool = false) {
         self.prominent = prominent

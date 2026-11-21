@@ -7,7 +7,8 @@ import UniformTypeIdentifiers
 /// What happened while recording, in seconds from the recording's first frame. Points are fractions of the
 /// display from its top left.
 struct CaptureEvent: Equatable {
-    enum Kind: String { case stroke, click }
+    /// `said`: a moment of what you said (`CaptureTranscript.moments`).
+    enum Kind: String { case stroke, click, said }
     var kind: Kind
     var t: Double
     var x: Double = 0
@@ -38,6 +39,7 @@ enum CaptureKeyframes {
             switch e.kind {
             case .stroke: return (min(end, e.t + strokeDelay), "marked", nil)
             case .click: return (min(end, max(0, e.t)), "clicked", CGPoint(x: e.x, y: e.y))
+            case .said: return (min(end, max(0, e.t)), "said", nil)
             }
         }
         if !events.contains(where: { $0.t < 1 }), duration > 1.5 { moments.append((0.5, "start", nil)) }
@@ -65,6 +67,62 @@ enum CaptureKeyframes {
             merged = (0..<limit).map { merged[Int((Double($0) * step).rounded())] }
         }
         return merged.enumerated().map { i, k in var k = k; k.n = i + 1; return k }
+    }
+}
+
+/// A word you said while recording, timed in seconds from the recording's start (`CaptureVoice` hears them).
+struct CaptureWord: Equatable {
+    var text: String
+    var t: Double
+    var end: Double
+}
+
+/// A sentence of what you said, as the agent reads it.
+struct CaptureSpeech: Equatable {
+    var t: Double
+    var end: Double
+    var text: String
+}
+
+/// What you said, made readable and turned into keyframe moments (pure: `CaptureBundleTests`).
+enum CaptureTranscript {
+    /// A pause this long ends a sentence the recognizer ran on.
+    static let pause = 1.2
+    /// Words that point at the screen ("this", "here"): their moment is a keyframe, as what they name is under the pointer.
+    static let pointing: Set<String> = ["this", "that", "these", "those", "here", "there"]
+    /// How long after a pointing word its frame is taken (the pointer lands as you say it).
+    static let pointDelay = 0.3
+
+    /// The words in sentences: a sentence ends at its full stop, question or exclamation mark, or at a long pause.
+    static func sentences(_ words: [CaptureWord]) -> [CaptureSpeech] {
+        groups(words).map { CaptureSpeech(t: $0[0].t, end: $0[$0.count - 1].end, text: $0.map(\.text).joined(separator: " ")) }
+    }
+
+    /// One moment a sentence: its first pointing word's (a moment later), else its end.
+    static func moments(_ words: [CaptureWord]) -> [Double] {
+        groups(words).map { sentence in
+            sentence.first(where: { pointing.contains(bare($0.text)) }).map { $0.t + pointDelay } ?? sentence[sentence.count - 1].end
+        }
+    }
+
+    /// The words, trimmed (empty ones gone), in sentences; none is empty.
+    static func groups(_ words: [CaptureWord]) -> [[CaptureWord]] {
+        var out: [[CaptureWord]] = []
+        var current: [CaptureWord] = []
+        for raw in words {
+            let word = CaptureWord(text: raw.text.trimmingCharacters(in: .whitespacesAndNewlines), t: raw.t, end: max(raw.t, raw.end))
+            guard !word.text.isEmpty else { continue }
+            if let last = current.last, word.t - last.end >= pause { out.append(current); current = [] }
+            current.append(word)
+            if let c = word.text.last, ".?!…".contains(c) { out.append(current); current = [] }
+        }
+        if !current.isEmpty { out.append(current) }
+        return out
+    }
+
+    /// A word without its punctuation, in lower case.
+    static func bare(_ word: String) -> String {
+        word.lowercased().trimmingCharacters(in: .punctuationCharacters.union(.symbols))
     }
 }
 
@@ -178,6 +236,12 @@ struct CaptureBundle {
     let app: String?
     let size: CGSize
     let events: [CaptureEvent]
+    /// The microphone was recorded (and something reached the file).
+    var voice = false
+    /// What you said, in sentences.
+    var speech: [CaptureSpeech] = []
+    /// Why there's no transcript though there was a voice ("Nothing was said", a failure).
+    var transcriptNote: String?
 
     var video: URL { folder.appendingPathComponent("recording.mp4") }
     var sheet: URL { folder.appendingPathComponent("contact-sheet.png") }
@@ -226,8 +290,11 @@ struct CaptureBundle {
             "frames": keyframes.map { ["n": $0.n, "t": ($0.t * 100).rounded() / 100, "file": String(format: "frames/frame-%02d.png", $0.n), "reasons": $0.reasons] },
             "strokes": events.filter { $0.kind == .stroke }.count, "clicks": events.filter { $0.kind == .click }.count,
             "video": "recording.mp4", "sheet": "contact-sheet.png", "gif": "capture.gif",
+            "voice": voice,
+            "transcript": speech.map { ["t": ($0.t * 100).rounded() / 100, "end": ($0.end * 100).rounded() / 100, "text": $0.text] },
         ]
         if let app { body["app"] = app }
+        if let transcriptNote { body["transcriptNote"] = transcriptNote }
         return try JSONSerialization.data(withJSONObject: body, options: [.prettyPrinted, .sortedKeys])
     }
 

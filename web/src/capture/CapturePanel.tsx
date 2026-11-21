@@ -5,7 +5,8 @@
  * here, `POST /api/captures/:id/send`, joining its current turn while it works) or a project, for a new agent, which the
  * app's window opens in New agent with the capture as its first message (`paseo:capture` in main).
  * Keys: Enter in the composer sends (as everywhere), ⌘↩ or Send from elsewhere in the panel (an empty message too: the
- * capture is the message), ↑/↓ choose in the search, Esc closes.
+ * capture is the message), ↑/↓ choose in the search, Esc closes. What you said while recording (the app heard it on this
+ * Mac) shows under the sheet and goes with it unless "Send what you said" is switched off.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, errorMessage, readStore, removeStore } from "../api";
@@ -23,6 +24,9 @@ type Manifest = {
   frames: { n: number }[];
   strokes: number;
   clicks: number;
+  voice?: boolean;
+  transcript?: { t: number; end: number; text: string }[];
+  transcriptNote?: string;
 };
 
 type Post = { type: string; [key: string]: unknown };
@@ -51,6 +55,8 @@ export function CapturePanel({ id }: { id: string }) {
   /** A provider's first model on a host, for a project's skills (`host|provider`; "" when it has none). */
   const [firstModels, setFirstModels] = useState<Record<string, string>>({});
   const [sent, setSent] = useState<{ title: string; agent: string }>();
+  /** Whether what you said goes with it. */
+  const [withSpeech, setWithSpeech] = useState(true);
   const root = useRef<HTMLDivElement>(null);
   // The composer's draft, the panel's own (never an agent's), so it stays as the target changes.
   const owner = `capture:${id}`;
@@ -93,6 +99,9 @@ export function CapturePanel({ id }: { id: string }) {
   }, [sent]);
 
   /** The composer's message (its Enter), else what its draft holds now (Send, ⌘↩: an empty one too). */
+  const speech = manifest?.transcript ?? [];
+  const speaks = speech.length > 0;
+
   async function send(message?: Outgoing, to = target): Promise<boolean> {
     if (sending || sent || !manifest) return false;
     if (!to) {
@@ -108,7 +117,13 @@ export function CapturePanel({ id }: { id: string }) {
     };
     if (to.kind === "project") {
       const p = to.project;
-      post({ type: "app", newAgent: { projectId: p.projectId, ...(p.host ? { host: p.host } : {}) }, message: text, ...(images.length ? { images: images.map((i) => i.dataUrl) } : {}) });
+      post({
+        type: "app",
+        newAgent: { projectId: p.projectId, ...(p.host ? { host: p.host } : {}) },
+        message: text,
+        ...(images.length ? { images: images.map((i) => i.dataUrl) } : {}),
+        ...(speaks && !withSpeech ? { transcript: false } : {}),
+      });
       done();
       return true;
     }
@@ -120,6 +135,7 @@ export function CapturePanel({ id }: { id: string }) {
         message: text,
         ...(images.length ? { images: images.map(({ data, mimeType }) => ({ data, mimeType })) } : {}),
         ...(files.length ? { attachments: files } : {}),
+        ...(speaks && !withSpeech ? { transcript: false } : {}),
         // A working agent gets it in its current turn rather than being stopped.
         ...(to.running ? { behavior: "steer" } : {}),
       });
@@ -183,6 +199,7 @@ export function CapturePanel({ id }: { id: string }) {
               {clock(manifest.duration)}
               {manifest.app ? ` · ${manifest.app}` : ""} · {manifest.frames.length} {manifest.frames.length === 1 ? "frame" : "frames"}
               {manifest.strokes ? ` · ${manifest.strokes} ${manifest.strokes === 1 ? "mark" : "marks"}` : ""}
+              {manifest.voice ? " · with your voice" : ""}
             </span>
           )}
         </div>
@@ -203,6 +220,27 @@ export function CapturePanel({ id }: { id: string }) {
       ) : (
         <>
           <img className="cap-sheet" src={`/api/captures/${encodeURIComponent(id)}/sheet`} alt="The capture's keyframes" />
+          {speaks ? (
+            <section className={`cap-speech${withSpeech ? "" : " left-out"}`} aria-label="What you said">
+              <div className="cap-speech-head">
+                <span>What you said</span>
+                <label className="cap-speech-toggle" title="Whether the agent reads what you said, with the time of each sentence">
+                  <input type="checkbox" checked={withSpeech} onChange={(e) => setWithSpeech(e.target.checked)} />
+                  Send it
+                </label>
+              </div>
+              <ol className="cap-speech-lines">
+                {speech.map((s, i) => (
+                  <li key={i}>
+                    <span className="cap-speech-time">{clock(s.t)}</span>
+                    <span>{s.text}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : manifest?.voice && manifest.transcriptNote ? (
+            <div className="cap-speech-note">Your voice is in the video, without a transcript: {manifest.transcriptNote}.</div>
+          ) : null}
           <div className="cap-composer">
             <Composer
               draft={{ ...(source ? { source } : {}), ...(host ? { host } : {}), controls: null }}

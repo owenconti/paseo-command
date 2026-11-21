@@ -70,6 +70,7 @@ let sheet = CGImageSourceCreateImageAtIndex(CGImageSourceCreateWithURL(bundle.sh
 assert(sheet.width == 2 * 640 + 18 && sheet.height == 2 * 400 + 18, "\(sheet.width)×\(sheet.height)")
 let manifest = try! JSONSerialization.jsonObject(with: Data(contentsOf: folder.appendingPathComponent("capture.json"))) as! [String: Any]
 assert(manifest["id"] as? String == "cap-20261120-181341" && manifest["app"] as? String == "Safari" && manifest["clicks"] as? Int == 1)
+assert(manifest["voice"] as? Bool == false && (manifest["transcript"] as? [Any])?.isEmpty == true && manifest["transcriptNote"] == nil)
 assert((manifest["frames"] as? [[String: Any]])?.map { $0["file"] as! String } == ["frames/frame-01.png", "frames/frame-02.png", "frames/frame-03.png"])
 // Each frame shows its moment: the second (1.5 s) is green, with the click's ring drawn in red.
 func pixel(_ url: URL, _ x: Int, _ y: Int) -> [UInt8] {
@@ -90,4 +91,15 @@ assert(gifWritten)
 let gif = CGImageSourceCreateWithURL(bundle.gif as CFURL, nil)!
 assert(CGImageSourceGetCount(gif) == 15, "\(CGImageSourceGetCount(gif)) GIF frames")
 assert(CaptureBundle.newID(at: Date(), in: folder).hasPrefix("cap-"))
+// With your voice: the sentences go in the manifest, rounded, and why there are none when there aren't.
+var voiced = bundle
+voiced.voice = true
+voiced.speech = [CaptureSpeech(t: 0.123, end: 1.456, text: "Make this blue.")]
+let spoken = try! JSONSerialization.jsonObject(with: voiced.manifest([])) as! [String: Any]
+assert(spoken["voice"] as? Bool == true)
+assert((spoken["transcript"] as? [[String: Any]])?.first?["text"] as? String == "Make this blue.")
+assert((spoken["transcript"] as? [[String: Any]])?.first?["t"] as? Double == 0.12)
+voiced.speech = []
+voiced.transcriptNote = "Nothing was said"
+assert((try! JSONSerialization.jsonObject(with: voiced.manifest([])) as! [String: Any])["transcriptNote"] as? String == "Nothing was said")
 print("Capture bundle checks passed.")

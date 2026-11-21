@@ -10,7 +10,7 @@ import { uid } from "../composer/util";
 
 export type AppCapture =
   | { open: string; capture: string }
-  | { newAgent: { projectId: string; host?: string }; message?: string; images?: string[]; capture: string };
+  | { newAgent: { projectId: string; host?: string }; message?: string; images?: string[]; transcript?: false; capture: string };
 
 /** An image the panel's composer had, as a data: URL of a raster type (nothing else is taken). */
 const IMAGE_URL = /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
@@ -26,6 +26,7 @@ export function readAppCapture(detail: unknown): AppCapture | undefined {
       newAgent: { projectId: n.projectId, ...(typeof n.host === "string" && n.host ? { host: n.host } : {}) },
       ...(typeof d.message === "string" ? { message: d.message } : {}),
       ...(Array.isArray(d.images) ? { images: d.images.filter((i): i is string => typeof i === "string" && IMAGE_URL.test(i)).slice(0, 9) } : {}),
+      ...(d.transcript === false ? { transcript: false as const } : {}),
       capture: d.capture,
     };
   return undefined;
@@ -40,9 +41,10 @@ export function onAppCapture(handle: (capture: AppCapture) => void) {
   return () => window.removeEventListener("paseo:capture", receive);
 }
 
-/** New agent's first message and image for the capture, for an agent on `host` (none: this Mac). */
-export async function prepareCaptureDraft(capture: string, message: string, host?: string, images: string[] = []) {
-  const query = new URLSearchParams({ message, ...(host ? { host } : {}) });
+/** New agent's first message and image for the capture, for an agent on `host` (none: this Mac); `transcript` false
+ * leaves out what you said. */
+export async function prepareCaptureDraft(capture: string, message: string, host?: string, images: string[] = [], transcript = true) {
+  const query = new URLSearchParams({ message, ...(host ? { host } : {}), ...(transcript ? {} : { transcript: "0" }) });
   const draft = await api<{ prompt: string; image: { name: string; data: string; mimeType: string } }>(
     `captures/${encodeURIComponent(capture)}/draft?${query}`,
   );

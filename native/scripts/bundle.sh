@@ -139,5 +139,6 @@ sign "$sparkle/XPCServices/Downloader.xpc" -o runtime ${hardened:+--timestamp} -
 sign "$sparkle/Autoupdate" -o runtime ${hardened:+--timestamp}
 sign "$sparkle/Updater.app" -o runtime ${hardened:+--timestamp}
 sign "$app/Contents/Frameworks/Sparkle.framework" -o runtime ${hardened:+--timestamp}
-sign "$app" $hardened
+# The app's own: the microphone, for a screen capture's voice (the hardened runtime refuses it otherwise).
+sign "$app" $hardened --entitlements "$here/entitlements/app.plist"
 echo "$app"

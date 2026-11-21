@@ -92,6 +92,45 @@ test("an agent on this Mac reads the bundle's paths and how to cut frames; one e
   assert.equal(clock(3725), "1:02:05");
 });
 
+test("what you said goes with the keyframes, read field by field, unless left out", async () => {
+  bundle({
+    voice: true,
+    frames: [
+      { n: 1, t: 2.3, file: "frames/frame-01.png", reasons: ["said"] },
+      { n: 2, t: 7, file: "frames/frame-02.png", reasons: ["marked", "said"] },
+      { n: 3, t: 33.3, file: "frames/frame-03.png", reasons: ["end"] },
+    ],
+    transcript: [
+      { t: 2, end: 3.5, text: " Make  this\nbutton blue. " },
+      { t: 6.4, end: 8, text: "And move that menu over here." },
+      { t: "x", text: "bad" },
+      { t: 9, end: 9.5, text: "" },
+    ],
+    transcriptNote: "x".repeat(500),
+  });
+  const m = readManifest(ID)!;
+  assert.equal(m.voice, true);
+  assert.deepEqual(m.transcript, [
+    { t: 2, end: 3.5, text: "Make this button blue." },
+    { t: 6.4, end: 8, text: "And move that menu over here." },
+  ]);
+  assert.equal(m.transcriptNote, undefined, "an overlong note is dropped");
+  const text = captureMessage(m, "", dir(), true);
+  assert.match(text, /^What the user said while recording .*\n> \[0:02\] Make this button blue\.\n> \[0:06\] And move that menu over here\.\nKeyframes:$/m);
+  assert.match(text, /^- #1 \(0:02\) spoke: “Make this button blue\.”$/m);
+  assert.match(text, /^- #2 \(0:07\) marked, spoke: “And move that menu over here\.”$/m);
+  assert.match(text, /Video \(with the user's voice\): /);
+  // Left out: neither the sentences nor the lines' quotes.
+  const without = captureMessage(m, "", dir(), true, false);
+  assert.ok(!without.includes("Make this button") && !without.includes("What the user said"));
+  const sent: Record<string, unknown>[] = [];
+  await sendCapture(ID, { agent: "a", transcript: false }, async (_a, body) => sent.push(body));
+  assert.ok(!String(sent[0].prompt).includes("menu over here"));
+  // A bundle from before voices: none.
+  bundle({ voice: undefined, transcript: undefined }, "cap-20261121-090000");
+  assert.deepEqual([readManifest("cap-20261121-090000")!.voice, readManifest("cap-20261121-090000")!.transcript], [false, []]);
+});
+
 test("sending goes through the agent's send with the contact sheet, on the agent's own host", async () => {
   bundle();
   const sent: [string, Record<string, unknown>][] = [];
@@ -157,6 +196,7 @@ test("the GETs: the list, a manifest, the sheet's PNG and a new agent's draft", 
   assert.match(draft.prompt, /^Look\n\n\[Screen capture 0:33 · Safari\]/);
   assert.equal(draft.image.name, "contact-sheet.png");
   assert.match((get(`/api/captures/${ID}/draft?message=Look`).body as { prompt: string }).prompt, /Video: /);
+  assert.ok(!(get(`/api/captures/${ID}/draft?transcript=0`).body as { prompt: string }).prompt.includes("What the user said"));
   assert.equal(get("/api/captures/cap-20261120-000000").status, 404);
   assert.equal(get("/api/captures/..%2Fsecrets").status, 400);
   assert.equal(get(`/api/captures/${ID}/frames`).status, 404);

@@ -75,6 +75,11 @@ for (const f of flavours) {
     const entitlements = (path) => execFileSync('sh', ['-c', 'codesign -d --entitlements - --xml "$0" 2>/dev/null', path], { encoding: 'utf8' });
     check('node may JIT', entitlements(join(res, 'node/node')).includes('com.apple.security.cs.allow-jit'));
   }
+  // A screen capture records your voice: the app may use the microphone (the hardened runtime needs the
+  // entitlement) and says why when macOS asks.
+  const appEntitlements = execFileSync('sh', ['-c', 'codesign -d --entitlements - --xml "$0" 2>/dev/null', app], { encoding: 'utf8' });
+  check('app may use the microphone', appEntitlements.includes('com.apple.security.device.audio-input'));
+  check('NSMicrophoneUsageDescription', !['', '<missing>'].includes(key('NSMicrophoneUsageDescription')));
   checked++;
 }
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }

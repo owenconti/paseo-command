@@ -32,7 +32,7 @@ const FLEET = {
 };
 type Posted = { type: string; height?: number; newAgent?: { projectId: string; host?: string }; message?: string; open?: string };
 
-async function panel(page: Page) {
+async function panel(page: Page, shown: Record<string, unknown> = manifest) {
   await page.addInitScript(`
     window.posted = [];
     window.webkit = { messageHandlers: { paseoCapture: { postMessage: (m) => window.posted.push(JSON.parse(JSON.stringify(m))) } } };
@@ -46,7 +46,7 @@ async function panel(page: Page) {
       return { ok: true };
     },
   } as never);
-  await page.route(`**/api/captures/${ID}`, (route) => route.fulfill({ json: manifest }));
+  await page.route(`**/api/captures/${ID}`, (route) => route.fulfill({ json: shown }));
   await page.route(`**/api/captures/${ID}/sheet`, (route) => route.fulfill({ body: SHEET, contentType: "image/png" }));
   await page.goto(`${app.url}capture.html?id=${ID}`);
   await page.locator(".cap-target").first().waitFor();
@@ -83,6 +83,64 @@ test("the send panel sends the capture, with your message, to the agent chosen",
     assert.match(await page.locator(".cap-sent").innerText(), /Sent to Runner/);
     await page.getByRole("button", { name: "Open the conversation" }).click();
     assert.ok((await posted(page)).some((m) => m.type === "app" && m.open === "a-running"));
+  } finally {
+    await context.close();
+  }
+});
+
+test("what you said shows under the sheet, and is left out when switched off", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const sent = await panel(page, {
+    ...manifest,
+    voice: true,
+    transcript: [
+      { t: 2, end: 3.5, text: "Make this button blue." },
+      { t: 64, end: 66, text: "And move that menu over here." },
+    ],
+  });
+  try {
+    assert.match(await page.locator(".cap-meta").innerText(), /with your voice/);
+    const speech = page.getByRole("region", { name: "What you said" });
+    assert.deepEqual(await speech.locator("li").allInnerTexts(), ["0:02\nMake this button blue.", "1:04\nAnd move that menu over here."]);
+    await page.screenshot({ path: "/tmp/capture-panel-voice.png" });
+    // On by default: the send says nothing of it (the server adds it).
+    await page.locator(".cap-search").fill("idler");
+    await page.locator(".cap-search").press("Enter");
+    await waitFor(() => Promise.resolve(sent.length), (n) => n === 1, "sent with what was said");
+    assert.equal(sent[0].body.transcript, undefined);
+    await context.close();
+    // Switched off: the send, and New agent's ask, leave it out.
+    const again = await newContext(browser);
+    const second = await again.newPage();
+    const sent2 = await panel(second, { ...manifest, voice: true, transcript: [{ t: 2, end: 3, text: "Hi." }] });
+    await second.getByRole("checkbox", { name: "Send it" }).uncheck();
+    await second.locator(".cap-search").fill("idler");
+    await second.locator(".cap-search").press("Enter");
+    await waitFor(() => Promise.resolve(sent2.length), (n) => n === 1, "sent without it");
+    assert.equal(sent2[0].body.transcript, false);
+    await again.close();
+    const third = await newContext(browser);
+    const page3 = await third.newPage();
+    await panel(page3, { ...manifest, voice: true, transcript: [{ t: 2, end: 3, text: "Hi." }] });
+    await page3.getByRole("checkbox", { name: "Send it" }).uncheck();
+    await page3.locator(".cap-search").fill("new agent atlas");
+    await page3.locator(".cap-search").press("Enter");
+    const ask = await waitFor(() => posted(page3), (p) => p.some((m) => m.type === "app"), "the ask");
+    assert.equal((ask.find((m) => m.type === "app") as Record<string, unknown>).transcript, false);
+    await third.close();
+  } finally {
+    await context.close().catch(() => {});
+  }
+});
+
+test("a voice without a transcript says why", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await panel(page, { ...manifest, voice: true, transcript: [], transcriptNote: "Nothing was said" });
+  try {
+    await page.getByText("Your voice is in the video, without a transcript: Nothing was said.").waitFor();
+    assert.equal(await page.getByRole("region", { name: "What you said" }).count(), 0);
   } finally {
     await context.close();
   }

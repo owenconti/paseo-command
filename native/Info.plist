@@ -14,6 +14,7 @@
   <key>LSArchitecturePriority</key><array><string>arm64</string></array>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>NSMicrophoneUsageDescription</key><string>Your voice is recorded with a screen capture, and what you say is sent to the agent as text, heard on this Mac.</string>
   <key>SUPublicEDKey</key><string>fmZAnd+Mb3V0bTVDv/NUpkM/1CbT+HSDv/vrNWL7zVc=</string>
   <key>NSAppTransportSecurity</key>
   <dict>

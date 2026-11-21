@@ -2,12 +2,14 @@
  * Screen captures (the macOS app's ⌃⌥⇧S, `native/Sources/PaseoCommandNative/Capture*.swift`): the app records the
  * display while you draw on it, then writes a bundle into the data folder's `captures/<id>/`: `recording.mp4`, the
  * keyframes (`frames/frame-NN.png`, at each stroke's end and click), a numbered `contact-sheet.png` of them,
- * `capture.gif` once it's made, and `capture.json` (this module's `CaptureManifest`).
+ * `capture.gif` once it's made, and `capture.json` (this module's `CaptureManifest`). With your voice, the video has its
+ * sound and the manifest what you said, heard on the Mac (`transcript`, in sentences; a keyframe where each was said).
  *
  * `GET /api/captures` (the newest), `GET /api/captures/:id` (its manifest), `GET /api/captures/:id/sheet` (the
  * contact sheet's PNG), `GET /api/captures/:id/draft?host=` (a new agent's first message and image for it, on that
- * host), `POST /api/captures/:id/send {agent, message, behavior}` (to an agent). What an agent gets
- * (`captureMessage`): your message, a block naming the keyframes, and for an agent on this Mac the bundle's paths
+ * host; `transcript=0` leaves out what you said), `POST /api/captures/:id/send {agent, message, behavior, transcript}` (to an
+ * agent). What an agent gets (`captureMessage`): your message, what you said while recording (unless `transcript` is
+ * false), a block naming the keyframes, and for an agent on this Mac the bundle's paths
  * (the video, the full-size frames, the GIF) with how to pull frames from the video with ffmpeg; the contact
  * sheet goes as an image. Agents elsewhere can't read this Mac's files, so they get the image and the text alone.
  */
@@ -30,7 +32,7 @@ export type CaptureFrame = {
   t: number;
   /** `frames/frame-NN.png`, inside the bundle. */
   file: string;
-  /** What happened then: "marked" (a stroke ended), "clicked", "start", "end". */
+  /** What happened then: "marked" (a stroke ended), "clicked", "said" (a sentence of yours), "start", "end". */
   reasons: string[];
 };
 export type CaptureManifest = {
@@ -50,7 +52,17 @@ export type CaptureManifest = {
   video: string;
   sheet: string;
   gif?: string;
+  /** The microphone was recorded: the video has your voice. */
+  voice: boolean;
+  /** What you said, in sentences, timed in seconds (empty without a voice, or when nothing was heard). */
+  transcript: CaptureSpeech[];
+  /** Why there's no transcript though there was a voice. */
+  transcriptNote?: string;
 };
+export type CaptureSpeech = { t: number; end: number; text: string };
+
+const MAX_SPEECH = 400;
+const MAX_SPEECH_TEXT = 2_000;
 
 export function validCaptureId(raw: unknown): string {
   if (typeof raw !== "string" || !CAPTURE_ID.test(raw)) throw new Error("Unknown capture");
@@ -81,11 +93,20 @@ export function readManifest(id: string): CaptureManifest | undefined {
     const file = inside(r.file, /^frames\/frame-\d{2,3}\.png$/);
     if (n === undefined || t === undefined || !file) return [];
     const reasons = (Array.isArray(r.reasons) ? r.reasons : []).filter(
-      (x): x is string => typeof x === "string" && /^(marked|clicked|start|end)$/.test(x),
+      (x): x is string => typeof x === "string" && /^(marked|clicked|said|start|end)$/.test(x),
     );
     return [{ n, t, file, reasons }];
   });
   const gif = inside(m.gif, /^capture\.gif$/);
+  const transcript = (Array.isArray(m.transcript) ? m.transcript : []).slice(0, MAX_SPEECH).flatMap((x): CaptureSpeech[] => {
+    if (!x || typeof x !== "object") return [];
+    const r = x as Record<string, unknown>;
+    const t = num(r.t);
+    const text = typeof r.text === "string" ? r.text.replace(/\s+/g, " ").trim().slice(0, MAX_SPEECH_TEXT) : "";
+    if (t === undefined || !text) return [];
+    return [{ t, end: Math.max(t, num(r.end) ?? t), text }];
+  });
+  const note = str(m.transcriptNote);
   return {
     id,
     created: str(m.created, 40) ?? "",
@@ -100,6 +121,9 @@ export function readManifest(id: string): CaptureManifest | undefined {
     sheet: inside(m.sheet, /^contact-sheet\.png$/) ?? "contact-sheet.png",
     // Named only once the file is there (the app writes it after the panel opens).
     ...(gif && existsSync(join(dir, gif)) ? { gif } : {}),
+    voice: m.voice === true,
+    transcript,
+    ...(note ? { transcriptNote: note } : {}),
   };
 }
 
@@ -127,26 +151,38 @@ export function clock(seconds: number): string {
   return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
 }
 
-const REASON: Record<string, string> = { marked: "marked", clicked: "clicked", start: "start", end: "end" };
+const REASON: Record<string, string> = { marked: "marked", clicked: "clicked", said: "spoke", start: "start", end: "end" };
 
 /**
  * What an agent reads with the contact sheet: your message, then the capture's block. `local`: the agent runs on
  * this Mac, so it can open the bundle's files (named by absolute path) and cut frames from the video.
  */
-export function captureMessage(m: CaptureManifest, message: string, dir: string, local: boolean): string {
+export function captureMessage(m: CaptureManifest, message: string, dir: string, local: boolean, transcript = true): string {
   const head = `[Screen capture ${clock(m.duration)}${m.app ? ` · ${m.app}` : ""}${local ? ` · ${dir}` : ""}]`;
+  const said = transcript ? m.transcript : [];
+  // The sentence being said at a keyframe (or the last one begun before it), for its line.
+  const saying = (t: number) => [...said].reverse().find((s) => s.t <= t + 0.05 && t <= s.end + 1.5);
   const lines = [
     head,
     "The attached contact sheet shows the capture's keyframes in time order (left to right, top to bottom), each numbered in a white chip in a top corner. Red strokes are marks the user drew while recording; a red ring is a click.",
+    ...(said.length
+      ? [
+          "What the user said while recording (transcribed on their Mac, so it may mishear words; \"this\" and \"here\" usually mean what's under the pointer at that moment):",
+          ...said.map((s) => `> [${clock(s.t)}] ${s.text}`),
+        ]
+      : []),
+    "Keyframes:",
     ...m.frames.map((f) => {
       const what = f.reasons.filter((r) => r !== "start" && r !== "end").map((r) => REASON[r]);
-      return `- #${f.n} (${clock(f.t)})${what.length ? ` ${what.join(", ")}` : f.reasons.includes("end") ? " last frame" : ""}`;
+      const line = `- #${f.n} (${clock(f.t)})${what.length ? ` ${what.join(", ")}` : f.reasons.includes("end") ? " last frame" : ""}`;
+      const s = f.reasons.includes("said") ? saying(f.t) : undefined;
+      return s ? `${line}: “${s.text.length > 120 ? `${s.text.slice(0, 117)}…` : s.text}”` : line;
     }),
   ];
   if (local) {
     const video = join(dir, m.video);
     lines.push(
-      `Full-size frames: ${join(dir, "frames")}/frame-NN.png (frame-03.png is #3). Video: ${video}${m.gif ? ` · GIF: ${join(dir, m.gif)}` : ""}`,
+      `Full-size frames: ${join(dir, "frames")}/frame-NN.png (frame-03.png is #3). Video${m.voice ? " (with the user's voice)" : ""}: ${video}${m.gif ? ` · GIF: ${join(dir, m.gif)}` : ""}`,
       `For motion or a moment between keyframes, pull frames from the video and look at them, e.g. \`ffmpeg -loglevel error -ss 6 -t 2 -i "${video}" -vf "fps=6,scale=960:-1,tile=4x3" /tmp/capture-0-06.png\` (2 s from 0:06 as one sheet).`,
     );
   } else lines.push("The full-size frames and the video stay on the Mac that recorded them.");
@@ -163,12 +199,12 @@ function sheetImage(id: string, m: CaptureManifest) {
 const MAX_MESSAGE = 100_000;
 
 /** A capture's text and image for an agent on `host` (undefined: this Mac). */
-export function captureDraft(id: string, message: unknown, local: boolean) {
+export function captureDraft(id: string, message: unknown, local: boolean, transcript = true) {
   const m = readManifest(validCaptureId(id));
   if (!m) throw new Error("Unknown capture");
   const text = typeof message === "string" ? message : "";
   if (text.length > MAX_MESSAGE || text.includes("\0")) throw new Error("Invalid message");
-  return { manifest: m, prompt: captureMessage(m, text, join(capturesDir(), id), local), image: sheetImage(id, m) };
+  return { manifest: m, prompt: captureMessage(m, text, join(capturesDir(), id), local, transcript), image: sheetImage(id, m) };
 }
 
 /**
@@ -183,7 +219,7 @@ export async function sendCapture(
 ) {
   if (typeof body.agent !== "string" || !body.agent) throw new Error("Choose an agent");
   const { id: agentId, host } = agentIdParts(body.agent);
-  const draft = captureDraft(id, body.message, !host);
+  const draft = captureDraft(id, body.message, !host, body.transcript !== false);
   // Images and files added in the panel's composer go with the contact sheet (each checked by the send itself).
   const extra = Array.isArray(body.images) ? body.images : [];
   return send(agentId, {
@@ -214,7 +250,7 @@ export function capturesGet(url: URL, res: ServerResponse, reply: (status: numbe
     }
     if (parts.length === 2 && parts[1] === "draft") {
       const local = !url.searchParams.get("host");
-      const { prompt, image } = captureDraft(id, url.searchParams.get("message") ?? "", local);
+      const { prompt, image } = captureDraft(id, url.searchParams.get("message") ?? "", local, url.searchParams.get("transcript") !== "0");
       return reply(200, { prompt, image: { name: "contact-sheet.png", ...image } });
     }
     return reply(404, { error: "Unknown endpoint" });

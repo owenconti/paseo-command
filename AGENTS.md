@@ -273,8 +273,17 @@ and GitHub publication; report the published version and release link.
   on a non-activating overlay (`CaptureOverlay.swift` `InkOverlay`, in the recording; ⇧ read from `NSEvent.modifierFlags`, no
   event tap), clicks elsewhere are noted (a global mouse monitor, no permission), and a capsule (`CaptureHUD`, left out of the
   recording; always dark, laid out with constraints and sized to fit, `CaptureHUDTests`) has a pulsing dot and the time, the hint, and
-  `PillButton`s Clear (once there's ink), Cancel and Done (the accent: its panel is never key, so system buttons drew gray). The hotkey or Done finishes: `CaptureBundle.swift` picks keyframes
-  (`CaptureKeyframes.choose`: each stroke's end, each click, the last frame, moments under 0.75 s merged, at most 12), decodes them
+  `PillButton`s Clear (once there's ink), Cancel and Done (the accent: its panel is never key, so system buttons drew gray), and the mic (`MicButton`).
+  Your voice (the user's ask; `CaptureVoice.swift`): from macOS 15 the microphone is an AAC track of `recording.mp4` (ScreenCaptureKit's
+  `captureMicrophone`, on the frames' clock, written from the first frame; `CaptureRecorder` `voice`, `muted`, `voiced`), while the menu bar's
+  Record Your Voice (`captureVoice` in the app's preferences, on by default) is on and the Microphone permission given (asked as a capture
+  starts while undecided; `NSMicrophoneUsageDescription`, and the release's hardened runtime has `entitlements/app.plist`'s audio-input). The capsule's
+  mic pill shows its level (`onLevel`, four bars) and mutes this capture (the menu too); off, it says why and a click opens System Settings
+  or turns the preference on. After Done the capsule says "Hearing what you said…": the recording's sound is transcribed on this Mac (macOS 26's
+  `SpeechAnalyzer` with a `SpeechTranscriber` for the Mac's language, no Speech Recognition permission, its model fetched as the capture starts,
+  `prepare`; 90 s at most), in sentences (`CaptureTranscript`: punctuation or a 1.2 s pause) into the manifest's `transcript` (`transcriptNote`
+  says why there's none), each sentence a keyframe ("said": its first "this/that/these/those/here/there" 0.3 s on, else its end). The hotkey or Done finishes: `CaptureBundle.swift` picks keyframes
+  (`CaptureKeyframes.choose`: each stroke's end, each click, each sentence said, the last frame, moments under 0.75 s merged, at most 12), decodes them
   from the video (click rings drawn), draws the numbered `contact-sheet.png` and writes `capture.json`, then `capture.gif` in the
   background, all in the data folder's `captures/<cap-yyyymmdd-hhmmss>/`. Then the send panel (`CaptureSend.swift`, a key but
   non-activating panel at the top of the screen, over the app you were in) shows `capture.html?id=` (`web/src/capture/`:
@@ -283,15 +292,18 @@ and GitHub publication; report the published version and release link.
   lists none: an agent's own, a project's provider's first; images pasted or
   dropped go with the sheet, `images`/`attachments` in the send, and into New agent), and a searchable list of agents (most recently active first; not
   archived or subagents) then "New agent in <project>"; Enter in the composer sends, Send or ⌘↩ elsewhere sends what it holds (an empty message
-  too), Esc closes. An agent gets it through `POST
+  too), Esc closes. What you said shows under the sheet with its times; "Send it" off leaves it out (`transcript: false`, the draft's
+  `transcript=0`). An agent gets it through `POST
   /api/captures/:id/send` (`web/server/captures.ts`, the composer's own `agentCommand("send")`; a working agent's as `steer`): your
-  message, a `[Screen capture …]` block naming each keyframe, the contact sheet as an image, and, for an agent on this Mac only,
+  message, a `[Screen capture …]` block with what you said (`> [0:02] …`, transcribed, so it may mishear) and each keyframe (a "spoke" one
+  quoting its sentence), the contact sheet as an image, and, for an agent on this Mac only,
   the bundle's paths (video, frames, GIF) with an ffmpeg line for cutting frames around a moment (`captureMessage`; agents
   elsewhere can't read this Mac's files). A project opens the app's window on New agent there (`paseo:capture` →
   `capture/appCapture.ts`: `GET /api/captures/:id/draft` into `draft:dispatch` and the composer's attachments); "Open the
   conversation" after a send selects it. `GET /api/captures`, `/:id`, `/:id/sheet`. Check runs never register the hotkey or the
   icon; the `capturepanel` hook opens the panel (not key) for `<info>.capture`'s id, and `--info` reports `capture`. Tests:
-  `native/tests/CaptureBundleTests.swift` (a generated recording through the whole bundle), `server/captures.test.ts`,
+  `native/tests/CaptureBundleTests.swift` (a generated recording through the whole bundle), `CaptureVoiceTests.swift` (sentences,
+  moments, and `say`'s speech heard, when the language's model is on the Mac), `server/captures.test.ts`,
   `src/capture/targets.test.ts`, `e2e/capture.e2e.ts`.
 - `web/src/games/`: the top bar's mini games (gamepad button, or ⌘K "Open the mini games"; ⇧⌘B and plain B are the agent's browser's), a floating non-modal window with one game dealt at
   random by the server (`web/server/games.ts`, `/api/games`): no choosing or restarting, the next game only once it ends.
