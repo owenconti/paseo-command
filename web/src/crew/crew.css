@@ -886,13 +886,20 @@
 .board-browser.crew.filled {
   right: 0;
 }
+/* The line between the tabs and the address bar runs along the tab row's foot (the head's inset shadow), under the
+   other tabs (their own), so the selected tab, the bar's colour, covers it and runs on into the bar. */
+.board-browser.crew .bb-head {
+  box-shadow: inset 0 -1px 0 var(--line);
+}
 .board-browser.crew .bb-tab {
   background: var(--fill-soft);
   border-color: var(--line);
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 .board-browser.crew .bb-tab.selected {
   background: var(--panel);
   border-color: var(--line-strong);
+  box-shadow: none;
 }
 .board-browser.crew .bb-tab-close:hover,
 .board-browser.crew .bb-tool:hover:not(:disabled),
@@ -910,7 +917,7 @@
   border-top-color: transparent;
 }
 .board-browser.crew .bb-bar {
-  border-top: 1px solid var(--line);
+  border-top: 0;
   background: var(--panel);
 }
 .board-browser.crew .bb-address {
