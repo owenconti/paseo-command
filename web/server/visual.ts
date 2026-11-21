@@ -94,3 +94,59 @@ export async function readVisualPage(id: string | null, deps: VisualDeps): Promi
     clearTimeout(timer);
   }
 }
+
+/**
+ * `show_in_files` (the same plugin): an agent shows the user a file of its workspace, at a line or a range, or its
+ * changes on the branch, in the Files tab beside its conversation. The plugin checks the place and answers with it
+ * (`structuredContent.showInFiles`); the timeline marks the completed call (`shownInFiles`), and the chat draws it as a
+ * file link and opens it as it arrives (Session.tsx).
+ */
+export type FilesPlace = { path: string; relative: string; line?: number; endLine?: number; view: "file" | "changes" };
+const FILES_TOOL = /(?:^|__|\.)show_in_files$/;
+
+function findPlace(value: unknown, depth = 0): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || depth > 4) return undefined;
+  if (Array.isArray(value)) {
+    for (const v of value.slice(0, 8)) {
+      const found = findPlace(v, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.showInFiles && typeof record.showInFiles === "object") return record.showInFiles as Record<string, unknown>;
+  for (const key of ["output", "structuredContent", "result", "content"]) {
+    const found = findPlace(record[key], depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+const lineOf = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 10_000_000 ? v : undefined);
+const pathOf = (v: unknown) => (typeof v === "string" && v.length > 0 && v.length <= 4096 && !v.includes("\0") ? v : undefined);
+
+/** The place a completed `show_in_files` call showed: the plugin's answer, else (a provider that keeps only the tool's text)
+ *  what the call asked, when it wasn't refused. */
+export function shownInFiles(name: unknown, detail: unknown): FilesPlace | undefined {
+  if (typeof name !== "string" || !FILES_TOOL.test(name)) return undefined;
+  const d = detail as { input?: Record<string, unknown>; output?: unknown } | null;
+  const answered = findPlace(d?.output);
+  const text = typeof d?.output === "string" ? d.output : JSON.stringify(d?.output ?? "");
+  const source = answered ?? (/^"?Opened /.test(text) ? d?.input : undefined);
+  if (!source) return undefined;
+  const asked = pathOf(source.relative) ?? pathOf(source.path);
+  if (!asked) return undefined;
+  const relative = asked.replace(/^\.\//, "");
+  if (relative.split("/").includes("..")) return undefined;
+  // The plugin's answer names the real path; what was asked, the path as written (made tidy).
+  const path = (answered && pathOf(answered.path)) || relative;
+  const line = lineOf(source.line);
+  const endLine = line ? lineOf(source.endLine) : undefined;
+  return {
+    path,
+    relative,
+    ...(line ? { line } : {}),
+    ...(endLine && endLine > (line ?? 0) ? { endLine } : {}),
+    view: source.view === "changes" ? "changes" : "file",
+  };
+}

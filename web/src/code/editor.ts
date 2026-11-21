@@ -37,6 +37,8 @@ import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/sea
 import { Compartment, EditorState, StateEffect, StateField, type Extension } from "@codemirror/state";
 import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
 import {
+  Decoration,
+  type DecorationSet,
   crosshairCursor,
   drawSelection,
   dropCursor,
@@ -103,6 +105,8 @@ const look = EditorView.theme({
   ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--fill) 55%, transparent)" },
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": { backgroundColor: "color-mix(in srgb, var(--accent) 28%, transparent) !important" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--accent)" },
+  // Lines an agent showed (show_in_files): a band and an edge in the accent, until the file is edited or another range shows.
+  ".cm-shownLine": { backgroundColor: "color-mix(in srgb, var(--accent) 13%, transparent)", boxShadow: "inset 3px 0 0 var(--accent)" },
   ".cm-fat-cursor": { background: "color-mix(in srgb, var(--accent) 70%, transparent) !important", color: "var(--on-accent, #000) !important" },
   "&:not(.cm-focused) .cm-fat-cursor": { background: "none !important", outline: "1px solid color-mix(in srgb, var(--accent) 70%, transparent) !important" },
   ".cm-panels": { backgroundColor: "var(--panel)", color: "var(--text)", borderColor: "var(--line)" },
@@ -260,6 +264,34 @@ const cursorHover = StateField.define<Tooltip | null>({
   provide: (field) => showTooltip.from(field),
 });
 
+/** Lines an agent showed (`show_in_files`, `showLines`): marked until the file is edited or other lines show. */
+const setShownLines = StateEffect.define<{ from: number; to: number } | null>();
+const shownLines = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, tr) {
+    for (const e of tr.effects)
+      if (e.is(setShownLines)) {
+        if (!e.value) return Decoration.none;
+        const doc = tr.state.doc;
+        const first = Math.max(1, Math.min(e.value.from, doc.lines));
+        const last = Math.max(first, Math.min(e.value.to, doc.lines));
+        const mark = Decoration.line({ class: "cm-shownLine" });
+        return Decoration.set(Array.from({ length: last - first + 1 }, (_, i) => mark.range(doc.line(first + i).from)));
+      }
+    return tr.docChanged ? Decoration.none : value;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+/** Mark lines `from`…`to` (from 1) in the file's editor, centred in view; `null` clears them. */
+export function showLines(view: EditorView, range: { from: number; to: number } | null) {
+  const effects: StateEffect<unknown>[] = [setShownLines.of(range)];
+  if (range) {
+    const doc = view.state.doc;
+    effects.push(EditorView.scrollIntoView(doc.line(Math.max(1, Math.min(range.from, doc.lines))).from, { y: "center" }));
+  }
+  view.dispatch({ effects });
+}
+
 /** A buffer's starting state. */
 export function bufferState(text: string, parts: Parts, options: { vim: boolean; readOnly: boolean; wrap: boolean }): EditorState {
   setUpVim();
@@ -288,6 +320,7 @@ export function bufferState(text: string, parts: Parts, options: { vim: boolean;
       search({ top: true }),
       paneKeys,
       cursorHover,
+      shownLines,
       keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap, ...foldKeymap, ...completionKeymap, ...lintKeymap, indentWithTab]),
       parts.theme.of(themeOf()),
       parts.language.of([]),

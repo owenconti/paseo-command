@@ -1,4 +1,4 @@
-import { publishedPage } from "./visual";
+import { publishedPage, shownInFiles, type FilesPlace } from "./visual";
 import { createHostClient } from "@getpaseo/client/node";
 import { redactText } from "./redact";
 
@@ -285,6 +285,8 @@ export type TimelineItem =
       at?: string;
       /** A page this call published (the visual-replies plugin's html_render); see server/visual.ts. */
       visual?: { page: string; title: string };
+      /** The place this call showed in the Files tab (the plugin's show_in_files); see server/visual.ts. */
+      files?: FilesPlace;
     }
   | { kind: "todo"; id: string; items: { text: string; done: boolean }[] }
   | { kind: "notice"; id: string; level: string; text: string; at?: string };
@@ -466,6 +468,8 @@ export function shapeTimeline(entries: unknown): TimelineItem[] {
           break;
         }
         const { summary, detail } = toolText(item.detail);
+        // A place shown in the Files tab (show_in_files): the chat draws it as a file link and opens it as it arrives.
+        const files = item.status === "completed" ? shownInFiles(item.name, item.detail) : undefined;
         out.push({
           kind: "tool",
           id: `${id}:${item.callId || ""}`,
@@ -477,6 +481,7 @@ export function shapeTimeline(entries: unknown): TimelineItem[] {
               ? clip(`${detail}\n${clip(item.error, 2000)}`, 8000)
               : detail,
           at,
+          ...(files ? { files } : {}),
         });
         break;
       }

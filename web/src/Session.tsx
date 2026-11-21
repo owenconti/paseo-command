@@ -82,6 +82,7 @@ import {
   toolSummary,
   type Block,
   type Entry,
+  type FilesPlace,
   type TimelineItem,
 } from "./transcript";
 import type { Agent, Detail, Mode, Permission, Workspace } from "./types";
@@ -134,16 +135,31 @@ export function openFileLink(e: React.MouseEvent, workspace: Workspace | undefin
     return true;
   }
   if (!workspace) return true;
-  // In the Files tab beside the agent's conversation (main shows it and hands it the file), at its line.
+  // In the Files tab beside the agent's conversation (main shows it and hands it the file), at its line or range
+  // (an agent's show_in_files: maybe its changes, and named by its absolute path on the agent's host).
   const line = Number(link.dataset.fileLine) || undefined;
+  const endLine = Number(link.dataset.fileEnd) || undefined;
   askFilesTab({
     workspace: workspace.workspaceId,
     ...(workspace.host ? { host: workspace.host } : {}),
-    path,
+    path: workspacePath(link.dataset.fileAbs, path, workspace),
     ...(line ? { line } : {}),
+    ...(line && endLine ? { endLine } : {}),
+    ...(link.dataset.fileView === "changes" ? { changes: true } : {}),
   });
   return true;
 }
+
+/** A place's path from the workspace's folder: its absolute path made relative there, else the path as given. */
+export function workspacePath(absolute: string | undefined, relative: string, workspace: Pick<Workspace, "cwd">) {
+  const cwd = workspace.cwd?.replace(/\/+$/, "");
+  if (absolute && cwd && absolute.startsWith(`${cwd}/`)) return absolute.slice(cwd.length + 1);
+  return relative;
+}
+
+/** What an agent's `show_in_files` showed, as words: "src/app.ts:3–9 · changes". */
+export const placeLabel = (p: FilesPlace) =>
+  `${p.relative}${p.line ? `:${p.line}${p.endLine ? `–${p.endLine}` : ""}` : ""}${p.view === "changes" ? " · changes" : ""}`;
 
 /** In the macOS app, web links clicked in the chat go to the app: the robot's browser while it shows beside
  * the conversation (`chatLinks.ts`), else your default browser (a pull request the GitHub tab, a Linear issue Linear). */
@@ -288,6 +304,32 @@ export function SessionView({
     respond,
     promptHistory,
   } = session;
+  // An agent's show_in_files, as it arrives: the Files tab beside the conversation opens there (the newest call, once).
+  // Calls already in the history when it loaded, and earlier pages loading in, never open anything.
+  const filesSeen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    filesSeen.current = null;
+  }, [agent.id]);
+  useEffect(() => {
+    if (source === null) return;
+    const calls = entries.flatMap((e) => (e.kind === "tool" && e.files ? [e.files] : []));
+    if (!filesSeen.current) {
+      filesSeen.current = new Set(calls.map((c) => c.call));
+      return;
+    }
+    const newest = calls.at(-1);
+    const fresh = newest && !filesSeen.current.has(newest.call);
+    calls.forEach((c) => filesSeen.current!.add(c.call));
+    if (!fresh || !newest || !workspace || !macApp()) return;
+    askFilesTab({
+      workspace: workspace.workspaceId,
+      ...(workspace.host ? { host: workspace.host } : {}),
+      path: workspacePath(newest.path, newest.relative, workspace),
+      ...(newest.line ? { line: newest.line } : {}),
+      ...(newest.line && newest.endLine ? { endLine: newest.endLine } : {}),
+      ...(newest.view === "changes" ? { changes: true } : {}),
+    });
+  }, [entries, source, workspace]);
   // Any command that succeeds settles an open confirmation.
   useEffect(() => {
     setConfirm(null);
@@ -1229,6 +1271,26 @@ const TimelineBlock = memo(function TimelineBlock({
     );
   if (block.kind === "agent")
     return <AgentReportCard block={block} imageHost={imageHost} />;
+  if (block.kind === "files") {
+    const p = block.place;
+    return (
+      <div className="msg files-shown">
+        <a
+          href={`#files:${p.relative}`}
+          data-file-path={p.relative}
+          data-file-abs={p.path}
+          {...(p.line ? { "data-file-line": String(p.line) } : {})}
+          {...(p.endLine ? { "data-file-end": String(p.endLine) } : {})}
+          data-file-view={p.view}
+          title="Open it in Files again"
+        >
+          {p.view === "changes" ? <GitBranch size={13} aria-hidden="true" /> : <FileText size={13} aria-hidden="true" />}
+          <span className="files-shown-place">{placeLabel(p)}</span>
+        </a>
+        <span className="files-shown-note">shown in Files</span>
+      </div>
+    );
+  }
   if (block.kind === "visual")
     return (
       <div className="msg visual-reply">

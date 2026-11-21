@@ -1495,3 +1495,35 @@ button.agent-report-name:hover {
   border-style: dashed;
   color: var(--text-3);
 }
+
+/* A place an agent showed in the Files tab (show_in_files): a quiet link to open it there again. */
+.msg.files-shown {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.msg.files-shown a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-pill);
+  background: var(--fill-soft);
+  color: var(--text-2);
+  text-decoration: none;
+  font-family: var(--font-mono);
+}
+.msg.files-shown a:hover {
+  border-color: var(--accent-line);
+  color: var(--text);
+}
+.msg.files-shown .files-shown-place {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

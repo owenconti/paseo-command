@@ -14,9 +14,14 @@ export type Entry =
       status?: string;
       /** A page this call published (a visual reply), drawn in the tool row's place. */
       visual?: { page: string; title: string };
+      /** A place it showed in the Files tab (show_in_files), with its call's id: drawn as a file link, opened as it arrives. */
+      files?: FilesPlace & { call: string };
     }
   | { kind: "todo"; text: string; items: { text: string; done: boolean }[] }
   | { kind: "event"; label: string; text: string };
+
+/** Where a `show_in_files` call opened the Files tab (server/visual.ts `shownInFiles`). */
+export type FilesPlace = { path: string; relative: string; line?: number; endLine?: number; view: "file" | "changes" };
 
 /** Items from the daemon's structured timeline (see server/daemon.ts shapeTimeline). */
 export type TimelineItem =
@@ -37,6 +42,7 @@ export type TimelineItem =
       summary: string;
       detail: string;
       visual?: { page: string; title: string };
+      files?: FilesPlace;
     }
   | { kind: "todo"; id: string; items: { text: string; done: boolean }[] }
   | { kind: "notice"; id: string; level: string; text: string };
@@ -99,6 +105,7 @@ function entryOf(item: TimelineItem): Entry {
         detail: item.detail,
         status: item.status,
         ...(item.visual ? { visual: item.visual } : {}),
+        ...(item.files ? { files: { ...item.files, call: item.id } } : {}),
       };
     case "todo":
       return { kind: "todo", text: "", items: item.items };
@@ -228,6 +235,7 @@ export type Block =
   | ({ kind: "agent"; key: string } & AgentReport)
   | { kind: "todo"; items: { text: string; done: boolean }[]; key: string }
   | { kind: "visual"; page: string; title: string; key: string }
+  | { kind: "files"; place: FilesPlace & { call: string }; key: string }
   | { kind: "activity"; steps: Entry[]; key: string };
 
 /** Fold consecutive tool calls and thoughts into one activity block. */
@@ -250,6 +258,9 @@ export function toBlocks(entries: Entry[]): Block[] {
     else if (entry.kind === "tool" && entry.visual)
       // A published page stands on its own, not folded among the steps.
       blocks.push({ kind: "visual", ...entry.visual, key: `visual:${entry.visual.page}` });
+    else if (entry.kind === "tool" && entry.files)
+      // A place shown in the Files tab: a link of its own, to open it again.
+      blocks.push({ kind: "files", place: entry.files, key: `files:${entry.files.call}` });
     else if (entry.kind === "tool" || entry.kind === "thought") {
       const last = blocks[blocks.length - 1];
       if (last?.kind === "activity") last.steps.push(entry);

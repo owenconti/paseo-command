@@ -1,12 +1,22 @@
 /**
- * What's asked of the Files tab from elsewhere, kept light so the page needn't load the tab to ask: a file at a line
- * (a chat's file link) or a sidebar view (⇧⌘G, ⌘K and a workspace's Show changes: the branch's changes). Main hears
+ * What's asked of the Files tab from elsewhere, kept light so the page needn't load the tab to ask: a file at a line or a
+ * range, maybe with its branch changes (a chat's file link, an agent's `show_in_files`), or a sidebar view (⇧⌘G, ⌘K and a workspace's Show changes: the branch's changes). Main hears
  * each ask (`FILES_ASK_EVENT`) and shows the tab beside the agent's conversation; the tab takes it for its workspace,
  * once (`takeFilesAsk`), as it shows or at once when it already does.
  */
 import type { SideView } from "./store";
 
-export type FilesAsk = { workspace: string; host?: string; path?: string; line?: number; side?: SideView };
+export type FilesAsk = {
+  workspace: string;
+  host?: string;
+  path?: string;
+  line?: number;
+  /** The last line of a range to mark (an agent's `show_in_files`). */
+  endLine?: number;
+  /** The file's changes on the branch: the Branch view and its diff. */
+  changes?: boolean;
+  side?: SideView;
+};
 
 export const FILES_ASK_EVENT = "paseo:files-ask";
 let pending: FilesAsk | null = null;

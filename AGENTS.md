@@ -954,6 +954,23 @@ client's; `K` asks for the cursor's. ⌘-click and F12 go to a definition, ⌃O/
 chat's file link opens there, and ⇧⌘G (View → Show Branch Changes, ⌘K "Show …’s branch changes in Files", a workspace's Show changes) its Branch view with the sidebar shown, the tab shown for either (`code/filesAsks.ts`: `askFilesTab`, main's `FILES_ASK_EVENT` handler, `takeFilesAsk` in `FilesPane`); in a browser it says the tab is the macOS app's. Tests: `server/lsp.test.ts` (a fake plugin), `server/api/files.test.ts`
 (write, conflict, version), `src/code/code.test.ts`, `e2e/files-tab.e2e.ts` (a fake `/api/lsp` socket).
 
+### Agents showing a place in the Files tab
+
+An agent opens a file of its workspace, at a line or a range, or its changes on the branch, in the Files tab beside its
+conversation (the user's ask: "show me the changes in our file editor"), with the `show_in_files` tool of the
+`visual-replies` plugin (github.com/owenconti/paseo-cc-plugins, beside `html_render`; a host needs
+`paseo plugin update visual-replies`): `path` (relative to the agent's folder, or absolute inside it), `line`, `endLine`,
+`view` `file` or `changes`. The plugin checks the file exists inside the agent's folder by real path and answers with the
+place (`structuredContent.showInFiles`). `shownInFiles` (`web/server/visual.ts`, in `shapeTimeline`) marks the completed
+call's tool row with `files`; the chat draws it as a file link chip ("src/app.ts:3–9 · changes", `files` blocks in
+`transcript.ts`, `.msg.files-shown`), which opens it again (`openFileLink`: `data-file-abs`, `-end`, `-view`), and Session
+opens the newest call as it arrives (`filesSeen`: calls in the history when it loaded, and earlier pages loading in, never
+open anything) through `askFilesTab` (`endLine`, `changes`). The Files tab opens the file (`changes`: the Branch view and its
+diff), the cursor on the line, and marks a range (`showLines` in `code/editor.ts`, `.cm-shownLine`, until the file is
+edited or another range shows). The standing prompt's `<paseo_command_files>` tells new agents to use it when asked to
+see code or changes (without it, a `path:line` they can click). Tests: `server/visual.test.ts`,
+`server/agentPrompt.test.ts`, `e2e/files-tab.e2e.ts`; the plugin's in its repository (`scripts/files.test.ts`).
+
 ### The agent's browser
 
 Each agent has a browser of its own, tracked to it (host and daemon id): its tabs, shown on Crew in the map's place left

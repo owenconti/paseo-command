@@ -55,6 +55,7 @@ import {
   type Usage,
 } from "./store";
 import { FILES_ASK_EVENT, takeFilesAsk } from "./filesAsks";
+import { showLines } from "./editor";
 import "../crew/crew-files.css";
 import "./files-pane.css";
 
@@ -121,12 +122,19 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
     const take = () => {
       const ask = takeFilesAsk(workspace.id, workspace.host);
       if (!ask) return;
-      if (ask.side) {
-        setSide(f, ask.side);
+      const side = ask.side ?? (ask.changes ? "branch" : undefined);
+      if (side) {
+        setSide(f, side);
         setSideHidden(false);
         writeStore(HIDDEN_KEY, false);
       }
-      if (ask.path) void openFile(f, ask.path, { ...(ask.line ? { line: ask.line } : {}) });
+      if (ask.path) {
+        const { line, endLine } = ask;
+        void openFile(f, ask.path, { ...(line ? { line } : {}), ...(ask.changes ? { diff: "all" as const } : {}) }).then((view) => {
+          // A range (an agent's show_in_files) is marked; a lone line keeps the cursor there only.
+          if (view) showLines(view, line && endLine ? { from: line, to: endLine } : null);
+        });
+      }
     };
     take();
     window.addEventListener(FILES_ASK_EVENT, take);

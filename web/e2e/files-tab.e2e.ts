@@ -75,7 +75,7 @@ const asMacAppWithLsp = (page: Page) =>
   `);
 
 /** The workspace's files and changes, a save route that checks the version, and its versions on disk. */
-async function setUp(page: Page) {
+async function setUp(page: Page, timeline?: (id: string) => unknown) {
   const files: Record<string, { text: string; at: string }> = {
     "README.md": { text: "# Atlas\n", at: T0 },
     "src/app.ts": { text: 'import { helper } from "./util";\nexport const a = helper(2);\n', at: T0 },
@@ -122,6 +122,7 @@ async function setUp(page: Page) {
     hosts: () => small.hosts,
     projects: () => small.projects,
     workspaces: () => small.workspaces,
+    ...(timeline ? { timeline } : {}),
     accept: (path, body) => {
       if (path === "/api/files/write") {
         const now = files[body.path];
@@ -419,6 +420,48 @@ test("⇧⌘G shows the branch's changes in the Files tab, and F shows or hides 
     await page.locator(".files-view").waitFor({ state: "detached" });
     await page.keyboard.press("f");
     await page.locator(".files-view").waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
+test("an agent's show_in_files opens the Files tab at its place as it arrives, its range marked; its chip opens it again", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 950 });
+  const call = (n: number, place: Record<string, unknown>) => ({
+    kind: "tool",
+    id: `call-${n}`,
+    name: "mcp__paseo__show_in_files",
+    status: "completed",
+    summary: "show_in_files",
+    detail: "",
+    files: { path: `${ROOT}/${place.relative}`, view: "file", ...place },
+  });
+  // An earlier call in the history: drawn, never opened by itself.
+  const items: unknown[] = [{ kind: "user", id: "u1", text: "Show me the util" }, call(1, { relative: "src/util.ts", line: 2 })];
+  try {
+    await page.addInitScript(() => localStorage.setItem("paseo-command:atlas:style", JSON.stringify("crew")));
+    await asMacAppWithLsp(page);
+    await setUp(page, () => ({ items }));
+    await page.goto(`${app.url}?agent=a-running`);
+    await page.locator(".crew-drawer .crew-detail").waitFor();
+    const chips = page.locator(".msg.files-shown a");
+    await chips.first().waitFor();
+    assert.equal(await chips.first().innerText(), "src/util.ts:2");
+    await page.waitForTimeout(600);
+    assert.equal(await page.locator(".files-view").count(), 0, "the history's call opens nothing");
+    // A new call, as the agent makes it: its changes, lines 1 to 2 of src/app.ts.
+    items.push(call(2, { relative: "src/app.ts", line: 1, endLine: 2, view: "changes" }));
+    await page.locator(".files-view").waitFor({ timeout: 15000 });
+    await page.locator(".files-tab[aria-selected=true]").getByText("app.ts").waitFor();
+    assert.equal(await page.getByRole("radio", { name: "Branch" }).getAttribute("aria-checked"), "true");
+    await page.locator(".cm-deletedChunk").getByText("helper(1)").waitFor();
+    await waitFor(() => page.locator(".files-editor .cm-shownLine").count(), (n) => n === 2, "its two lines marked");
+    assert.equal(await chips.nth(1).innerText(), "src/app.ts:1–2 · changes");
+    // The earlier chip opens its place again.
+    await chips.first().click();
+    await page.locator(".files-tab[aria-selected=true]").getByText("util.ts").waitFor();
   } finally {
     await context.close();
   }

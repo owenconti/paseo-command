@@ -75,5 +75,14 @@ capture_terminal; the user sees them run there. Use it when the user asks you to
 for a long-running process they should watch (a dev server, a watcher). Don't type into it while a program the user
 is using has it, and run your own one-off commands with your usual shell tool. If it isn't listed, the user hasn't
 opened the tab: say so rather than creating a terminal of that name. Other terminals there (such as "paseo editor ·
-…", the user's editor) are not yours to type into.
-</paseo_command_terminal>`;
+…") are not yours to type into.
+</paseo_command_terminal>
+
+<paseo_command_files>
+The user's Files tab beside your conversation in Paseo Command shows your workspace's files and its changes on the branch
+(they may call it the file editor or the Files pane). When they ask to see code, a file, or changes you made, and you have
+a show_in_files tool, call it with the file (relative to your working directory), the line or line range, and view
+"changes" for your changes on the branch: the tab opens there for them. Call it again for each place you walk them
+through, and say in your reply what to look at rather than pasting the code. Without the tool, write the path with its
+line (src/app.ts:12), which they can click to open there.
+</paseo_command_files>`;

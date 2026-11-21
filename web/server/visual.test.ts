@@ -99,3 +99,40 @@ test("the page is read from the plugin by id only, and its answer is checked", a
   assert.throws(() => visualPageOf(ID, { id: ID }), /couldn't be read/);
   await assert.rejects(readVisualPage(ID, { invoke: async () => Promise.reject(new Error("Plugin visual-replies is not installed")) }), /not installed/);
 });
+
+test("a completed show_in_files call is the place it showed: the plugin's answer, else what it asked", async () => {
+  const { shownInFiles } = await import("./visual");
+  const place = { path: "/w/app/src/a.ts", relative: "src/a.ts", line: 3, endLine: 9, view: "changes" };
+  assert.deepEqual(shownInFiles("mcp__paseo__show_in_files", { output: { structuredContent: { showInFiles: place } } }), place);
+  assert.deepEqual(shownInFiles("show_in_files", { output: [{ structuredContent: { showInFiles: { ...place, endLine: 2, view: "x" } } }] }), {
+    path: "/w/app/src/a.ts",
+    relative: "src/a.ts",
+    line: 3,
+    view: "file",
+  });
+  // A provider that kept only the tool's text: what was asked, when it was opened.
+  assert.deepEqual(shownInFiles("paseo.show_in_files", { input: { path: "./src/b.ts", line: 7 }, output: "Opened src/b.ts:7 in the user's Files tab." }), {
+    path: "src/b.ts",
+    relative: "src/b.ts",
+    line: 7,
+    view: "file",
+  });
+  assert.equal(shownInFiles("show_in_files", { input: { path: "src/b.ts" }, output: "src/b.ts doesn't exist in the workspace." }), undefined);
+  assert.equal(shownInFiles("show_in_files", { output: { showInFiles: { path: "/x", relative: "../etc/passwd" } } }), undefined);
+  assert.equal(shownInFiles("html_render", { output: { showInFiles: place } }), undefined);
+});
+
+test("the timeline carries a show_in_files call's place on its tool row, not a refused one's", () => {
+  const place = { path: "/w/app/src/a.ts", relative: "src/a.ts", line: 3, endLine: 9, view: "changes" };
+  const files = (over: Record<string, unknown>) =>
+    row({ name: "mcp__paseo__show_in_files", detail: { type: "unknown", input: { path: "src/a.ts", line: 3, endLine: 9, view: "changes" }, output: { structuredContent: { showInFiles: place } } }, ...over });
+  const [item] = shapeTimeline([files({})]);
+  assert.equal(item.kind, "tool");
+  assert.deepEqual((item as { files?: unknown }).files, place);
+  for (const over of [{ status: "running" }, { status: "failed", error: "src/a.ts doesn't exist in the workspace." }]) {
+    const [plain] = shapeTimeline([files(over)]);
+    assert.equal("files" in plain, false);
+  }
+  const blocks = toBlocks(fromTimeline([item]));
+  assert.deepEqual(blocks.map((b) => b.kind), ["files"]);
+});

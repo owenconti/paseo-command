@@ -35,3 +35,8 @@ test("new agents are told how to find and drive the Terminal tab's shell", () =>
   assert.ok(AGENT_SYSTEM_PROMPT.includes(`"${WORKSPACE_TERMINAL}"`));
   assert.match(AGENT_SYSTEM_PROMPT, /rather than creating a terminal of that name/);
 });
+
+test("new agents are told to show code and changes in the Files tab with show_in_files", () => {
+  assert.match(AGENT_SYSTEM_PROMPT, /<paseo_command_files>[\s\S]*show_in_files[\s\S]*"changes"[\s\S]*<\/paseo_command_files>/);
+  assert.match(AGENT_SYSTEM_PROMPT, /src\/app\.ts:12/);
+});
