@@ -162,6 +162,7 @@ import {
   withRenames,
 } from "./renames";
 import { withLocalWorkspaces, projectKey, workspaceKey } from "./workspaces";
+import { captureHotkey, onAppCapture, prepareCaptureDraft } from "./capture/appCapture";
 import { readUrlState, selectionKey as placeKey, urlSearch } from "./urlState";
 import type {
   Agent,
@@ -1194,6 +1195,26 @@ function App() {
     },
     [openDispatch],
   );
+  // The screen capture send panel's asks (capture/appCapture.ts): the conversation it sent to, or New agent on a
+  // project with the capture as its first message.
+  useEffect(
+    () =>
+      onAppCapture((c) => {
+        if ("open" in c) {
+          choose({ type: "agent", id: c.open });
+          postAppMenu("command");
+          return;
+        }
+        prepareCaptureDraft(c.capture, c.message ?? "", c.newAgent.host).then(
+          () => {
+            openDispatch({ projectId: projectKey(c.newAgent) });
+            postAppMenu("command");
+          },
+          (error) => setNotice(`Couldn’t open the capture in New agent: ${errorMessage(error) || "the request failed."}`),
+        );
+      }),
+    [choose, openDispatch],
+  );
   // The workspace's changes: Settings → Files' changes command in its editor, beside the open agent's conversation.
   const showWorkspaceChanges = useCallback(() => {
     if (githubWorkspace) askWorkspaceEditor({ workspace: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), changes: true });
@@ -2126,6 +2147,24 @@ function App() {
                 },
               ]
             : []),
+          // Screen captures for agents (the app's hotkey from any app, its menu bar icon; capture/, Capture.swift).
+          {
+            id: "capture-start",
+            group: "App",
+            page: "App" as const,
+            label: "Start a screen capture for an agent",
+            ...(captureHotkey() ? { keys: [captureHotkey()!] } : {}),
+            keywords: "screen capture record recording video draw annotate mark ink screenshot gif scrawl send agent",
+            run: () => postAppMenu("capture-start"),
+          },
+          {
+            id: "capture-last",
+            group: "App",
+            page: "App" as const,
+            label: "Send the last screen capture to an agent…",
+            keywords: "screen capture recording video screenshot last latest previous send agent",
+            run: () => postAppMenu("capture-last"),
+          },
           {
             id: "restart",
             group: "App",

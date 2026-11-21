@@ -59,6 +59,7 @@ import {
 import { profileEditor, profileFeatures, saveProfiles } from "./profiles";
 import { settleChange } from "./settle";
 import { poolRoute } from "../pool";
+import { capturesGet, isCapturesPath, sendCapture, validCaptureId } from "../captures";
 import {
   HostOffline,
   hostChips,
@@ -174,6 +175,8 @@ export async function handleApi(
   if (url.pathname.startsWith("/api/github/")) return githubRoute(req, url, reply);
   // Pool boxes: the paseo-boxes scripts on this Mac claim and release them; a claim then dispatches.
   if (url.pathname === "/api/pool" || url.pathname.startsWith("/api/pool/")) return poolRoute(req, url, reply);
+  // The macOS app's screen captures: this Mac's files (server/captures.ts). Sending one is a POST below.
+  if (req.method === "GET" && isCapturesPath(url.pathname)) return capturesGet(url, res, reply);
   // The mini games' record: this app's own file, never the daemon.
   if (url.pathname === "/api/games" || url.pathname.startsWith("/api/games/"))
     return gamesRoute(req, url.pathname, reply);
@@ -446,6 +449,8 @@ export async function handleApi(
       try {
         if (parts[0] === "dispatch" && parts.length === 1)
           result = await dispatchRoute(body, mark);
+        else if (parts[0] === "captures" && parts.length === 3 && parts[2] === "send")
+          result = await sendCapture(validCaptureId(parts[1]), body, (agent, b) => agentCommand("send", agent, b, mark));
         else if (parts[0] === "profiles" && parts.length === 1)
           result = await saveProfiles(body, mark);
         else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "create")

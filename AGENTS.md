@@ -250,6 +250,31 @@ and GitHub publication; report the published version and release link.
   Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
 - `web/src/urlState.ts`: what is open (the selection and any subagent) kept in the page's query, so a refresh returns
   there; a new selection pushes history, a subagent's opening or closing replaces it.
+- Screen captures for agents (the user's ask, after Kit Langton's Scrawl, MIT; no code copied): the macOS app's global hotkey
+  (⌃⌥⇧S; ⌃⌥⇧D in the Dev app, so both can run; Carbon `RegisterEventHotKey`, `HotKey.swift`, no permission), its menu bar icon
+  (`NSStatusItem`: Start / Finish / Cancel, Send the Last Capture…, Show Captures in Finder), the app menu and ⌘K ("Start a screen
+  capture for an agent", "Send the last screen capture to an agent…", `menu` `capture-start|capture-last`) record the display
+  under the pointer (`Capture.swift` `CaptureController`; `CaptureRecorder.swift`: ScreenCaptureKit straight to an H.264
+  `recording.mp4` through `AVAssetWriter`, long edge ≤ 2560 px, 30 fps; needs Screen & System Audio Recording, asked on first use;
+  the ad hoc signed Dev app may need it granted again after a rebuild). While it records, holding ⇧ and dragging draws red ink
+  on a non-activating overlay (`CaptureOverlay.swift` `InkOverlay`, in the recording; ⇧ read from `NSEvent.modifierFlags`, no
+  event tap), clicks elsewhere are noted (a global mouse monitor, no permission), and a capsule (`CaptureHUD`, left out of the
+  recording) has the time, Clear ink, Cancel and Done. The hotkey or Done finishes: `CaptureBundle.swift` picks keyframes
+  (`CaptureKeyframes.choose`: each stroke's end, each click, the last frame, moments under 0.75 s merged, at most 12), decodes them
+  from the video (click rings drawn), draws the numbered `contact-sheet.png` and writes `capture.json`, then `capture.gif` in the
+  background, all in the data folder's `captures/<cap-yyyymmdd-hhmmss>/`. Then the send panel (`CaptureSend.swift`, a key but
+  non-activating panel at the top of the screen, over the app you were in) shows `capture.html?id=` (`web/src/capture/`:
+  `CapturePanel.tsx`, `targets.ts`): the sheet, your message, and a searchable list of agents (most recently active first; not
+  archived or subagents) then "New agent in <project>"; ⌘↩ sends, Esc closes. An agent gets it through `POST
+  /api/captures/:id/send` (`web/server/captures.ts`, the composer's own `agentCommand("send")`; a working agent's as `steer`): your
+  message, a `[Screen capture …]` block naming each keyframe, the contact sheet as an image, and, for an agent on this Mac only,
+  the bundle's paths (video, frames, GIF) with an ffmpeg line for cutting frames around a moment (`captureMessage`; agents
+  elsewhere can't read this Mac's files). A project opens the app's window on New agent there (`paseo:capture` →
+  `capture/appCapture.ts`: `GET /api/captures/:id/draft` into `draft:dispatch` and the composer's attachments); "Open the
+  conversation" after a send selects it. `GET /api/captures`, `/:id`, `/:id/sheet`. Check runs never register the hotkey or the
+  icon; the `capturepanel` hook opens the panel (not key) for `<info>.capture`'s id, and `--info` reports `capture`. Tests:
+  `native/tests/CaptureBundleTests.swift` (a generated recording through the whole bundle), `server/captures.test.ts`,
+  `src/capture/targets.test.ts`, `e2e/capture.e2e.ts`.
 - `web/src/games/`: the top bar's mini games (gamepad button, or ⌘K "Open the mini games"; ⇧⌘B and plain B are the agent's browser's), a floating non-modal window with one game dealt at
   random by the server (`web/server/games.ts`, `/api/games`): no choosing or restarting, the next game only once it ends.
   Progress and each game's best score are kept in the data directory's `games.json`. Games implement `types.tsx`'s

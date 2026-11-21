@@ -10,6 +10,7 @@ import { useIntegrations } from "./integrationSettings";
 import { activityEnabled } from "./integrations";
 import { shownModes, type AppMode } from "./appMode";
 import { onAppBar } from "./worldBridge";
+import { captureHotkey } from "./capture/appCapture";
 
 type Shortcut = { keys: string[][]; label: string };
 type Group = { title: string; note?: string; rows: Shortcut[] };
@@ -79,6 +80,11 @@ const NATIVE: Group = {
     { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the open agent's editor beside its conversation, with the keyboard" },
     { keys: [["⇧", "⌘", "B"]], label: "From anywhere: the open agent's browser beside its conversation, with the keyboard" },
     { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },
+    // The screen capture hotkey works from any app; its keys are the app's (`captureHotkey`).
+    {
+      keys: [captureHotkey() ?? ["⌃", "⌥", "⇧", "S"]],
+      label: "From any app: start a screen capture for an agent (hold ⇧ and drag to draw), and again to finish and choose who gets it",
+    },
   ],
 };
 /** What every page (GitHub, Activity, Settings) takes, while it shows (`pageText.ts`). */

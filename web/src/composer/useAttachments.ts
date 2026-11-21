@@ -41,6 +41,13 @@ export function useAttachmentDraft(agentId: string) {
   return [attachments, setAttachments] as const;
 }
 
+/** Replace a composer's attachments from outside it (a screen capture opening New agent: `capture/appCapture.ts`). */
+export function setAttachmentDraft(owner: string, attachments: Attachment[]) {
+  if (attachments.length) attachmentDrafts.set(owner, attachments);
+  else attachmentDrafts.delete(owner);
+  attachmentListeners.forEach((notify) => notify());
+}
+
 /** Images are read inline; any other file is uploaded to the agent's host. */
 export function useAddFiles(
   /** Absent before the agent exists: then only images can be attached. */

@@ -108,7 +108,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
         // The page draws no top bar of its own: the app's is above it.
         configuration.userContentController.addUserScript(WKUserScript(
-            source: "document.documentElement.style.setProperty('--app-bar', '0px')",
+            // The screen capture hotkey, for ⌘K and the shortcuts dialog (⌃⌥⇧S; the Dev app's ⌃⌥⇧D).
+            source: "document.documentElement.style.setProperty('--app-bar', '0px'); window.__PASEO_CAPTURE_HOTKEY__ = '\(CaptureController.hotkeyLabel)'",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: command.bounds, configuration: configuration)
         web.autoresizingMask = [.width, .height]
@@ -264,6 +265,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "command": show(.command)
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
             case "check-updates": Updater.shared?.checkNow()
+            // ⌘K's screen capture entries (Capture.swift).
+            case "capture-start": (NSApp.delegate as? AppDelegate)?.toggleCapture()
+            case "capture-last": (NSApp.delegate as? AppDelegate)?.sendLastCapture()
             default: break
             }
         case "log":

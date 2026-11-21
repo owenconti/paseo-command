@@ -23,9 +23,10 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
-      // The app at /, its landing page at /landing/.
+      // The app at /, its landing page at /landing/, the macOS app's screen capture send panel at /capture.html.
       input: {
         app: fileURLToPath(new URL("index.html", import.meta.url)),
+        capture: fileURLToPath(new URL("capture.html", import.meta.url)),
         landing: fileURLToPath(new URL("landing/index.html", import.meta.url)),
       },
       output: {

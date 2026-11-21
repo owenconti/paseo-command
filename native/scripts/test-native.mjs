@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Each test runs as one script: the sources it needs, then the test itself.
-const tests = { LegacyState: ['Log', 'LegacyState'], WebOrigin: ['WebOrigin'], ShellEnvironment: ['ShellEnvironment'], ServerManager: ['Log', 'AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], BundleHome: ['AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], OldInstall: ['Log', 'AppFlavor', 'OldInstall'], Updater: ['AppFlavor', 'WebOrigin', 'Updater'], LinearLink: ['LinearLink'],
+const tests = { LegacyState: ['Log', 'LegacyState'], WebOrigin: ['WebOrigin'], ShellEnvironment: ['ShellEnvironment'], ServerManager: ['Log', 'AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], BundleHome: ['AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], OldInstall: ['Log', 'AppFlavor', 'OldInstall'], Updater: ['AppFlavor', 'WebOrigin', 'Updater'], LinearLink: ['LinearLink'], CaptureBundle: ['Log', 'AppFlavor', 'CaptureBundle', 'CaptureRecorder'],
   BrowserAutomation: ['BrowserAutomation'],
   AppKeys: ['AppFlavor', 'Textures', 'NativeTheme', 'ChromeControls', 'GlanceBar', 'ModeBar', 'EditorEmbed', 'AppKeys'],
   EditorEmbed: ['AppFlavor', 'Textures', 'NativeTheme', 'ChromeControls', 'GlanceBar', 'ModeBar', 'EditorEmbed', 'AppKeys'] };

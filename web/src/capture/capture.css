@@ -1,0 +1,211 @@
+/* The macOS app's screen capture send panel: the app's tokens over the panel's own frosted background. */
+html,
+:root,
+body {
+  background: transparent;
+}
+.cap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  color: var(--text);
+}
+.cap-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.cap-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+.cap-title strong {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.cap-meta {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cap-quiet,
+.cap-close {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-2);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  height: var(--control-sm);
+  padding: 0 var(--space-2);
+  cursor: pointer;
+}
+.cap-close {
+  width: var(--control-sm);
+  padding: 0;
+  font-size: var(--fs-lg);
+  line-height: 1;
+}
+.cap-quiet:hover,
+.cap-close:hover {
+  background: var(--row-hover);
+  color: var(--text);
+}
+.cap-sheet {
+  display: block;
+  width: 100%;
+  max-height: 210px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: #121212;
+}
+.cap-message,
+.cap-search {
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+  background: var(--input-bg);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  outline: none;
+}
+.cap-message {
+  resize: none;
+  line-height: 1.45;
+}
+.cap-message:focus,
+.cap-search:focus {
+  border-color: var(--focus);
+  box-shadow: var(--focus-ring);
+}
+.cap-targets {
+  max-height: 222px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+}
+.cap-target {
+  display: grid;
+  grid-template-columns: 16px minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  height: 34px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: default;
+}
+.cap-target:hover {
+  background: var(--row-hover);
+}
+.cap-target.chosen {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.cap-target-title {
+  font-weight: var(--fw-medium);
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cap-target-place {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cap-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dot-idle);
+  justify-self: center;
+}
+.cap-dot.running {
+  background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+.cap-dot.plus {
+  width: 16px;
+  height: 16px;
+  background: var(--fill);
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-sm);
+  line-height: 1;
+}
+.cap-empty {
+  padding: var(--space-3);
+  color: var(--text-3);
+  text-align: center;
+}
+.cap-failure {
+  color: var(--red-text);
+  background: var(--red-soft);
+  border: 1px solid var(--red-line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-sm);
+}
+.cap-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.cap-hint {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.cap-send {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: var(--fw-semibold);
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  cursor: pointer;
+}
+.cap-send:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.cap-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.cap-send kbd {
+  font: inherit;
+  font-size: var(--fs-xs);
+  opacity: 0.75;
+  margin-left: var(--space-1);
+}
+.cap-sent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-1);
+  font-size: var(--fs-lg);
+  color: var(--text-strong);
+}

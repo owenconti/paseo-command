@@ -73,6 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return options
     }()
     var main: WorldWindow?
+    /// Screen captures for agents: the hotkey, the menu bar's icon, the recording and the send panel.
+    let capture = CaptureController()
     private var tokens: [Int32] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -89,6 +91,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         main = world
         world.onModesChanged = { [weak self] in self?.numberModes() }
         numberModes()
+        capture.server = { [weak world] in world?.serverURL ?? URL(string: "http://127.0.0.1:\(AppFlavor.port)/")! }
+        capture.persistent = options.info == nil
+        // The window comes forward and the page opens what the send panel chose (a new agent, a conversation).
+        capture.toApp = { [weak world] message in
+            guard let world else { return }
+            NSApp.activate(ignoringOtherApps: true)
+            world.window.makeKeyAndOrderFront(nil)
+            if !message.isEmpty { world.send(message, as: "paseo:capture") }
+        }
+        // A check run never takes the user's hotkey or adds a second icon to the menu bar.
+        if options.info == nil { capture.install() }
         if !options.urlGiven, options.size == nil, let frame = restored?.frame { world.window.setFrame(frame, display: false) }
         // Never take focus from whatever the user is doing: the window comes
         // up without activating the app.
@@ -189,6 +202,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             guard let main = self?.main else { return }
             main.show(main.nextMode)
         }
+        // The send panel for `<info>.capture`'s capture id (checks: no recording, which needs the user's permission).
+        listen("com.paseo.command.native.capturepanel") { [weak self] in
+            guard let self, let info = self.options.info,
+                  let id = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".capture", encoding: .utf8) else { return }
+            self.capture.openPanel(id.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
         listen("com.paseo.command.native.crew") { [weak self] in self?.main?.show(.crew) }
         listen("com.paseo.command.native.command") { [weak self] in self?.main?.show(.command) }
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
@@ -278,6 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             "editor": main.editors.state(),
             "browser": main.boardBrowser.state(),
             "splash": main.splash.showing,
+            "capture": capture.state(),
         ]
         if let data = try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted]) {
             try? data.write(to: URL(fileURLWithPath: path))
@@ -298,6 +318,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         // Settings, a page in the map's place (the top bar's gear).
         appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        appMenu.addItem(.separator())
+        // Screen captures (the hotkey works from any app; these are for when you're here).
+        appMenu.addItem(withTitle: "Start Screen Capture (\(CaptureController.hotkeyLabel))", action: #selector(toggleCapture), keyEquivalent: "").target = self
+        appMenu.addItem(withTitle: "Send the Last Screen Capture…", action: #selector(sendLastCapture), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide \(AppFlavor.name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
@@ -373,6 +397,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         main.show(main.nextMode)
     }
     @objc private func showSettings() { main?.toggleSettings() }
+    @objc func toggleCapture() { capture.toggle() }
+    @objc func sendLastCapture() { capture.sendLast() }
     @objc private func showBranchChanges() { main?.pageCommand(AppKeys.branchChangesCommand) }
     @objc private func tool(_ sender: NSMenuItem) {
         guard let main, let command = sender.representedObject as? String else { return }
@@ -394,6 +420,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             return (item.representedObject as? String).flatMap(Mode.init(rawValue:)).map(main.shownModes.contains) ?? false
         case #selector(toggleMode):
             item.title = "Next: " + main.shownModes.map(\.title).joined(separator: ", ")
+        case #selector(toggleCapture):
+            item.title = capture.recording ? "Finish Screen Capture (\(CaptureController.hotkeyLabel))" : "Start Screen Capture (\(CaptureController.hotkeyLabel))"
+        case #selector(sendLastCapture): return CaptureController.latest() != nil
         case #selector(refreshPage): return main.pageRefreshes && (NSApp.keyWindow.map { $0 === main.window } ?? true)
         // Only while your editor has the keyboard, so the keys stay the page's otherwise (the pages, GitHub,
         // Activity and Settings, size their own text with them).
