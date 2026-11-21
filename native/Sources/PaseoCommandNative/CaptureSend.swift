@@ -16,7 +16,7 @@ final class CaptureSendPanel: NSObject, WKScriptMessageHandler, WKNavigationDele
     var onApp: (([String: Any]) -> Void)?
     var onReveal: (() -> Void)?
 
-    static let width: CGFloat = 920
+    static let width: CGFloat = 1060
 
     init(id: String, server: URL, screen: NSScreen, persistent: Bool) {
         self.id = id
