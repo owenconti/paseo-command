@@ -98,8 +98,21 @@ cp "$here/fonts/SymbolsNerdFontMono-Regular.ttf" "$app/Contents/Resources/fonts/
 cp "$node_bin" "$app/Contents/Resources/node/.node.new"
 mv -f "$app/Contents/Resources/node/.node.new" "$app/Contents/Resources/node/node"
 cp "$root/web/dist-server/server.mjs" "$app/Contents/Resources/server/server.mjs"
-rm -rf "$app/Contents/Resources/ui"
-cp -R "$root/web/dist" "$app/Contents/Resources/ui"
+ui="$app/Contents/Resources/ui"
+if [ "$flavour" = dev ]; then
+  # A running copy's page loads its panes (Files, your editor, the browser, GitHub, Activity) only when first shown,
+  # from hashed files the next build doesn't have: replacing them all made the first ⇧⌘F after a rebuild fail and
+  # take the page with it. So earlier builds' assets stay (new ones replace only same-named files), and those
+  # unchanged for 14 days go; everything else is this build's.
+  mkdir -p "$ui"
+  find "$ui" -mindepth 1 -maxdepth 1 ! -name assets -exec rm -rf {} +
+  [ -d "$ui/assets" ] && find "$ui/assets" -type f -mtime +14 -delete
+  cp -R "$root/web/dist/." "$ui/"
+else
+  # The release ships this build's files only (Sparkle replaces the whole app and it starts again).
+  rm -rf "$ui"
+  cp -R "$root/web/dist" "$ui"
+fi
 # Replaced, not overwritten: a running copy keeps its own executable.
 cp "$bin/PaseoCommandNative" "$app/Contents/MacOS/.PaseoCommandNative.new"
 mv -f "$app/Contents/MacOS/.PaseoCommandNative.new" "$app/Contents/MacOS/PaseoCommandNative"

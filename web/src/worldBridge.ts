@@ -212,6 +212,8 @@ const appChannel = () =>
       ).webkit?.messageHandlers?.paseoWorld;
 /** Whether the page runs inside the macOS app. */
 export const macApp = () => !!appChannel();
+/** A line for the macOS app's own log (`logs/native.log`, as "page: …"): the page's crashes, so they can be read later. */
+export const postAppLog = (text: string) => appChannel()?.postMessage({ type: "log", text });
 /** Choose one of the macOS app's menu items (View → Terminal, …). */
 export const postAppMenu = (action: string) =>
   appChannel()?.postMessage({ type: "menu", action });

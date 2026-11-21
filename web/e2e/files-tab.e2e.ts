@@ -358,3 +358,34 @@ test("the language server: gd goes to a definition in another file, ⌃O comes b
     await context.close();
   }
 });
+
+test("a Files tab whose module is gone (the app rebuilt under the page) says so with Reload; the conversation stays", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  try {
+    // The app's files replaced by a newer build: the old page's Files tab chunk is no longer there.
+    await page.route(/\/src\/code\/FilesPane\.tsx/, (route) => route.fulfill({ status: 404, body: "gone" }));
+    await page.addInitScript(() => localStorage.setItem("paseo-command:atlas:style", JSON.stringify("crew")));
+    await asMacAppWithLsp(page);
+    await setUp(page);
+    await page.goto(`${app.url}?agent=a-idle`);
+    await page.locator(".crew-drawer .crew-detail").waitFor();
+    await appEvent(page, "paseo:command", "tools-files");
+    const crash = page.locator(".crash-boundary");
+    await crash.waitFor();
+    assert.match(await crash.innerText(), /Couldn’t load the Files tab\.[\s\S]*updated since this page loaded/);
+    assert.equal(await crash.getByRole("button", { name: "Reload" }).count(), 1);
+    // The rest of the page stands: the conversation and its tool tabs.
+    assert.equal(await page.locator(".crew-detail .session").count(), 1);
+    assert.equal(await page.locator(".crew-tool-tabs").count(), 1);
+    // The crash went to the app's log.
+    const logged = await waitFor(
+      () => page.evaluate(() => (window as unknown as { sentToApp: { type: string; text?: string }[] }).sentToApp.filter((m) => m.type === "log")),
+      (l) => l.some((m) => m.text?.startsWith("crash in the Files tab: ")),
+      "the crash logged",
+    );
+    assert.match(logged.find((m) => m.text?.startsWith("crash in the Files tab"))!.text!, /dynamically imported module/);
+  } finally {
+    await context.close();
+  }
+});

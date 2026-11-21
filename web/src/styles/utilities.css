@@ -78,3 +78,36 @@
   font-size: var(--fs-xs);
   color: var(--text-3);
 }
+
+/* CrashBoundary: a part of the page that failed, in its place (the whole window for the page's). */
+.crash-boundary {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  height: 100%;
+  min-height: 160px;
+  padding: 24px;
+  color: var(--text-3);
+  text-align: center;
+  background: var(--bg);
+}
+.crash-boundary.page {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+.crash-boundary p {
+  margin: 0;
+  max-width: 60ch;
+  overflow-wrap: anywhere;
+}
+.crash-boundary .crash-title {
+  color: var(--text-2);
+  font-size: var(--fs-md);
+}
+.crash-boundary .crash-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}

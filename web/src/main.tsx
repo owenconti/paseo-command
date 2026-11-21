@@ -163,6 +163,8 @@ import {
 } from "./renames";
 import { withLocalWorkspaces, projectKey, workspaceKey } from "./workspaces";
 import { captureHotkey, onAppCapture, prepareCaptureDraft } from "./capture/appCapture";
+import { CrashBoundary } from "./CrashBoundary";
+import { installCrashReports } from "./crashReport";
 import { readUrlState, selectionKey as placeKey, urlSearch } from "./urlState";
 import type {
   Agent,
@@ -3009,14 +3011,17 @@ function App() {
               />
             )}
             {codeShown && agent && githubWorkspace && (
+              <CrashBoundary label="the Files tab" className="crew-files beside">
               <React.Suspense fallback={null}>
                 <FilesPane
                   key={`${githubWorkspace.host ?? ""}|${githubWorkspace.id}`}
                   workspace={{ id: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), name: githubWorkspace.name, ...(githubWorkspace.branch ? { branch: githubWorkspace.branch } : {}) }}
                 />
               </React.Suspense>
+              </CrashBoundary>
             )}
             {terminalShown && agent && githubWorkspace && (
+              <CrashBoundary label="the terminal" className="crew-files beside">
               <React.Suspense fallback={null}>
                 <WorkspaceEditor
                   key="terminal"
@@ -3025,8 +3030,10 @@ function App() {
                   onNotice={setNotice}
                 />
               </React.Suspense>
+              </CrashBoundary>
             )}
             {filesShown && agent && githubWorkspace && (
+              <CrashBoundary label="your editor" className="crew-files beside">
               <React.Suspense fallback={null}>
                 <WorkspaceEditor
                   key="editor"
@@ -3034,8 +3041,10 @@ function App() {
                   onNotice={setNotice}
                 />
               </React.Suspense>
+              </CrashBoundary>
             )}
             {browserShown && agent && (
+              <CrashBoundary label="the browser" className="board-browser crew beside">
               <React.Suspense fallback={null}>
                 <BoardBrowser
                   agent={agent}
@@ -3046,17 +3055,22 @@ function App() {
                   onNotice={setNotice}
                 />
               </React.Suspense>
+              </CrashBoundary>
             )}
             {integrations.github && appMode === "github" && (
+              <CrashBoundary label="the GitHub tab" className="github-view">
               <React.Suspense fallback={null}>
                 <GitHubView onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} onOpenInAgent={openPrInAgent} />
               </React.Suspense>
+              </CrashBoundary>
             )}
             {showActivity && macApp() && <ActivityBadge />}
             {showActivity && appMode === "activity" && (
+              <CrashBoundary label="Activity" className="activity-view">
               <React.Suspense fallback={null}>
                 <ActivityView onNotice={setNotice} onViewState={setActivityView} />
               </React.Suspense>
+              </CrashBoundary>
             )}
             {settingsShown && (
               <SettingsPage
@@ -3263,8 +3277,12 @@ function ArchiveToast({ job, pool }: { job: ArchiveJob; pool: boolean }) {
     </motion.div>
   );
 }
+// The page's crashes go to the console and the macOS app's log; one in the app leaves a word with Reload, not a blank window.
+installCrashReports();
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <CrashBoundary label="Paseo Command" page>
+      <App />
+    </CrashBoundary>
   </React.StrictMode>,
 );
