@@ -163,6 +163,9 @@ test("the panel's composer offers the chosen target's /skills, and Enter sends w
     assert.equal(await composer.inputValue(), "/review-code ");
     const url = new URL(asked.at(-1)!);
     assert.equal(url.searchParams.get("cwd"), "/work/atlas/a", "the chosen agent's folder");
+    // With its model: without one the daemon lists no skills for a folder.
+    assert.equal(url.searchParams.get("provider"), "claude");
+    assert.equal(url.searchParams.get("model"), "opus");
     // The composer places the caret after the skill on the next frame (faster typing than a person's would race it).
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     await composer.pressSequentially("the header");
@@ -180,6 +183,30 @@ test("the panel's composer offers the chosen target's /skills, and Enter sends w
     assert.equal(sent[0].body.message, "/review-code the header");
     assert.deepEqual(sent[0].body.images, [{ data: SHEET.toString("base64"), mimeType: "image/png" }]);
     await page.locator(".cap-sent").waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
+test("a project in the panel asks for its folder's /skills with the provider's first model", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await panel(page);
+  const asked: string[] = [];
+  await page.route("**/api/providers/claude/models**", (route) => route.fulfill({ json: [{ id: "claude-opus-5-5", model: "Opus 5.5" }, { id: "claude-opus-5", model: "Opus 5" }] }));
+  await page.route("**/api/drafts/commands?**", (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ json: { error: null, commands: [{ name: "prep", description: "Prepare", argumentHint: "", kind: "skill" }] } });
+  });
+  try {
+    await page.locator(".cap-search").fill("new agent atlas");
+    const composer = page.locator("#capture-composer");
+    await composer.click();
+    await composer.pressSequentially("/pre");
+    await waitFor(() => page.locator(".cap .autocomplete [role=option]").count(), (n) => n === 1, "the project's skill");
+    const url = new URL(asked.at(-1)!);
+    assert.equal(url.searchParams.get("cwd"), "/work/atlas");
+    assert.equal(url.searchParams.get("model"), "claude-opus-5-5");
   } finally {
     await context.close();
   }

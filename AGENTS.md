@@ -279,7 +279,8 @@ and GitHub publication; report the published version and release link.
   background, all in the data folder's `captures/<cap-yyyymmdd-hhmmss>/`. Then the send panel (`CaptureSend.swift`, a key but
   non-activating panel at the top of the screen, over the app you were in) shows `capture.html?id=` (`web/src/capture/`:
   `CapturePanel.tsx`, `targets.ts`): the sheet, your message in the app's own `Composer` (draft mode, its draft the panel's,
-  `capture:<id>`, so it stays as the target changes; its /skills and @files the chosen target's folder's, as New agent's; images pasted or
+  `capture:<id>`, so it stays as the target changes; its /skills and @files the chosen target's folder's, as New agent's, asked with a model, without which the daemon
+  lists none: an agent's own, a project's provider's first; images pasted or
   dropped go with the sheet, `images`/`attachments` in the send, and into New agent), and a searchable list of agents (most recently active first; not
   archived or subagents) then "New agent in <project>"; Enter in the composer sends, Send or ⌘↩ elsewhere sends what it holds (an empty message
   too), Esc closes. An agent gets it through `POST

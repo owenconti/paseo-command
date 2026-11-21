@@ -48,6 +48,8 @@ export function CapturePanel({ id }: { id: string }) {
   const [query, setQuery] = useState("");
   const [chosen, setChosen] = useState(0);
   const [sending, setSending] = useState(false);
+  /** A provider's first model on a host, for a project's skills (`host|provider`; "" when it has none). */
+  const [firstModels, setFirstModels] = useState<Record<string, string>>({});
   const [sent, setSent] = useState<{ title: string; agent: string }>();
   const root = useRef<HTMLDivElement>(null);
   // The composer's draft, the panel's own (never an agent's), so it stays as the target changes.
@@ -149,14 +151,24 @@ export function CapturePanel({ id }: { id: string }) {
       void send();
     }
   }
-  // The chosen target's folder, for the composer's /skills and @files (as New agent's are, before an agent exists).
-  const source =
-    target?.kind === "agent"
-      ? { cwd: target.agent.cwd, provider: target.agent.provider.split("/")[0] || "claude" }
-      : target
-        ? { cwd: target.project.path, provider: "claude" }
-        : undefined;
+  // The chosen target's folder, for the composer's /skills and @files (as New agent's are, before an agent exists). The
+  // daemon lists a folder's skills only for a model: an agent's own (its provider reads "claude/claude-opus-5-5"), else,
+  // for a project, the provider's first, as New agent's Default does.
   const host = target?.kind === "agent" ? target.agent.host : target?.project.host;
+  const [agentProvider, ...agentModel] = target?.kind === "agent" ? target.agent.provider.split("/") : [];
+  const provider = agentProvider || "claude";
+  const firstKey = `${host ?? ""}|${provider}`;
+  const model = agentModel.join("/") || firstModels[firstKey];
+  useEffect(() => {
+    if (!target || agentModel.length || firstModels[firstKey] !== undefined) return;
+    const controller = new AbortController();
+    api<{ id: string }[]>(`providers/${encodeURIComponent(provider)}/models${host ? `?host=${encodeURIComponent(host)}` : ""}`, undefined, controller.signal)
+      .then((rows) => setFirstModels((m) => ({ ...m, [firstKey]: (Array.isArray(rows) && rows[0]?.id) || "" })))
+      .catch(() => {});
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstKey, !!target, agentModel.length]);
+  const source = target && model ? { cwd: target.kind === "agent" ? target.agent.cwd : target.project.path, provider, model } : undefined;
 
   const label =
     !target ? "Send" : target.kind === "project" ? `Start an agent in ${target.project.name}` : `Send to ${target.title}`;
