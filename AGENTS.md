@@ -386,7 +386,9 @@ and GitHub publication; report the published version and release link.
   invitation; Linear's mentions, new comments, due dates, reminders and project update prompts, filtered before the Inbox's
   grouping, so a row says and is unread for its newest such notification; review requests and assignments are the GitHub tab's
   lists', and watching, state changes, CI, reactions and Linear's pull request notifications are left out). Each row says
-  who did what (`headline` in `web/src/activity/rows.ts`: Linear's own sentence, `what`; GitHub's from the comment) and two lines
+  who did what (`headline` in `web/src/activity/rows.ts`: Linear's own sentence, `what`, unless it's only the comment's words
+  again, as a comment notification's subtitle often is (`repeats`; then the actor and `LINEAR_VERB`); GitHub's from the comment;
+  it shortens with an ellipsis, the subtitle kept whole up to half the line) and two lines
   of what they said (`said`; the preview beside the feed all of it): GitHub's from the thread (`web/server/activity/said.ts`: its
   latest comment when that fits the reason, else the newest comment, line comment or review since you last read it that
   mentions you (or your team), or for activity on your threads, isn't yours; a mention in the description too; plain text,

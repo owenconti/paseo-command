@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { setActivityTransport } from "./api";
-import { dayGroup, filterItems, groupByDay, whatHappened } from "./rows";
+import { dayGroup, filterItems, groupByDay, headline, repeats, whatHappened } from "./rows";
 import {
   activityStore,
   applyWrites,
@@ -161,4 +161,20 @@ test("rows: filters, day groups and words", () => {
   assert.deepEqual(filterItems(items, "linear").map((i) => i.source), ["linear", "linear"]);
   assert.equal(whatHappened({ source: "github", kind: "review_requested" }), "Review requested");
   assert.equal(whatHappened({ source: "linear", kind: "issueSomethingNew" }), "Issue something new");
+});
+
+test("who did what: Linear's sentence unless it's only the comment again, a GitHub thread's from what was said", () => {
+  const comment = "Probe found that the batch action cancels a date. Without the fix the batch would keep the old date.";
+  const linear = { source: "linear" as const, kind: "issueNewComment", actor: { name: "Ada" }, said: { what: "comment" as const, text: comment } };
+  assert.equal(headline({ ...linear, what: "Ada commented" }), "Ada commented");
+  assert.equal(headline({ ...linear, what: comment.slice(0, 60) + "…" }), "Ada commented");
+  assert.equal(headline({ ...linear, kind: "issueCommentMention", what: comment }), "Ada mentioned you in a comment");
+  assert.equal(headline({ ...linear, kind: "issueDue", actor: undefined, what: comment }), "Due soon");
+  assert.ok(repeats("“Probe found that the batch action”", comment));
+  assert.ok(!repeats("Ada commented", comment));
+  const github = { source: "github" as const, actor: { name: "sam" } };
+  assert.equal(headline({ ...github, kind: "mention", said: { what: "review", text: "@owen?" } }), "sam mentioned you in a review");
+  assert.equal(headline({ ...github, kind: "author", said: { what: "review", text: "", verdict: "changes requested" } }), "sam requested changes");
+  assert.equal(headline({ ...github, kind: "comment", said: { what: "line comment", text: "x", path: "src/undo.ts" } }), "sam commented on undo.ts");
+  assert.equal(headline({ source: "github", kind: "mention" }), "You were mentioned");
 });

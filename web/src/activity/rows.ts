@@ -90,6 +90,26 @@ export function whatHappened(item: Pick<ActivityItem, "source" | "kind">): strin
   return words ? words[0]!.toUpperCase() + words.slice(1) : "Notification";
 }
 
+const words = (s: string) => s.toLowerCase().replace(/[…"“”]/g, " ").replace(/\s+/g, " ").trim();
+/** Whether a source's sentence is only what was said again (a Linear comment notification's subtitle often is the comment). */
+export function repeats(sentence: string, said: string): boolean {
+  const a = words(sentence);
+  const b = words(said);
+  if (!a || !b) return false;
+  return b.includes(a.slice(0, 40)) || a.includes(b.slice(0, 40));
+}
+
+/** What someone did, for Linear's notifications whose own sentence is only the comment again. */
+const LINEAR_VERB: Record<string, string> = {
+  issueNewComment: "commented",
+  issueCommentMention: "mentioned you in a comment",
+  issueMention: "mentioned you",
+  projectUpdateNewComment: "commented on a project update",
+  projectUpdateMentionPrompt: "mentioned you in a project update",
+  projectUpdateMention: "mentioned you in a project update",
+  documentMention: "mentioned you in a document",
+};
+
 const lastPart = (path: string) => path.split("/").filter(Boolean).at(-1) ?? path;
 
 /**
@@ -99,10 +119,11 @@ const lastPart = (path: string) => path.split("/").filter(Boolean).at(-1) ?? pat
  * happened.
  */
 export function headline(item: Pick<ActivityItem, "source" | "kind" | "actor" | "said" | "what">): string {
-  if (item.what) return item.what;
+  if (item.what && !(item.said && repeats(item.what, item.said.text))) return item.what;
   const who = item.actor?.name;
   const said = item.said;
-  if (item.source !== "github" || !who || !said) return whatHappened(item);
+  if (item.source === "linear") return who && LINEAR_VERB[item.kind] ? `${who} ${LINEAR_VERB[item.kind]}` : whatHappened(item);
+  if (!who || !said) return whatHappened(item);
   const where =
     said.what === "review"
       ? " in a review"

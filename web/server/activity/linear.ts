@@ -50,6 +50,7 @@ export function linearItem(group: InboxGroup, users: LinearUser[] = [], workspac
   const url = issueUrl(group, workspace) ?? n.url;
   const text = inboxText(group);
   const actor = users.find((u) => u.id === n.actorId);
+  const said = n.commentBody ? plainText(n.commentBody) : "";
   return {
     key: `linear:${group.key}`,
     source: "linear",
@@ -57,9 +58,9 @@ export function linearItem(group: InboxGroup, users: LinearUser[] = [], workspac
     kind: n.type || "notification",
     title: text.title || n.title || "Linear notification",
     ...(text.key ? { subtitle: text.key } : {}),
-    // Linear's own sentence for it ("Sam Rivera mentioned you"), and the comment's words.
+    // Linear's own sentence for it ("Sam Rivera mentioned you"; the page drops it when it's only the comment again), and those words.
     ...(n.subtitle ? { what: n.subtitle } : {}),
-    ...(n.commentBody && plainText(n.commentBody) ? { said: { what: "comment" as const, text: plainText(n.commentBody) } } : {}),
+    ...(said ? { said: { what: "comment" as const, text: said } } : {}),
     subject: group.issueId ? "issue" : group.projectId ? "project" : n.pullRequestId ? "pull" : "notification",
     ...(actor
       ? {

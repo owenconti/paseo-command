@@ -292,14 +292,23 @@
   display: flex;
   gap: var(--space-2);
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   font-size: var(--fs-xs);
   color: var(--text-4);
 }
+/* Who did what shortens last, after the subtitle has given up its room; a long one ends in an ellipsis. */
 .activity-what {
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--text-3);
 }
+/* The repository and number, or the issue's key: short, so kept whole up to half the line. */
 .activity-subtitle {
+  flex: none;
+  max-width: 50%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
