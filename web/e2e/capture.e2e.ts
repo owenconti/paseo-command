@@ -46,7 +46,8 @@ async function panel(page: Page, shown: Record<string, unknown> = manifest, tidi
     accept: (path: string, body: unknown) => {
       if (path === `/api/captures/${ID}/tidy`) {
         tidyAsks.push(body as Record<string, unknown>);
-        return tidied === null ? false : { text: tidied };
+        // A moment, as a model takes, so "Generating transcript…" shows.
+        return new Promise((r) => setTimeout(() => r(tidied === null ? false : { text: tidied }), 400));
       }
       if (path !== `/api/captures/${ID}/send`) return false;
       sent.push({ path, body: body as Record<string, unknown> });
@@ -87,7 +88,7 @@ test("the send panel sends the capture, with your message, to the agent chosen",
     // The search narrows; ↓ chooses; ⌘↩ sends from anywhere in the panel.
     await page.locator(".cap-search").fill("runn");
     assert.deepEqual(await page.locator(".cap-target-title").allInnerTexts(), ["Runner"]);
-    assert.match(await page.locator(".cap-hint").innerText(), /joins its current turn/);
+    assert.match((await composer.getAttribute("placeholder")) ?? "", /^Message Runner \(it's working: this joins its turn\)/);
     // ⌘↩ from outside the composer sends what it holds.
     await page.locator(".cap-search").press("Meta+Enter");
     await waitFor(() => Promise.resolve(sent.length), (n) => n === 1, "the capture sent");
@@ -101,7 +102,7 @@ test("the send panel sends the capture, with your message, to the agent chosen",
   }
 });
 
-test("what you said shows under the sheet, and is left out when switched off", async () => {
+test("what you said goes into the message as heard when it can't be tidied, and the timed transcript stays out", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   const sent = await panel(page, {
@@ -114,40 +115,20 @@ test("what you said shows under the sheet, and is left out when switched off", a
   });
   try {
     assert.match(await page.locator(".cap-meta").innerText(), / · voice$/);
-    const speech = page.getByRole("region", { name: "What you said" });
-    assert.deepEqual(await speech.locator("li").allInnerTexts(), ["0:02\nMake this button blue.", "1:04\nAnd move that menu over here."]);
-    await page.screenshot({ path: "/tmp/capture-panel-voice.png" });
-    // On by default: the send says nothing of it (the server adds it).
+    const composer = page.locator("#capture-composer");
+    await waitFor(() => composer.inputValue(), (v) => v === "Make this button blue. And move that menu over here.", "the transcript as heard");
+    await page.getByText(/Couldn’t tidy what you said \(.*\), so it’s in your message as heard\./).waitFor();
+    assert.equal(await page.locator(".cap-status").count(), 0, "no longer generating");
     await page.locator(".cap-search").fill("idler");
     await page.locator(".cap-search").press("Enter");
-    await waitFor(() => Promise.resolve(sent.length), (n) => n === 1, "sent with what was said");
-    assert.equal(sent[0].body.transcript, undefined);
-    await context.close();
-    // Switched off: the send, and New agent's ask, leave it out.
-    const again = await newContext(browser);
-    const second = await again.newPage();
-    const sent2 = await panel(second, { ...manifest, voice: true, transcript: [{ t: 2, end: 3, text: "Hi." }] });
-    await second.getByRole("checkbox", { name: "Send the timed transcript too" }).uncheck();
-    await second.locator(".cap-search").fill("idler");
-    await second.locator(".cap-search").press("Enter");
-    await waitFor(() => Promise.resolve(sent2.length), (n) => n === 1, "sent without it");
-    assert.equal(sent2[0].body.transcript, false);
-    await again.close();
-    const third = await newContext(browser);
-    const page3 = await third.newPage();
-    await panel(page3, { ...manifest, voice: true, transcript: [{ t: 2, end: 3, text: "Hi." }] });
-    await page3.getByRole("checkbox", { name: "Send the timed transcript too" }).uncheck();
-    await page3.locator(".cap-search").fill("new agent atlas");
-    await page3.locator(".cap-search").press("Enter");
-    const ask = await waitFor(() => posted(page3), (p) => p.some((m) => m.type === "app"), "the ask");
-    assert.equal((ask.find((m) => m.type === "app") as Record<string, unknown>).transcript, false);
-    await third.close();
+    await waitFor(() => Promise.resolve(sent.length), (n) => n === 1, "sent");
+    assert.deepEqual(sent[0].body, { agent: "a-idle", message: "Make this button blue. And move that menu over here.", transcript: false });
   } finally {
-    await context.close().catch(() => {});
+    await context.close();
   }
 });
 
-test("what you said is tidied into the message box once, and the timed transcript then stays out unless asked", async () => {
+test("what you said is tidied into the message box once, with Generating transcript… meanwhile", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   const voiced = {
@@ -161,11 +142,12 @@ test("what you said is tidied into the message box once, and the timed transcrip
   const sent = await panel(page, voiced, "Can we change that to say “No tabs yet”?");
   try {
     const composer = page.locator("#capture-composer");
+    await page.locator(".cap-status", { hasText: "Generating transcript…" }).waitFor();
+    await page.screenshot({ path: "/tmp/capture-panel-generating.png" });
     await waitFor(() => composer.inputValue(), (v) => v === "Can we change that to say “No tabs yet”?", "the tidied message in the box");
+    assert.equal(await page.locator(".cap-status").count(), 0);
     // Asked in the chosen agent's workspace.
     assert.deepEqual(tidyAsks, [{ agent: "a-running" }]);
-    await page.getByText("Tidied into your message").waitFor();
-    assert.equal(await page.getByRole("checkbox", { name: "Send the timed transcript too" }).isChecked(), false);
     await page.screenshot({ path: "/tmp/capture-panel-tidied.png" });
     // Edited and sent: the message as it is now, without the timed transcript.
     await composer.press("End");
@@ -177,7 +159,7 @@ test("what you said is tidied into the message box once, and the timed transcrip
     // Opened again (the same capture): never asked or put in twice.
     const again = await context.newPage();
     await panel(again, voiced, "SHOULD NOT APPEAR");
-    await again.waitForTimeout(300);
+    await again.waitForTimeout(600);
     assert.equal(tidyAsks.length, 0);
     assert.ok(!(await again.locator("#capture-composer").inputValue()).includes("SHOULD NOT APPEAR"));
   } finally {

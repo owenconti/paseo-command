@@ -294,13 +294,13 @@ and GitHub publication; report the published version and release link.
   dropped go with the sheet, `images`/`attachments` in the send, and into New agent), and a searchable list of agents (most recently active first; not
   archived or subagents) then "New agent in <project>"; Enter in the composer sends, Send or ⌘↩ elsewhere sends what it holds (an empty message
   too), Copy (⇧⌘C) puts the whole message on the clipboard instead (the draft's `copy=1`, as an agent on this Mac reads it, the
-  contact sheet named by its file; the panel's `copy` message, `NSPasteboard`), Esc closes. What you said shows under the sheet with its times, and is tidied into the message you meant (the user's ask:
+  contact sheet named by its file; the panel's `copy` message, `NSPasteboard`), Esc closes. What you said goes into the composer, once (`insertText` on `Composer`: an empty box's whole text, else after it;
+  `capture-tidied:<id>` in localStorage), tidied first into the message you meant ("Generating transcript…" meanwhile; the user's ask:
   `POST /api/captures/:id/tidy {agent}`, `tidyCapture` in `captures.ts`: a `runHelper` helper on the host's metadata model, as automatic
   titles are, in the chosen agent's workspace, else the first agent's, the transcript quoted as JSON data; it drops fillers, false starts
-  and "hello?", keeping your words and "this"/"here"; once per capture, a failure tried again with Try again), which goes into the
-  composer once (`insertText` on `Composer`: an empty box's whole text, else after it; `capture-tidied:<id>` in localStorage). Then the
-  timed transcript goes along only with "Send the timed transcript too" (off once tidied; else on): off is `transcript: false`, the
-  draft's `transcript=0`. An agent gets it through `POST
+  and "hello?", keeping your words and "this"/"here"; once per capture), else as heard when that fails (saying why). The message carries
+  it, so the capture's timed transcript stays out of what's sent (`transcript: false`, the draft's `transcript=0`). No footer: the
+  composer's placeholder names who gets it, its Enter (or ⌘↩ elsewhere) sends, and Copy is in the header. An agent gets it through `POST
   /api/captures/:id/send` (`web/server/captures.ts`, the composer's own `agentCommand("send")`; a working agent's as `steer`): your
   message, a `[Screen capture …]` block with what you said (`> [0:02] …`, transcribed, so it may mishear) and each keyframe (a "spoke" one
   quoting its sentence), the contact sheet as an image, and, for an agent on this Mac only,

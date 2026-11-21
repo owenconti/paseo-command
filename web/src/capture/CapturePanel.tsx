@@ -8,10 +8,10 @@
  * new agent in each project), the capture and your message on the right. Copy (⇧⌘C) puts the whole message on the
  * clipboard instead (the draft's `copy=1`: the sheet and video named by their files, for any tool on this Mac).
  * Keys: Enter in the composer sends (as everywhere), ⌘↩ or Send from elsewhere in the panel (an empty message too: the
- * capture is the message), ↑/↓ choose in the search, Esc closes. What you said while recording (the app heard it on this
- * Mac) shows under the sheet; the host's metadata model tidies it (`POST /api/captures/:id/tidy`, in the chosen agent's
- * workspace, else the first agent's) into the message you meant, which goes into the composer once (`capture-tidied:<id>`),
- * and the timed transcript then goes along only when "Send the timed transcript too" is on.
+ * What you said while recording (the app heard it on this Mac) goes into the composer, once (`capture-tidied:<id>`): first
+ * tidied by the host's metadata model (`POST /api/captures/:id/tidy`, in the chosen agent's workspace, else the first
+ * agent's; "Generating transcript…" meanwhile), else as heard when that fails. The message then carries it, so the
+ * capture's timed transcript stays out of what's sent (`transcript: false`).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, errorMessage, readStore, removeStore, writeStore } from "../api";
@@ -61,10 +61,8 @@ export function CapturePanel({ id }: { id: string }) {
   const [firstModels, setFirstModels] = useState<Record<string, string>>({});
   const [sent, setSent] = useState<{ title: string; agent: string }>();
   const [copied, setCopied] = useState(false);
-  /** Whether the timed transcript goes with it (on until the tidied one is in the message). */
-  const [withSpeech, setWithSpeech] = useState(() => !readStore(`capture-tidied:${id}`, false));
-  /** The tidied transcript's progress, and the text put into the composer. */
-  const [tidy, setTidy] = useState<{ state: "working" | "done" | "failed" | "empty"; error?: string }>();
+  /** The transcript is being tidied; the text put into the composer. */
+  const [generating, setGenerating] = useState(false);
   const [insert, setInsert] = useState<{ text: string; at: number } | null>(null);
   const tidyAsked = useRef(false);
   const root = useRef<HTMLDivElement>(null);
@@ -113,7 +111,7 @@ export function CapturePanel({ id }: { id: string }) {
     if (!manifest || sending) return;
     setFailure("");
     try {
-      const query = new URLSearchParams({ message: readStore<string>(`draft:${owner}`, ""), copy: "1", ...(speaks && !withSpeech ? { transcript: "0" } : {}) });
+      const query = new URLSearchParams({ message: readStore<string>(`draft:${owner}`, ""), copy: "1", ...(speaks ? { transcript: "0" } : {}) });
       const { prompt } = await api<{ prompt: string }>(`captures/${encodeURIComponent(id)}/draft?${query}`);
       if ((window as unknown as Handlers).webkit?.messageHandlers?.paseoCapture) post({ type: "copy", text: prompt });
       else await navigator.clipboard.writeText(prompt);
@@ -127,28 +125,30 @@ export function CapturePanel({ id }: { id: string }) {
   const speech = manifest?.transcript ?? [];
   const speaks = speech.length > 0;
 
-  // What you said, tidied once into the message you meant, in the chosen agent's workspace (else the first agent's).
+  // What you said, into the composer once: tidied into the message you meant, in the chosen agent's workspace (else the
+  // first agent's); as heard when it can't be.
   const tidySource = target?.kind === "agent" ? target.agent.id : targets?.find((t) => t.kind === "agent")?.agent.id;
-  function tidyUp(agent = tidySource) {
-    if (!agent) return;
-    tidyAsked.current = true;
-    setTidy({ state: "working" });
-    api<{ text: string }>(`captures/${encodeURIComponent(id)}/tidy`, { agent }).then(
-      ({ text }) => {
-        writeStore(`capture-tidied:${id}`, true);
-        if (!text.trim()) return setTidy({ state: "empty" });
-        setInsert({ text, at: Date.now() });
-        setWithSpeech(false);
-        setTidy({ state: "done" });
-      },
-      (e) => setTidy({ state: "failed", error: errorMessage(e) || "the model didn't answer" }),
-    );
-  }
   useEffect(() => {
-    if (!speaks || tidyAsked.current || !tidySource || readStore(`capture-tidied:${id}`, false)) return;
-    tidyUp();
+    if (!speaks || !targets || tidyAsked.current || readStore(`capture-tidied:${id}`, false)) return;
+    tidyAsked.current = true;
+    const heard = speech.map((s) => s.text).join(" ");
+    const put = (text: string) => {
+      writeStore(`capture-tidied:${id}`, true);
+      if (text.trim()) setInsert({ text, at: Date.now() });
+    };
+    if (!tidySource) return put(heard);
+    setGenerating(true);
+    api<{ text: string }>(`captures/${encodeURIComponent(id)}/tidy`, { agent: tidySource })
+      .then(
+        ({ text }) => put(text),
+        (e) => {
+          put(heard);
+          setFailure(`Couldn’t tidy what you said (${errorMessage(e) || "the model didn't answer"}), so it’s in your message as heard.`);
+        },
+      )
+      .finally(() => setGenerating(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speaks, tidySource]);
+  }, [speaks, !!targets, tidySource]);
 
   async function send(message?: Outgoing, to = target): Promise<boolean> {
     if (sending || sent || !manifest) return false;
@@ -170,7 +170,7 @@ export function CapturePanel({ id }: { id: string }) {
         newAgent: { projectId: p.projectId, ...(p.host ? { host: p.host } : {}) },
         message: text,
         ...(images.length ? { images: images.map((i) => i.dataUrl) } : {}),
-        ...(speaks && !withSpeech ? { transcript: false } : {}),
+        ...(speaks ? { transcript: false } : {}),
       });
       done();
       return true;
@@ -183,7 +183,7 @@ export function CapturePanel({ id }: { id: string }) {
         message: text,
         ...(images.length ? { images: images.map(({ data, mimeType }) => ({ data, mimeType })) } : {}),
         ...(files.length ? { attachments: files } : {}),
-        ...(speaks && !withSpeech ? { transcript: false } : {}),
+        ...(speaks ? { transcript: false } : {}),
         // A working agent gets it in its current turn rather than being stopped.
         ...(to.running ? { behavior: "steer" } : {}),
       });
@@ -237,8 +237,12 @@ export function CapturePanel({ id }: { id: string }) {
   }, [firstKey, !!target, agentModel.length]);
   const source = target && model ? { cwd: target.kind === "agent" ? target.agent.cwd : target.project.path, provider, model } : undefined;
 
-  const label =
-    !target ? "Send" : target.kind === "project" ? `Start an agent in ${target.project.name}` : `Send to ${target.title}`;
+  // The message box says who gets it (Enter sends; ⌘↩ from elsewhere in the panel).
+  const placeholder = !target
+    ? "Choose who gets it on the left"
+    : target.kind === "project"
+      ? `Message a new agent in ${target.project.name}… (/ for skills, @ for files)`
+      : `Message ${target.title}${target.running ? " (it's working: this joins its turn)" : ""}… (/ for skills, @ for files)`;
 
   const agents = shown.filter((t) => t.kind === "agent");
   const projects = shown.filter((t) => t.kind === "project");
@@ -315,6 +319,9 @@ export function CapturePanel({ id }: { id: string }) {
           <button type="button" className="cap-quiet" onClick={() => post({ type: "reveal" })} title="Show the capture's files in Finder">
             Show in Finder
           </button>
+          <button type="button" className="cap-quiet" disabled={!manifest || sending} onClick={() => void copy()} title="Copy the whole message, the capture's files named by path, to paste anywhere (⇧⌘C)">
+            Copy
+          </button>
           <button type="button" className="cap-close" onClick={() => post({ type: "close" })} aria-label="Close" title="Close (Esc)">
             ×
           </button>
@@ -335,51 +342,22 @@ export function CapturePanel({ id }: { id: string }) {
         ) : (
           <>
             <img className="cap-sheet" src={`/api/captures/${encodeURIComponent(id)}/sheet`} alt="The capture's keyframes" />
-            {speaks ? (
-              <section className={`cap-speech${withSpeech ? "" : " left-out"}`} aria-label="What you said">
-                <div className="cap-speech-head">
-                  <span>What you said</span>
-                  <span className="cap-speech-tidy" role="status">
-                    {tidy?.state === "working"
-                      ? "Tidying it into your message…"
-                      : tidy?.state === "done"
-                        ? "Tidied into your message"
-                        : tidy?.state === "empty"
-                          ? "Nothing in it was for the agent"
-                          : null}
-                    {tidy?.state === "failed" && (
-                      <>
-                        Couldn’t tidy it: {tidy.error}.{" "}
-                        <button type="button" className="cap-link" onClick={() => tidyUp()}>
-                          Try again
-                        </button>
-                      </>
-                    )}
-                  </span>
-                  <label className="cap-speech-toggle" title="Whether the agent also reads what you said word for word, with the time of each sentence">
-                    <input type="checkbox" checked={withSpeech} onChange={(e) => setWithSpeech(e.target.checked)} />
-                    Send the timed transcript too
-                  </label>
-                </div>
-                <ol className="cap-speech-lines">
-                  {speech.map((s, i) => (
-                    <li key={i}>
-                      <span className="cap-speech-time">{clock(s.t)}</span>
-                      <span>{s.text}</span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ) : manifest?.voice && manifest.transcriptNote ? (
-              <div className="cap-speech-note">Your voice is in the video, without a transcript: {manifest.transcriptNote}.</div>
-            ) : null}
+            {generating && (
+              <div className="cap-status" role="status">
+                <span className="cap-spinner" aria-hidden />
+                Generating transcript…
+              </div>
+            )}
+            {!speaks && manifest?.voice && manifest.transcriptNote && (
+              <div className="cap-status">Your voice is in the video, without a transcript: {manifest.transcriptNote}.</div>
+            )}
             <div className="cap-composer">
               <Composer
                 draft={{ ...(source ? { source } : {}), ...(host ? { host } : {}), controls: null }}
                 draftOwner={owner}
                 inputId={INPUT}
                 label="Message for the agent"
-                placeholder="What should the agent do? (optional: / for skills, @ for files)"
+                placeholder={placeholder}
                 running={false}
                 disabled={!manifest || sending || !!sent}
                 started={false}
@@ -400,21 +378,6 @@ export function CapturePanel({ id }: { id: string }) {
                 {failure}
               </div>
             )}
-            <footer className="cap-foot">
-              <span className="cap-hint">
-                {target?.kind === "agent" && target.running
-                  ? "It's working: your message joins its current turn."
-                  : target?.kind === "project"
-                    ? "Opens New agent with this as its first message."
-                    : "Copy gives the message, with the files' paths, to paste anywhere."}
-              </span>
-              <button type="button" className="cap-copy" disabled={!manifest || sending} onClick={() => void copy()} title="Copy the message, with the capture's files named (⇧⌘C)">
-                Copy <kbd>⇧⌘C</kbd>
-              </button>
-              <button type="button" className="cap-send" disabled={!target || sending || !manifest} onClick={() => void send()} title={label}>
-                {sending ? "Sending…" : label} <kbd>⌘↩</kbd>
-              </button>
-            </footer>
           </>
         )}
       </main>
