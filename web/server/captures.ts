@@ -60,6 +60,9 @@ export type CaptureManifest = {
   transcript: CaptureSpeech[];
   /** Why there's no transcript though there was a voice. */
   transcriptNote?: string;
+  /** What you said as the message you meant, tidied on the Mac by its on-device model ("" when nothing was for the
+   * agent); absent when it wasn't (the panel then asks the host's metadata model, `tidyCapture`). */
+  tidied?: string;
 };
 export type CaptureSpeech = { t: number; end: number; text: string };
 
@@ -109,6 +112,7 @@ export function readManifest(id: string): CaptureManifest | undefined {
     return [{ t, end: Math.max(t, num(r.end) ?? t), text }];
   });
   const note = str(m.transcriptNote);
+  const tidied = typeof m.tidied === "string" && m.tidied.length <= MAX_SPEECH_TEXT * 4 ? m.tidied.trim() : undefined;
   return {
     id,
     created: str(m.created, 40) ?? "",
@@ -126,6 +130,7 @@ export function readManifest(id: string): CaptureManifest | undefined {
     voice: m.voice === true,
     transcript,
     ...(note ? { transcriptNote: note } : {}),
+    ...(tidied !== undefined && transcript.length ? { tidied } : {}),
   };
 }
 

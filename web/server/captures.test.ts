@@ -115,6 +115,14 @@ test("what you said goes with the keyframes, read field by field, unless left ou
     { t: 6.4, end: 8, text: "And move that menu over here." },
   ]);
   assert.equal(m.transcriptNote, undefined, "an overlong note is dropped");
+  // Tidied on the Mac: kept (trimmed) while there's a transcript; overlong, or without one, dropped.
+  assert.equal(m.tidied, undefined);
+  bundle({ transcript: [{ t: 1, end: 2, text: "Um, make it blue." }], tidied: "  Make it blue. " }, "cap-20261121-100000");
+  assert.equal(readManifest("cap-20261121-100000")!.tidied, "Make it blue.");
+  bundle({ transcript: [], tidied: "x" }, "cap-20261121-100001");
+  assert.equal(readManifest("cap-20261121-100001")!.tidied, undefined);
+  bundle({ transcript: [{ t: 1, end: 2, text: "x" }], tidied: "x".repeat(9000) }, "cap-20261121-100002");
+  assert.equal(readManifest("cap-20261121-100002")!.tidied, undefined);
   const text = captureMessage(m, "", dir(), true);
   assert.match(text, /^What the user said while recording .*\n> \[0:02\] Make this button blue\.\n> \[0:06\] And move that menu over here\.\nKeyframes:$/m);
   assert.match(text, /^- #1 \(0:02\) spoke: “Make this button blue\.”$/m);

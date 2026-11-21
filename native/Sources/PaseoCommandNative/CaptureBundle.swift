@@ -242,6 +242,9 @@ struct CaptureBundle {
     var speech: [CaptureSpeech] = []
     /// Why there's no transcript though there was a voice ("Nothing was said", a failure).
     var transcriptNote: String?
+    /// What you said as the message you meant, by the on-device model ("" when nothing was for the agent); nil when it
+    /// didn't tidy it (the panel asks the host's metadata model).
+    var tidied: String?
 
     var video: URL { folder.appendingPathComponent("recording.mp4") }
     var sheet: URL { folder.appendingPathComponent("contact-sheet.png") }
@@ -295,6 +298,7 @@ struct CaptureBundle {
         ]
         if let app { body["app"] = app }
         if let transcriptNote { body["transcriptNote"] = transcriptNote }
+        if let tidied { body["tidied"] = tidied }
         return try JSONSerialization.data(withJSONObject: body, options: [.prettyPrinted, .sortedKeys])
     }
 

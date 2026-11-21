@@ -44,3 +44,18 @@ if #available(macOS 26, *), let locale = await CaptureVoice.locale(),
 } else {
     print("Capture voice checks passed (hearing skipped: needs macOS 26 and the language's speech model).")
 }
+
+// Tidying on this Mac: the reply cleaned up as a message; and the on-device model's tidy, when Apple Intelligence is on.
+assert(CaptureVoice.cleanTidy("  “Make  this blue.”  ") == "Make this blue.")
+assert(CaptureVoice.cleanTidy("\"A\n\n\n\nB\"") == "A\n\nB")
+assert(CaptureVoice.cleanTidy(String(repeating: "x", count: 9000)) == nil)
+if CaptureVoice.tidiesHere {
+    let started = Date()
+    let tidied = await CaptureVoice.tidy([CaptureSpeech(t: 0, end: 4, text: "So, uh, this button here, like, it should be, um, blue."),
+                                          CaptureSpeech(t: 5, end: 7, text: "And move that menu over here, please.")])
+    let text = (tidied ?? "").lowercased()
+    assert(text.contains("blue") && text.contains("menu") && !text.contains(" uh") && !text.contains(" um"), "tidied: \(tidied ?? "nil")")
+    print("Capture tidy checks passed (on this Mac in \(String(format: "%.1f", Date().timeIntervalSince(started))) s: \(tidied!)).")
+} else {
+    print("Capture tidy checks passed (the on-device model skipped: Apple Intelligence isn't available).")
+}

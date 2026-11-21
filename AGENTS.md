@@ -304,7 +304,10 @@ and GitHub publication; report the published version and release link.
   archived or subagents) then "New agent in <project>"; Enter in the composer sends, Send or ⌘↩ elsewhere sends what it holds (an empty message
   too), Copy (⇧⌘C) puts the whole message on the clipboard instead (the draft's `copy=1`, as an agent on this Mac reads it, the
   contact sheet named by its file; the panel's `copy` message, `NSPasteboard`), Esc closes. What you said goes into the composer, once (`insertText` on `Composer`: an empty box's whole text, else after it;
-  `capture-tidied:<id>` in localStorage), tidied first into the message you meant ("Generating transcript…" meanwhile; the user's ask:
+  `capture-tidied:<id>` in localStorage), tidied first into the message you meant: by the Mac's on-device model as the capture is made (the user's ask, for
+  speed: macOS 26's Apple Intelligence through `FoundationModels`, `CaptureVoice.tidy`, about half a second, the model prewarmed as
+  recording starts; the capsule says "Tidying what you said…"; the manifest's `tidied`, used as it is), else, without Apple Intelligence
+  or when it fails, by a helper ("Generating transcript…" meanwhile;
   `POST /api/captures/:id/tidy {agent}`, `tidyCapture` in `captures.ts`: a `runHelper` helper on the host's metadata model, as automatic
   titles are, in the chosen agent's workspace, else the first agent's, the transcript quoted as JSON data; it drops fillers, false starts
   and "hello?", keeping your words and "this"/"here"; once per capture), else as heard when that fails (saying why). The message carries

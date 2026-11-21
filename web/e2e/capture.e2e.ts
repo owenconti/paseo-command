@@ -238,6 +238,20 @@ test("the app's window keeps what is open for the panel", async () => {
   }
 });
 
+test("what the Mac tidied on its own goes in at once, without asking a helper", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await panel(page, { ...manifest, voice: true, transcript: [{ t: 1, end: 4, text: "So, uh, this button, um, blue." }], tidied: "Make this button blue." }, "SHOULD NOT BE ASKED");
+  try {
+    const composer = page.locator("#capture-composer");
+    await waitFor(() => composer.inputValue(), (v) => v === "Make this button blue.", "the Mac's tidied message");
+    assert.deepEqual(tidyAsks, [], "no helper asked");
+    assert.equal(await page.locator(".cap-status").count(), 0, "no Generating transcript…");
+  } finally {
+    await context.close();
+  }
+});
+
 test("a voice without a transcript says why", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();

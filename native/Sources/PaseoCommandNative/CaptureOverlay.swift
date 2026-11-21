@@ -133,7 +133,7 @@ final class CaptureHUD {
 
     static let height: CGFloat = 44
     /// What the hint may say, so its width never changes as it does.
-    static let hints = ["Starting…", "Hold ⇧ and drag to draw", "Hearing what you said…", "Saving…"]
+    static let hints = ["Starting…", "Hold ⇧ and drag to draw", "Hearing what you said…", "Tidying what you said…", "Saving…"]
 
     init(screen: NSScreen, hotkey: String) {
         panel = CapturePanel(frame: CGRect(x: 0, y: 0, width: 400, height: Self.height))

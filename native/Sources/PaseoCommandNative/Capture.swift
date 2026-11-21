@@ -312,7 +312,7 @@ final class CaptureController: NSObject, NSMenuDelegate {
             var events = s.events.map { CaptureEvent(kind: $0.kind, t: max(0, $0.host - first), x: $0.x, y: $0.y) }.filter { $0.t <= duration }
             // What you said: its sentences for the agent, and a keyframe for each.
             let voiced = s.recorder.voiced
-            var speech: [CaptureSpeech] = [], note: String?
+            var speech: [CaptureSpeech] = [], note: String?, tidied: String?
             if voiced {
                 s.hud.say("Hearing what you said…")
                 s.hud.mic.state(.muted)
@@ -321,6 +321,12 @@ final class CaptureController: NSObject, NSMenuDelegate {
                     speech = CaptureTranscript.sentences(words)
                     events += CaptureTranscript.moments(words).filter { $0 <= duration }.map { CaptureEvent(kind: .said, t: $0) }
                     if speech.isEmpty { note = s.recorder.quiet(duration: duration) ?? "Nothing was said" }
+                    else if CaptureVoice.tidiesHere {
+                        s.hud.say("Tidying what you said…")
+                        let started = Date()
+                        tidied = await CaptureVoice.tidy(speech)
+                        Log.line("capture \(s.id): tidied on this Mac in \(String(format: "%.1f", Date().timeIntervalSince(started))) s\(tidied == nil ? " (failed)" : "")")
+                    }
                 } catch {
                     note = s.recorder.quiet(duration: duration) ?? error.localizedDescription
                     Log.line("capture \(s.id): no transcript: \(error.localizedDescription)")
@@ -336,6 +342,7 @@ final class CaptureController: NSObject, NSMenuDelegate {
             bundle.voice = voiced
             bundle.speech = speech
             bundle.transcriptNote = note
+            bundle.tidied = tidied
             do {
                 let frames = try await bundle.build()
                 Log.line("capture \(s.id): \(String(format: "%.1f", duration)) s, \(frames.count) keyframes, \(events.count) marks, clicks and sayings, \(speech.count) sentences")

@@ -11,7 +11,7 @@
  * clipboard instead (the draft's `copy=1`: the sheet and video named by their files, for any tool on this Mac).
  * Keys: Enter in the composer sends (as everywhere), ⌘↩ or Send from elsewhere in the panel (an empty message too: the
  * What you said while recording (the app heard it on this Mac) goes into the composer, once (`capture-tidied:<id>`): first
- * tidied by the host's metadata model (`POST /api/captures/:id/tidy`, in the chosen agent's workspace, else the first
+ * tidied, by the Mac's on-device model as the capture is made (the manifest's `tidied`), else by the host's metadata model (`POST /api/captures/:id/tidy`, in the chosen agent's workspace, else the first
  * agent's; "Generating transcript…" meanwhile), else as heard when that fails. The message then carries it, so the
  * capture's timed transcript stays out of what's sent (`transcript: false`).
  */
@@ -39,6 +39,8 @@ type Manifest = {
   voice?: boolean;
   transcript?: { t: number; end: number; text: string }[];
   transcriptNote?: string;
+  /** Tidied on the Mac by its on-device model (Apple Intelligence): used as it is, no helper asked. */
+  tidied?: string;
 };
 
 type Post = { type: string; [key: string]: unknown };
@@ -196,6 +198,8 @@ export function CapturePanel({ id }: { id: string }) {
       writeStore(`capture-tidied:${id}`, true);
       if (text.trim()) setInsert({ text, at: Date.now() });
     };
+    // The Mac tidied it already (its on-device model, about half a second): that, without asking a helper.
+    if (manifest?.tidied !== undefined) return put(manifest.tidied);
     if (!tidySource) return put(heard);
     setGenerating(true);
     api<{ text: string }>(`captures/${encodeURIComponent(id)}/tidy`, { agent: tidySource })
