@@ -808,9 +808,9 @@ the component Crew's drawer is.
   …") set them, kept as `crew:sideGroup` and `crew:sideSort` (`sideStore.ts`). A group's head folds it (`crew:sideCollapsed`),
   counting its agents and those needing you. Each agent is a card (`.crew-side-card`): its `Portrait` (40 px: robot, glow,
   mark, drones), name (two lines) with its unread dot and its workspace's medallions (18 px), a dot and its state in its colour
-  and its model, what it is doing with the sliding bar while it runs, then its workspace (only when not the agent's own name),
-  project (when not grouped by it) and host (when not grouped by it, there are several and it isn't this Mac), and how long
-  ago it was active; on a wash of its state's colour (stronger, with a coloured edge, for those needing you), the open one
+  and its model, what it is doing with the sliding bar while it runs, then its host (always, the user's ask, unless grouped by
+  host), its workspace (only when not the agent's own name) and project (when not grouped by it), and how long ago it was
+  active; on a wash of its state's colour (stronger, with a coloured edge, for those needing you), the open one
   edged in the accent and kept in view. A click opens it as the map's does; ↑/↓, Home and End move through cards and heads.
   Its right edge resizes it (240–480 px, 300 by default, `crew:sideWidth`); its width is `--crew-side` on the map's frame
   (0 hidden), which `.crew-map[data-focus]`'s padding and the tools' and their tabs' `left` add, the default chat width 42%

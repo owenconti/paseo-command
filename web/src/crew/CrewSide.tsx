@@ -78,7 +78,6 @@ export function CrewSide(props: Props) {
     const next = e.key === "Home" ? 0 : e.key === "End" ? rows.length - 1 : Math.max(0, Math.min(rows.length - 1, at < 0 ? 0 : at + (e.key === "ArrowDown" ? 1 : -1)));
     rows[next]?.focus();
   };
-  const hosts = new Set(props.items.map((i) => i.host.key));
   const groups = groupItems(props.items, group, sort);
   const now = Date.now();
 
@@ -87,12 +86,12 @@ export function CrewSide(props: Props) {
     const running = a.state === "running";
     const summary = props.summaryOf(a);
     const ws = item.workspace;
-    // Its workspace when that isn't the agent's own name (a lone agent's worktree is often named for it), its host
-    // when grouping doesn't say it and it isn't this Mac, and when it was last active.
+    // Its host (always, the user's ask, unless grouping says it), its workspace when that isn't the agent's own name (a
+    // lone agent's worktree is often named for it), its project when grouping doesn't say it, and when it was last active.
     const meta = [
+      group !== "host" ? item.host.name : "",
       ws && words(ws.name) !== words(a.name) ? ws.name : "",
       group !== "project" && item.project ? item.project.name : "",
-      group !== "host" && hosts.size > 1 && !item.host.local ? item.host.name : "",
     ].filter(Boolean);
     const ago = item.active || item.created ? shortAgo((item.active ?? item.created)!, now) : "";
     return (

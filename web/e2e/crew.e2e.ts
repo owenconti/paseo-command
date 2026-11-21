@@ -835,6 +835,10 @@ test("in the macOS app the Command tab has the crew as a list on its left; ⌘S 
   const otherKey = await other.getAttribute("data-key");
   await other.click();
   await waitFor(() => side.locator('.crew-side-card[aria-current="true"]').getAttribute("data-key"), (k) => k === otherKey, "the card's agent open");
+  // Every card names its host (unless grouped by host).
+  const wheres = await side.locator(".crew-side-card-where").allInnerTexts();
+  assert.equal(wheres.length, await side.locator(".crew-side-card").count(), "each card says where");
+  assert.ok(wheres.every((w) => /^(local|staging|prod)/i.test(w)), `hosts first: ${wheres.slice(0, 4)}`);
   // No host level by default: projects, each across hosts. The Display menu groups by status, then host, then none.
   const heads = () => side.locator(".crew-side-group-head .crew-side-group-name").allInnerTexts();
   const byProject = await heads();
