@@ -290,7 +290,7 @@ and GitHub publication; report the published version and release link.
   from the video (click rings drawn), draws the numbered `contact-sheet.png` and writes `capture.json`, then `capture.gif` in the
   background, all in the data folder's `captures/<cap-yyyymmdd-hhmmss>/`. Then the send panel (`CaptureSend.swift`, a key but
   non-activating panel at the top of the screen, over the app you were in) shows `capture.html?id=` (`web/src/capture/`:
-  `CapturePanel.tsx`, `targets.ts`; 1,060 px wide, two columns, the left 420 px, the message box filling the right below the sheet; the user's asks): on the left, in two levels (the user's ask; `groupTargets`, `filterGroups`
+  `CapturePanel.tsx`, `targets.ts`; 1,060 px wide, two columns, the left 420 px; on the right the sheet takes the height the message box, 150 px, leaves, in a column at least 620 px tall; the user's asks): on the left, in two levels (the user's ask; `groupTargets`, `filterGroups`
   in `targets.ts`): "Workspaces" (each not stale, its agents' latest activity first, with its agents and how many work; agents in
   no listed workspace under "Other sessions") then "New workspace in" each project (New agent in Worktree mode, `newAgent {projectId,
   isolation: "worktree"}`, `DispatchTarget.isolation`); a workspace opens (click, Enter) to its agents and "New agent in this

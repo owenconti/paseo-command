@@ -178,7 +178,7 @@ test("what you said is tidied into the message box once, with Generating transcr
 test("Copy puts the whole message on the clipboard instead of sending it", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
-  await page.setViewportSize({ width: 1060, height: 640 });
+  await page.setViewportSize({ width: 1060, height: 700 });
   const sent = await panel(page);
   try {
     // The sessions on the left, beside the capture and the message.
@@ -190,7 +190,10 @@ test("Copy puts the whole message on the clipboard instead of sending it", async
     const box = await page.locator(".cap-composer .composer2").boundingBox();
     assert.ok(box && Math.abs(box.y + box.height - (main!.y + main!.height - 16)) <= 2, `${JSON.stringify(box)} in ${JSON.stringify(main)}`);
     const area = await page.locator("#capture-composer").boundingBox();
-    assert.ok(area && area.height > 120, `the text area fills it: ${JSON.stringify(area)}`);
+    assert.ok(area && area.height > 80, `the text area fills it: ${JSON.stringify(area)}`);
+    // The frames get the room: the sheet is taller than the message box.
+    const sheet = await page.locator(".cap-sheet").boundingBox();
+    assert.ok(sheet && box && sheet.height > 2 * box.height, `${JSON.stringify(sheet)} vs ${JSON.stringify(box)}`);
     await page.screenshot({ path: "/tmp/capture-panel-columns.png" });
     await page.locator("#capture-composer").fill("Fix the overlap");
     await page.getByRole("button", { name: /^Copy/ }).click();
