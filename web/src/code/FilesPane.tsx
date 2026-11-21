@@ -15,6 +15,7 @@ import { readStore, writeStore } from "../api";
 import { allPath, ensure, treePath, useFilesData } from "../files/api";
 import type { FileList, FileTree } from "../files/types";
 import { rankFiles } from "../github/diffSearch";
+import { toggleWrapSetting } from "./wrapSetting";
 import type { DiffFile, GithubUnavailable, WorkspaceChanges } from "../github/types";
 import { ResizeEdge } from "../ResizeEdge";
 import { languageOf } from "./paths";
@@ -155,9 +156,20 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
       }
     };
     window.addEventListener("keydown", key);
+    // ⌥Z (VS Code's key): wrap long lines or keep them whole, caught before the editor (vim would take its Ω in normal
+    // mode, and a keymap ahead of vim's stops its Ex commands).
+    const wrap = (e: KeyboardEvent) => {
+      if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey || e.code !== "KeyZ") return;
+      if (!(e.target as HTMLElement | null)?.closest?.(".files-view") || (e.target as HTMLElement).closest(".files-quick")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) toggleWrapSetting();
+    };
+    window.addEventListener("keydown", wrap, true);
     return () => {
       window.removeEventListener(QUICK_OPEN_EVENT, open);
       window.removeEventListener("keydown", key);
+      window.removeEventListener("keydown", wrap, true);
     };
   }, [f]);
   // A notice goes after a while.

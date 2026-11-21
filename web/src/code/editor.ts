@@ -51,7 +51,7 @@ import {
   type Tooltip,
 } from "@codemirror/view";
 import { getCM, Vim, vim } from "@replit/codemirror-vim";
-import { setWrapSetting, toggleWrapSetting, wrapSetting } from "./wrapSetting";
+import { setWrapSetting, wrapSetting } from "./wrapSetting";
 
 /** What a buffer's keys and Ex commands ask of the Files tab. */
 export type BufferActions = {
@@ -193,9 +193,6 @@ function setUpVim() {
   });
 }
 
-/** ⌥Z: wrap long lines or keep them whole (VS Code's key), every buffer's; ahead of vim, which takes ⌥Z's Ω in normal mode. */
-const wrapKey = keymap.of([{ key: "Alt-z", run: () => (toggleWrapSetting(), true), preventDefault: true }]);
-
 /** The keys every buffer has, vim or not. */
 const paneKeys = keymap.of([
   { key: "Mod-s", run: (v) => (actionsOf(v)?.save(), true), preventDefault: true },
@@ -269,8 +266,7 @@ export function bufferState(text: string, parts: Parts, options: { vim: boolean;
   return EditorState.create({
     doc: text,
     extensions: [
-      wrapKey,
-      // Vim next: its keys go ahead of every other keymap.
+      // Vim first: its keys go ahead of every other keymap (⌥Z, wrapping, is the pane's, caught before the editor).
       parts.vim.of(options.vim ? vim({ status: true }) : []),
       lineNumbers(),
       highlightActiveLineGutter(),

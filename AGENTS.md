@@ -886,7 +886,8 @@ piece with its matched letters marked in runs, then its folder, `name:line` to a
 (`@replit/codemirror-vim`; Settings → Files "Vim keys in the Files tab", `files:vim`, on by default, `vimSetting.ts`):
 `:w` `:wa` `:x` `:q` `:e` `:diff` and `gd` `gy` `gr` `K` ⌃O ⌃I `]d` `[d` `<space>rn` are the tab's (`setUpVim`); long lines
 wrap or stay whole (the user's ask: Settings → Files "Wrap long lines in the Files tab", `files:wrap`, off by default,
-`wrapSetting.ts`; ⌥Z in the editor, a keymap ahead of vim's, which takes ⌥Z's Ω in normal mode; vim's `:set wrap` /
+`wrapSetting.ts`; ⌥Z in the pane, caught in the capture phase before the editor (vim takes its Ω in normal mode, and a keymap
+ahead of vim's stopped its Ex commands); vim's `:set wrap` /
 `:set nowrap`, `Vim.defineOption`; ⌘K "Wrap / Don't wrap long lines in Files"), every buffer's `wrap` compartment at once,
 but a split diff's, whose sides line up line by line (`applyDiff`); the
 editor's keydowns without ⌘ stop at it, so Esc is vim's, never the page's. Saving (⌘S, `:w`) is `POST /api/files/write`
