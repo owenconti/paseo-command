@@ -294,8 +294,9 @@ and GitHub publication; report the published version and release link.
   in `targets.ts`): "Workspaces" (each not stale, its agents' latest activity first, with its agents and how many work; agents in
   no listed workspace under "Other sessions") then "New workspace in" each project (New agent in Worktree mode, `newAgent {projectId,
   isolation: "worktree"}`, `DispatchTarget.isolation`); a workspace opens (click, Enter) to its agents and "New agent in this
-  workspace" (`newAgent {workspaceId}`), "‹ Workspaces" or Backspace in the empty search going back. It opens in the most recently
-  active workspace with its latest agent chosen. The search filters the level shown (a workspace by its own words or its agents'),
+  workspace" (`newAgent {workspaceId}`), "‹ Workspaces" or Backspace in the empty search going back. It opens on what is open in the app's
+  window (the user's ask; `rememberOpenPlace` in main, `capture:open` in the pages' shared storage, `openPlace`): its agent chosen in its
+  workspace, or a workspace's latest agent; else the most recently active workspace's latest agent. The search filters the level shown (a workspace by its own words or its agents'),
   as tall as the right column; on the right the sheet, your message in the app's own `Composer` (draft mode, its draft the panel's,
   `capture:<id>`, so it stays as the target changes; its /skills and @files the chosen target's folder's, as New agent's, asked with a model, without which the daemon
   lists none: an agent's own, a project's provider's first; images pasted or

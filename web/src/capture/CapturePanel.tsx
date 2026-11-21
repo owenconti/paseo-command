@@ -6,8 +6,8 @@
  * app's window opens in New agent with the capture as its first message (`paseo:capture` in main).
  * Laid out in two columns: who gets it on the left, in two levels (the user's ask): your workspaces, the most recently
  * active first, then a new workspace (a worktree) in each project; a workspace opens to its agents and a new agent there,
- * ← (or Backspace in an empty search) going back. It opens in the most recently active workspace, its latest agent
- * chosen, so a capture can go at once; the capture and your message on the right. Copy (⇧⌘C) puts the whole message on the
+ * ← (or Backspace in an empty search) going back. It opens on what is open in the app's window (`openPlace`: its agent,
+ * or a workspace's latest agent), else the most recently active workspace's latest agent, so a capture can go at once; the capture and your message on the right. Copy (⇧⌘C) puts the whole message on the
  * clipboard instead (the draft's `copy=1`: the sheet and video named by their files, for any tool on this Mac).
  * Keys: Enter in the composer sends (as everywhere), ⌘↩ or Send from elsewhere in the panel (an empty message too: the
  * What you said while recording (the app heard it on this Mac) goes into the composer, once (`capture-tidied:<id>`): first
@@ -22,6 +22,8 @@ import { setAttachmentDraft, useAttachmentDraft } from "../composer/useAttachmen
 import { read } from "../live";
 import { qualifyAgent } from "../agentIdentity";
 import type { Agent, Project, Workspace } from "../types";
+import { workspaceKey } from "../workspaces";
+import { openPlace } from "./appCapture";
 import { captureTargets, filterGroups, filterTargets, groupTargets, type CaptureGroup, type CaptureTarget } from "./targets";
 
 /** A row of the left column: a workspace to open (the first list), or someone to send to. */
@@ -112,11 +114,27 @@ export function CapturePanel({ id }: { id: string }) {
   }, [grouped, group, query]);
   const item = shown[Math.min(chosen, shown.length - 1)];
   const target = item?.kind === "target" ? item.target : undefined;
-  // First, the most recently active workspace's latest agent: a capture can go at once.
+  // First, what is open in the app's window (its agent, chosen in its workspace; a workspace, its latest agent), else
+  // the most recently active workspace's latest agent: a capture can go at once.
   const placed = useRef(false);
   useEffect(() => {
     if (placed.current || !targets) return;
     placed.current = true;
+    const open = openPlace();
+    if (open?.type === "agent") {
+      const g = grouped.groups.find((x) => x.agents.some((a) => a.agent.id === open.id));
+      if (g) {
+        setOpenGroup(g.key);
+        return setChosen(g.agents.findIndex((a) => a.agent.id === open.id));
+      }
+    }
+    if (open?.type === "workspace") {
+      const g = grouped.groups.find((x) => x.newAgent && workspaceKey(x.newAgent.workspace) === open.id);
+      if (g) {
+        setOpenGroup(g.key);
+        return setChosen(0);
+      }
+    }
     const first = grouped.groups.find((g) => g.agents.length);
     if (first) setOpenGroup(first.key);
     setChosen(0);

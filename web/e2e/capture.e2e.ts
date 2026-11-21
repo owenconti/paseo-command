@@ -205,6 +205,39 @@ test("Copy puts the whole message on the clipboard instead of sending it", async
   }
 });
 
+test("the panel opens on what is open in the app's window: its agent, or a workspace's latest agent", async () => {
+  for (const [open, workspace, chosen] of [
+    [{ type: "agent", id: "a-failed" }, "Schema", "Breaker"],
+    [{ type: "workspace", id: "wks_b" }, "Labels", "Finisher"],
+    [{ type: "agent", id: "gone" }, "Map polish", "Runner"],
+  ] as const) {
+    const context = await newContext(browser);
+    const page = await context.newPage();
+    await page.addInitScript((place) => localStorage.setItem("paseo-command:capture:open", JSON.stringify(place)), open);
+    await panel(page);
+    try {
+      assert.equal(await page.locator(".cap-crumb strong").innerText(), workspace, JSON.stringify(open));
+      assert.equal(await page.locator(".cap-target.chosen .cap-target-title").innerText(), chosen, JSON.stringify(open));
+    } finally {
+      await context.close();
+    }
+  }
+});
+
+test("the app's window keeps what is open for the panel", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.addInitScript(`window.webkit = { messageHandlers: { paseoWorld: { postMessage: () => {} } } };`);
+  await mockApi(page, FLEET as never);
+  try {
+    await page.goto(`${app.url}?agent=a-idle`);
+    await page.locator(".crew-detail").waitFor();
+    await waitFor(() => page.evaluate(() => localStorage.getItem("paseo-command:capture:open")), (v) => v === JSON.stringify({ type: "agent", id: "a-idle" }), "the open agent kept");
+  } finally {
+    await context.close();
+  }
+});
+
 test("a voice without a transcript says why", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();

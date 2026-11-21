@@ -160,7 +160,7 @@ import {
   withRenames,
 } from "./renames";
 import { withLocalWorkspaces, projectKey, workspaceKey } from "./workspaces";
-import { captureHotkey, onAppCapture, prepareCaptureDraft } from "./capture/appCapture";
+import { captureHotkey, onAppCapture, prepareCaptureDraft, rememberOpenPlace } from "./capture/appCapture";
 import { CrashBoundary } from "./CrashBoundary";
 import { installCrashReports } from "./crashReport";
 import { readUrlState, selectionKey as placeKey, urlSearch } from "./urlState";
@@ -1182,6 +1182,10 @@ function App() {
     },
     [openDispatch],
   );
+  // What is open, for the screen capture send panel, which opens there (capture/appCapture.ts).
+  useEffect(() => {
+    if (macApp()) rememberOpenPlace(selection ? { type: selection.type, id: selection.id } : null);
+  }, [selection?.type, selection?.id]);
   // The screen capture send panel's asks (capture/appCapture.ts): the conversation it sent to, or New agent (in a
   // workspace, or a new workspace of a project) with the capture as its first message.
   useEffect(

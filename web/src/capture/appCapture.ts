@@ -4,7 +4,7 @@
  * (`newAgent`: in a workspace, or in a new workspace, a worktree, of a project): its text and contact sheet put into New agent's draft (`draft:dispatch`, the
  * composer's attachments) before it opens.
  */
-import { api, writeStore } from "../api";
+import { api, readStore, removeStore, writeStore } from "../api";
 import { setAttachmentDraft } from "../composer/useAttachments";
 import { uid } from "../composer/util";
 
@@ -80,4 +80,19 @@ export async function prepareCaptureDraft(capture: string, message: string, host
 export function captureHotkey(): string[] | undefined {
   const label = (window as unknown as { __PASEO_CAPTURE_HOTKEY__?: unknown }).__PASEO_CAPTURE_HOTKEY__;
   return typeof label === "string" && label ? [...label] : undefined;
+}
+
+/**
+ * What is open in the app's window (its selection: an agent, a workspace, a project), kept for the send panel, which
+ * opens there (the user's ask: the workspace and agent active in Paseo Command). Both pages share the app's storage.
+ */
+const OPEN_KEY = "capture:open";
+export type OpenPlace = { type: "agent" | "workspace" | "project"; id: string };
+export function rememberOpenPlace(place: OpenPlace | null) {
+  if (place) writeStore(OPEN_KEY, { type: place.type, id: place.id });
+  else removeStore(OPEN_KEY);
+}
+export function openPlace(): OpenPlace | null {
+  const p = readStore<unknown>(OPEN_KEY, null) as Record<string, unknown> | null;
+  return p && typeof p.id === "string" && (p.type === "agent" || p.type === "workspace" || p.type === "project") ? { type: p.type, id: p.id } : null;
 }
