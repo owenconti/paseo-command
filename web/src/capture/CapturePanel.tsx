@@ -16,6 +16,7 @@
  * capture's timed transcript stays out of what's sent (`transcript: false`).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import { api, errorMessage, readStore, removeStore, writeStore } from "../api";
 import { Composer, type Outgoing } from "../Composer";
 import { setAttachmentDraft, useAttachmentDraft } from "../composer/useAttachments";
@@ -397,7 +398,7 @@ export function CapturePanel({ id }: { id: string }) {
           {group && (
             <div className="cap-crumb">
               <button type="button" className="cap-back" onClick={back} title="All workspaces (Backspace in an empty search)" aria-label="All workspaces">
-                ‹ Workspaces
+                <ChevronLeft size={16} strokeWidth={2} aria-hidden />
               </button>
               <div className="cap-crumb-text" title={group.title}>
                 <strong>{group.title}</strong>
@@ -449,9 +450,6 @@ export function CapturePanel({ id }: { id: string }) {
               </span>
             )}
           </div>
-          <button type="button" className="cap-quiet" onClick={() => post({ type: "reveal" })} title="Show the capture's files in Finder">
-            Show in Finder
-          </button>
           <button type="button" className="cap-quiet" disabled={!manifest || sending} onClick={() => void copy()} title="Copy the whole message, the capture's files named by path, to paste anywhere (⇧⌘C)">
             Copy
           </button>
