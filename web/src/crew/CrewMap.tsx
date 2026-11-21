@@ -135,7 +135,12 @@ export function CrewMap(props: Props) {
       return next;
     });
   const selected = selectionKey(props.selection, snapshot);
+  const place = props.place;
+  const focus = !props.empty && (place === "conversation" || (props.selection?.type === "agent" && place === "both"));
+  const nothingOpen = place === "conversation" && props.empty;
+  const mapShown = !focus && !nothingOpen;
   const board = useRef<HTMLDivElement>(null);
+  const boardScroll = useRef(0);
   const root = useRef<HTMLDivElement>(null);
   // How many columns the map's grids have, measured as it resizes (the conversation opening or resized beside it).
   const [cols, setCols] = useState(1);
@@ -152,7 +157,7 @@ export function CrewMap(props: Props) {
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     return () => observer.disconnect();
-  }, [roster.hosts.length > 0]);
+  }, [mapShown, roster.hosts.length > 0]);
   const drawer = useRef<HTMLElement>(null);
   // The panel's width, dragged on its left edge (or ←/→ there; double-click for the default). Set on the map's frame,
   // where the robot's browser (a sibling, BoardBrowser.tsx) reads it too.
@@ -175,15 +180,10 @@ export function CrewMap(props: Props) {
       frame.style.removeProperty("--crew-drawer");
     };
   }, [drawerWidth]);
-  // Focus: an agent open (in the macOS app, the Command tab). The map steps aside (kept, with its scroll), the
+  // Focus: an agent open (in the macOS app, the Command tab). The map unmounts and saves its scroll position, the
   // conversation stands on the left and its tools (Files, the terminal and the browser: main's FilesPane, WorkspaceEditor and BoardBrowser, beside
   // it) fill the right. On the Command tab whatever is open takes the window; the Crew tab is the map alone (what is open
   // waits for the Command tab). In a browser a strip's ← Crew goes back to the map.
-  const isAgent = props.selection?.type === "agent";
-  const place = props.place;
-  const focus = !props.empty && (place === "conversation" || (isAgent && place === "both"));
-  /** The Command tab, nothing open: the map aside and a word in its place. */
-  const nothingOpen = place === "conversation" && props.empty;
   const toolsShown = focus && !!(props.browser?.shown || props.terminal?.shown || props.code?.shown);
   // The crew list down the left of the macOS app's Command tab, unless hidden (⌘S, ⌘K); a browser keeps the map and ← Crew.
   const sideHidden = useCrewSideHidden();
@@ -234,12 +234,13 @@ export function CrewMap(props: Props) {
   // What was last opened from the map: coming back, the map shows it and gives it the keyboard.
   const opened = useRef<string | null>(null);
 
-  const mapShown = !focus && !nothingOpen;
   useLayoutEffect(() => {
-    if (!mapShown) return;
+    const element = board.current;
+    if (!mapShown || !element) return;
+    element.scrollTop = boardScroll.current;
     const key = opened.current;
     if (!key) return;
-    const node = board.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`);
+    const node = element.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`);
     node?.focus({ preventScroll: true });
     node?.scrollIntoView({ block: "center" });
   }, [mapShown]);
@@ -454,194 +455,196 @@ export function CrewMap(props: Props) {
           </button>
         </div>
       )}
-      <div className="crew-board" ref={board} onKeyDown={boardKeys} role="region" aria-label="Crew" style={{ "--crew-cols": cols } as CSSProperties}>
-        <header className="crew-board-head">
-          <div className="crew-board-title">
-            <h2>Your crew</h2>
-            <p>
-              {!props.loaded && !total
-                ? "Waiting for Paseo hosts…"
-                : !total
-                  ? "No agents yet."
-                  : [
-                      `${total} agent${total === 1 ? "" : "s"}`,
-                      running ? `${running} working` : "",
-                      need ? `${need} need${need === 1 ? "s" : ""} you` : "nothing needs you",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-            </p>
-          </div>
-        </header>
-        <PoolClaims agents={props.agents} onOpen={props.onDispatch} />
-        {props.pool && (
-          <PoolBoxes
-            boxes={props.pool.boxes}
-            running={props.pool.running}
-            hostOf={(label) => {
-              const h = props.hosts.find((x) => x.label === label);
-              if (!h) return undefined;
-              const key = rosterKey(h);
-              const agents = data.agents.filter((a) => a.host === key);
-              return {
-                key,
-                online: !!data.hosts.find((x) => x.key === key)?.online,
-                agents: agents.length,
-                workspaces: data.workspaces.filter((w) => w.host === key).length,
-                running: agents.filter((a) => a.state === "running").length,
-              };
-            }}
-            release={props.pool.release}
-            shut={collapsed.includes(POOL_FOLD)}
-            toggle={() => toggle(POOL_FOLD)}
-            showHost={(key) => {
-              if (collapsed.includes(key)) toggle(key);
-              requestAnimationFrame(() => {
-                const head = board.current?.querySelector<HTMLElement>(`.crew-host[data-host="${CSS.escape(key)}"] .crew-fold`);
-                head?.scrollIntoView({ block: "start", behavior: "smooth" });
-                head?.focus({ preventScroll: true });
-              });
-            }}
-          />
-        )}
-        <div className="crew-hosts">
-        {hosts.map((h) => {
-          const hostShut = collapsed.includes(h.key);
-          const spans = hostSpans(h, cols, (k) => collapsed.includes(k));
-          return (
-            <section
-              key={h.key}
-              className="crew-host"
-              data-host={h.key}
-              data-offline={!h.online || undefined}
-              data-dragging={drag?.key === h.key || undefined}
-              data-drop={drag?.over === h.key ? (drag.before ? "before" : "after") : undefined}
-              aria-label={h.name}
-              style={{ gridColumn: `span ${spans.span}` }}
-              onDragOver={(e) => dragOver(e, h.key)}
-              onDragLeave={(e) => {
-                if (drag?.over === h.key && !e.currentTarget.contains(e.relatedTarget as Node | null)) setDrag({ key: drag.key });
+      {mapShown && (
+        <div className="crew-board" ref={board} onScroll={(e) => { boardScroll.current = e.currentTarget.scrollTop; }} onKeyDown={boardKeys} role="region" aria-label="Crew" style={{ "--crew-cols": cols } as CSSProperties}>
+          <header className="crew-board-head">
+            <div className="crew-board-title">
+              <h2>Your crew</h2>
+              <p>
+                {!props.loaded && !total
+                  ? "Waiting for Paseo hosts…"
+                  : !total
+                    ? "No agents yet."
+                    : [
+                        `${total} agent${total === 1 ? "" : "s"}`,
+                        running ? `${running} working` : "",
+                        need ? `${need} need${need === 1 ? "s" : ""} you` : "nothing needs you",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+              </p>
+            </div>
+          </header>
+          <PoolClaims agents={props.agents} onOpen={props.onDispatch} />
+          {props.pool && (
+            <PoolBoxes
+              boxes={props.pool.boxes}
+              running={props.pool.running}
+              hostOf={(label) => {
+                const h = props.hosts.find((x) => x.label === label);
+                if (!h) return undefined;
+                const key = rosterKey(h);
+                const agents = data.agents.filter((a) => a.host === key);
+                return {
+                  key,
+                  online: !!data.hosts.find((x) => x.key === key)?.online,
+                  agents: agents.length,
+                  workspaces: data.workspaces.filter((w) => w.host === key).length,
+                  running: agents.filter((a) => a.state === "running").length,
+                };
               }}
-              onDrop={drop}
-            >
-              <h3
-                className="crew-host-head"
-                draggable={hosts.length > 1}
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", h.name);
-                  setDrag({ key: h.key });
+              release={props.pool.release}
+              shut={collapsed.includes(POOL_FOLD)}
+              toggle={() => toggle(POOL_FOLD)}
+              showHost={(key) => {
+                if (collapsed.includes(key)) toggle(key);
+                requestAnimationFrame(() => {
+                  const head = board.current?.querySelector<HTMLElement>(`.crew-host[data-host="${CSS.escape(key)}"] .crew-fold`);
+                  head?.scrollIntoView({ block: "start", behavior: "smooth" });
+                  head?.focus({ preventScroll: true });
+                });
+              }}
+            />
+          )}
+          <div className="crew-hosts">
+          {hosts.map((h) => {
+            const hostShut = collapsed.includes(h.key);
+            const spans = hostSpans(h, cols, (k) => collapsed.includes(k));
+            return (
+              <section
+                key={h.key}
+                className="crew-host"
+                data-host={h.key}
+                data-offline={!h.online || undefined}
+                data-dragging={drag?.key === h.key || undefined}
+                data-drop={drag?.over === h.key ? (drag.before ? "before" : "after") : undefined}
+                aria-label={h.name}
+                style={{ gridColumn: `span ${spans.span}` }}
+                onDragOver={(e) => dragOver(e, h.key)}
+                onDragLeave={(e) => {
+                  if (drag?.over === h.key && !e.currentTarget.contains(e.relatedTarget as Node | null)) setDrag({ key: drag.key });
                 }}
-                onDragEnd={() => setDrag(null)}
+                onDrop={drop}
               >
-                {hosts.length > 1 && <GripVertical size={13} className="crew-host-grip" aria-hidden="true" />}
-                <button
-                  className="crew-fold"
-                  aria-expanded={!hostShut}
-                  aria-keyshortcuts={hosts.length > 1 ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
-                  onClick={() => toggle(h.key)}
-                  onKeyDown={(e) => hostKeys(e, h.key)}
+                <h3
+                  className="crew-host-head"
+                  draggable={hosts.length > 1}
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", h.name);
+                    setDrag({ key: h.key });
+                  }}
+                  onDragEnd={() => setDrag(null)}
                 >
-                  <ChevronDown size={14} aria-hidden="true" />
-                  {h.name}
-                </button>
-                {!h.online && <span className="crew-offline">offline</span>}
-                {hostShut && <Tally agents={hostAgents(h)} />}
-                {(() => {
-                  const box = props.pool && claimedBoxOf(props.pool.boxes, hostLabel(h.key));
-                  if (!box || !props.pool) return null;
-                  const job = jobOnBox(props.pool.running, box.id);
-                  const releasing = job?.kind === "release";
-                  // Nothing left on it (closed or archived outside the app, which releases nothing): say it can go.
-                  const spare =
-                    !job &&
-                    h.online &&
-                    !data.workspaces.some((w) => w.host === h.key) &&
-                    !data.agents.some((a) => a.host === h.key && a.state === "running");
-                  return (
-                    <>
-                    {spare && (
-                      <span className="crew-spare" data-tip="No workspaces or running agents: release it to return it to the pool">
-                        Claimed · idle
-                      </span>
-                    )}
-                    <button
-                      className="crew-head-action"
-                      disabled={!!job}
-                      data-tip={job ? jobText(job) : `Release pool box ${box.label}: restore it and return it to the pool`}
-                      aria-label={`Release pool box ${box.label}`}
-                      onClick={() => props.pool!.release(box)}
-                    >
-                      <RotateCcw size={12} aria-hidden="true" />
-                      {releasing ? "Releasing…" : "Release"}
-                    </button>
-                    </>
-                  );
-                })()}
-              </h3>
-              {!hostShut && (
-                <>
-                  {h.projects.map((p) => {
-                    const shut = collapsed.includes(p.key);
+                  {hosts.length > 1 && <GripVertical size={13} className="crew-host-grip" aria-hidden="true" />}
+                  <button
+                    className="crew-fold"
+                    aria-expanded={!hostShut}
+                    aria-keyshortcuts={hosts.length > 1 ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
+                    onClick={() => toggle(h.key)}
+                    onKeyDown={(e) => hostKeys(e, h.key)}
+                  >
+                    <ChevronDown size={14} aria-hidden="true" />
+                    {h.name}
+                  </button>
+                  {!h.online && <span className="crew-offline">offline</span>}
+                  {hostShut && <Tally agents={hostAgents(h)} />}
+                  {(() => {
+                    const box = props.pool && claimedBoxOf(props.pool.boxes, hostLabel(h.key));
+                    if (!box || !props.pool) return null;
+                    const job = jobOnBox(props.pool.running, box.id);
+                    const releasing = job?.kind === "release";
+                    // Nothing left on it (closed or archived outside the app, which releases nothing): say it can go.
+                    const spare =
+                      !job &&
+                      h.online &&
+                      !data.workspaces.some((w) => w.host === h.key) &&
+                      !data.agents.some((a) => a.host === h.key && a.state === "running");
                     return (
-                      <section key={p.key} className="crew-project" aria-label={p.name} style={{ gridColumn: `span ${spans.projects[p.key] ?? 1}` }}>
-                        <div className="crew-project-head">
-                          <button className="crew-fold small" aria-expanded={!shut} aria-label={`${shut ? "Show" : "Hide"} ${p.name}`} onClick={() => toggle(p.key)}>
-                            <ChevronDown size={14} aria-hidden="true" />
-                          </button>
-                          <button className="crew-head project" data-key={p.key} aria-current={marked === p.key ? "true" : undefined} onClick={() => pick("project", p.key)}>
-                            {p.name}
-                          </button>
-                          {shut && <Tally agents={projectAgents(p)} />}
-                        </div>
-                        {!shut && (
-                          <div className="crew-workspaces">
-                            {p.workspaces.map((w) => (
-                              <article key={w.key} className={`crew-ws${w.probe?.state === "reviewing" ? " probe-reviewing" : ""}`} aria-label={w.name} style={{ "--crew-n": Math.max(1, w.agents.length), gridColumn: `span ${Math.min(cols, Math.max(1, w.agents.length))}` } as CSSProperties}>
-                                <div className="crew-ws-top">
-                                  <button className="crew-head workspace" data-key={w.key} aria-current={marked === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
-                                    <span className="crew-ws-name">{w.name}</span>
-                                    {medals(w, 24)}
-                                  </button>
-                                  {(() => {
-                                    const row = workspaceRow(w);
-                                    if (!row || !props.onArchive) return null;
-                                    const leaving = props.archiving?.has(workspaceKey(row));
-                                    const name = placeText(row.name, "workspace");
-                                    return (
-                                      <button
-                                        className="crew-ws-archive"
-                                        disabled={leaving || props.blocked}
-                                        data-tip={leaving ? `Archiving ${name}…` : `Archive workspace ${name}`}
-                                        aria-label={`Archive workspace ${name}`}
-                                        onClick={() => props.onArchive!(row)}
-                                      >
-                                        <Archive size={13} aria-hidden="true" />
-                                      </button>
-                                    );
-                                  })()}
-                                </div>
-                                {w.agents.length ? <div className="crew-nodes">{w.agents.map(node)}</div> : <p className="crew-ws-empty">No agents</p>}
-                              </article>
-                            ))}
-                            {camp(p.loose)}
-                          </div>
-                        )}
-                      </section>
+                      <>
+                      {spare && (
+                        <span className="crew-spare" data-tip="No workspaces or running agents: release it to return it to the pool">
+                          Claimed · idle
+                        </span>
+                      )}
+                      <button
+                        className="crew-head-action"
+                        disabled={!!job}
+                        data-tip={job ? jobText(job) : `Release pool box ${box.label}: restore it and return it to the pool`}
+                        aria-label={`Release pool box ${box.label}`}
+                        onClick={() => props.pool!.release(box)}
+                      >
+                        <RotateCcw size={12} aria-hidden="true" />
+                        {releasing ? "Releasing…" : "Release"}
+                      </button>
+                      </>
                     );
-                  })}
-                  {h.loose.length > 0 && (
-                    <div className="crew-project loose" style={{ gridColumn: `span ${spans.loose}` }}>
-                      <div className="crew-workspaces">{camp(h.loose)}</div>
-                    </div>
-                  )}
-                </>
-              )}
-            </section>
-          );
-        })}
+                  })()}
+                </h3>
+                {!hostShut && (
+                  <>
+                    {h.projects.map((p) => {
+                      const shut = collapsed.includes(p.key);
+                      return (
+                        <section key={p.key} className="crew-project" aria-label={p.name} style={{ gridColumn: `span ${spans.projects[p.key] ?? 1}` }}>
+                          <div className="crew-project-head">
+                            <button className="crew-fold small" aria-expanded={!shut} aria-label={`${shut ? "Show" : "Hide"} ${p.name}`} onClick={() => toggle(p.key)}>
+                              <ChevronDown size={14} aria-hidden="true" />
+                            </button>
+                            <button className="crew-head project" data-key={p.key} aria-current={marked === p.key ? "true" : undefined} onClick={() => pick("project", p.key)}>
+                              {p.name}
+                            </button>
+                            {shut && <Tally agents={projectAgents(p)} />}
+                          </div>
+                          {!shut && (
+                            <div className="crew-workspaces">
+                              {p.workspaces.map((w) => (
+                                <article key={w.key} className={`crew-ws${w.probe?.state === "reviewing" ? " probe-reviewing" : ""}`} aria-label={w.name} style={{ "--crew-n": Math.max(1, w.agents.length), gridColumn: `span ${Math.min(cols, Math.max(1, w.agents.length))}` } as CSSProperties}>
+                                  <div className="crew-ws-top">
+                                    <button className="crew-head workspace" data-key={w.key} aria-current={marked === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
+                                      <span className="crew-ws-name">{w.name}</span>
+                                      {medals(w, 24)}
+                                    </button>
+                                    {(() => {
+                                      const row = workspaceRow(w);
+                                      if (!row || !props.onArchive) return null;
+                                      const leaving = props.archiving?.has(workspaceKey(row));
+                                      const name = placeText(row.name, "workspace");
+                                      return (
+                                        <button
+                                          className="crew-ws-archive"
+                                          disabled={leaving || props.blocked}
+                                          data-tip={leaving ? `Archiving ${name}…` : `Archive workspace ${name}`}
+                                          aria-label={`Archive workspace ${name}`}
+                                          onClick={() => props.onArchive!(row)}
+                                        >
+                                          <Archive size={13} aria-hidden="true" />
+                                        </button>
+                                      );
+                                    })()}
+                                  </div>
+                                  {w.agents.length ? <div className="crew-nodes">{w.agents.map(node)}</div> : <p className="crew-ws-empty">No agents</p>}
+                                </article>
+                              ))}
+                              {camp(p.loose)}
+                            </div>
+                          )}
+                        </section>
+                      );
+                    })}
+                    {h.loose.length > 0 && (
+                      <div className="crew-project loose" style={{ gridColumn: `span ${spans.loose}` }}>
+                        <div className="crew-workspaces">{camp(h.loose)}</div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </section>
+            );
+          })}
+          </div>
         </div>
-      </div>
+      )}
       {open && (
         <aside ref={drawer} className="crew-drawer" id="crew-drawer" aria-label="Conversation">
           {focus ? (

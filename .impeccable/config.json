@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "web/src/crew/crew.css"
+        ],
+        "createdAt": "2026-11-21T21:18:01.297Z",
+        "reason": "Agent: the existing animated gradient marks actively running agents through the working text shimmer."
+      }
+    ]
+  }
+}

@@ -857,7 +857,7 @@ the component Crew's drawer is.
   Files, Terminal and Conquer tabs went and Crew became a tab of its own (the user's calls); next PR tabs in focus, Inbox
   (Activity and the GitHub tab together) and a slimmer top bar): opening an agent
   (CrewMap's `focus`: an agent selected, not a workspace, project or New agent, which still open in the drawer beside the
-  map) puts the map aside (kept mounted, its scroll too, `visibility: hidden`) and gives the agent the window (in a browser under a strip, `FocusStrip`, `.crew-focus-strip`: only ← Crew,
+  map) unmounts the map board, retaining its scroll position, and gives the agent the window (in a browser under a strip, `FocusStrip`, `.crew-focus-strip`: only ← Crew,
   which with Esc goes back; the macOS app has no strip, `--crew-strip` 0, its Crew tab going back; the strip's tabs for the
   other robots were dropped at the user's ask): the conversation on the left and its tools on the right (the Files tab, `FilesPane`, below;
   the workspace's terminal, `WorkspaceTerminal`; and the browser, `BoardBrowser`; main's, the map's siblings) under one tab bar

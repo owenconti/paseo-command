@@ -1200,12 +1200,6 @@ button.crew-pool-name:hover {
 .crew-command-empty .page-btn {
   margin-top: 10px;
 }
-.crew-map[data-focus] > .crew-board {
-  position: absolute;
-  inset: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
 .crew-map[data-focus] > .crew-drawer {
   width: 100%;
   min-width: 0;

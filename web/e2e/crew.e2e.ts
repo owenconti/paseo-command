@@ -228,10 +228,8 @@ test("in a browser, picking a robot opens it in focus (the map steps aside, ← 
   await node.click();
   await page.locator(".crew-drawer .crew-detail .session").waitFor();
   assert.equal(await page.locator(".session").count(), 1, "one copy of the conversation");
-  assert.equal(await page.locator(".crew-board").count(), 1, "the map is kept");
-  assert.equal(await node.getAttribute("aria-current"), "true");
+  assert.equal(await page.locator(".crew-board").count(), 0, "the map is unmounted in focus");
   // Focus (in a browser): the map steps aside, the conversation takes the window under a strip back to the crew.
-  assert.equal(await page.locator(".crew-board").evaluate((el) => getComputedStyle(el).visibility), "hidden", "the map steps aside");
   const focusStrip = page.getByRole("navigation", { name: "The crew" });
   await focusStrip.waitFor();
   const [stripBox, drawer] = await Promise.all([focusStrip, page.locator(".crew-drawer")].map((l) => l.evaluate((el) => el.getBoundingClientRect().toJSON())));
@@ -805,6 +803,7 @@ test("the Command tab with nothing open says so, centred in the space beside the
   await appEvent(page, "paseo:mode", { mode: "command" });
   const empty = page.locator(".crew-command-empty");
   await empty.waitFor();
+  assert.equal(await page.locator(".crew-board").count(), 0, "Command without a conversation doesn't mount the map");
   const side = (await page.getByRole("navigation", { name: "Crew list" }).boundingBox())!;
   const frame = (await page.locator(".crew-map").boundingBox())!;
   const word = (await empty.locator("p").first().boundingBox())!;
@@ -821,6 +820,7 @@ test("in the macOS app the Command tab has the crew as a list on its left; ⌘S 
   await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "conversation", "on the Command tab");
   const side = page.getByRole("navigation", { name: "Crew list" });
   await side.waitFor();
+  assert.equal(await page.locator(".crew-board").count(), 0, "only the Crew list mounts beside the conversation");
   // Every agent is a row; the open one is marked; the conversation stands right of the list.
   assert.equal(await side.locator(".crew-side-card").count(), dungeon.agents.filter((a) => !(a as { child?: unknown }).child).length);
   const open1 = await side.locator('.crew-side-card[aria-current="true"]').getAttribute("data-key");
