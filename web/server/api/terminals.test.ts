@@ -2,6 +2,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import WebSocket from "ws";
 import { fleet, get, install, post, register, serve, until } from "../fake-daemon";
+import { WORKSPACE_TERMINAL } from "../agentPrompt";
 import { snapshotBytes } from "./terminals";
 
 // Only fake daemons: install() points the app's connector at them.
@@ -55,6 +56,8 @@ test("a workspace's terminals: listed, created in its folder, ended", async () =
   assert.equal(made.status, 200, JSON.stringify(made.data));
   const created = local.calls.find((c) => c.method === "createTerminal")!;
   assert.deepEqual(created.args, ["/home/review/code", { workspaceId: "wks_app", size: { rows: 30, cols: 100 } }]);
+  // Named, so the workspace's agents can find the Terminal tab's shell (agentPrompt.ts).
+  assert.equal(made.data.terminal.name, WORKSPACE_TERMINAL);
   const listed = await get("terminals?workspace=wks_app");
   assert.deepEqual(listed.data.terminals.map((t: { id: string }) => t.id), [made.data.terminal.id]);
   const ended = await post("terminals/kill", { id: made.data.terminal.id });

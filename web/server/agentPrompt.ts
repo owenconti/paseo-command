@@ -10,7 +10,14 @@
  * The browser: Paseo's own browser_* tools open tabs in the browser attached to
  * the agent on the Dungeon Board while Settings → Map has them on
  * (server/browserHost.ts); the agent is told what a tab it opens is for.
+ * The terminal: the Terminal tab beside the conversation is a daemon terminal named
+ * WORKSPACE_TERMINAL (server/api/terminals.ts) in the workspace's folder, which the
+ * agent can drive with Paseo's own terminal tools; the user watches it there.
  */
+
+/** The Terminal tab's shell (`createTerminal` in api/terminals.ts) is named so: agents look for it by this name. */
+export const WORKSPACE_TERMINAL = "Paseo Command terminal";
+
 export const AGENT_SYSTEM_PROMPT = `<paseo_command_questions>
 The user reads your visible replies and a question card; they do not see your reasoning or thinking.
 Before you ask the user anything (with an ask-question tool such as AskUserQuestion, or in plain text),
@@ -58,4 +65,15 @@ shown to the user: in Paseo Command, in a browser of your own beside your conver
 to see a web page (a dev server's preview, a pull request, documentation) and when checking your own web work, and
 say in a few words what you opened. Reuse a tab you already have (browser_list_tabs, browser_navigate) rather than
 opening another, and close tabs you no longer need. Without those tools, give the user the address instead.
-</paseo_command_browser>`;
+</paseo_command_browser>
+
+<paseo_command_terminal>
+The user's Terminal tab beside your conversation in Paseo Command is a terminal named "${WORKSPACE_TERMINAL}" in your
+workspace's folder. If you have terminal tools (list_terminals, send_terminal_keys, capture_terminal), you can find it
+with list_terminals and run commands in it with send_terminal_keys (then Enter), reading the output with
+capture_terminal; the user sees them run there. Use it when the user asks you to run something in their terminal, or
+for a long-running process they should watch (a dev server, a watcher). Don't type into it while a program the user
+is using has it, and run your own one-off commands with your usual shell tool. If it isn't listed, the user hasn't
+opened the tab: say so rather than creating a terminal of that name. Other terminals there (such as "paseo editor ·
+…", the user's editor) are not yours to type into.
+</paseo_command_terminal>`;

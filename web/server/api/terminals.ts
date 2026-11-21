@@ -5,7 +5,8 @@
  * - `GET /api/terminals?workspace=<id>[&host=<serverId>]`: the workspace's
  *   folder and its terminals (`{ cwd, terminals: [{ id, name, title }] }`).
  * - `POST /api/terminals/create` `{ workspace, host?, rows?, cols? }`: a new
- *   terminal in that workspace.
+ *   terminal in that workspace, the Terminal tab's shell beside a conversation, named `WORKSPACE_TERMINAL` so the
+ *   workspace's agents can find it with Paseo's terminal tools (`agentPrompt.ts`, `<paseo_command_terminal>`).
  * - `POST /api/terminals/editor` `{ workspace, host?, path, line?, rows?, cols? }`:
  *   a new terminal in that workspace (listed with `editor: true` while this server runs) running Settings → Files' editor command
  *   on `path` (`web/src/files/editorCommand.ts`), for the Files page. The command
@@ -30,6 +31,7 @@ import { appendFileSync } from "node:fs";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, type WebSocket } from "ws";
 import { editorLaunch, exCommandKeys, filesSettings, openFileKeys, workspaceEditorLaunch } from "../../src/files/editorCommand";
+import { WORKSPACE_TERMINAL } from "../agentPrompt";
 import { admissionClosed } from "../proc";
 import { readSettings } from "../settings";
 import { checkPath } from "./files";
@@ -85,7 +87,7 @@ export async function createTerminal(body: Body) {
   const { workspaceId, cwd } = await workspaceOf(body.workspace, host);
   const client = await sdk(host);
   const r = await timed(
-    client.createTerminal(cwd, undefined, undefined, { workspaceId, size: size(body) }),
+    client.createTerminal(cwd, WORKSPACE_TERMINAL, undefined, { workspaceId, size: size(body) }),
     undefined,
     client,
   );

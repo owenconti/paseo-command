@@ -794,7 +794,9 @@ the component Crew's drawer is.
   the Files tab's, `filesOpen` your editor's, as it was named before the Files tab).
   The Terminal tab is one shell per workspace (`POST /api/terminals/create` in the workspace's folder, kept as
   `terminal:workspaces` and found again while the daemon lists it; Start again once it ends), laid over its pane as the
-  editor is (`EditorOverlay`). The mini games lost ⇧⌘B to the browser (⌘K and the top bar's gamepad open them). The conversation's width beside its tools is dragged on its right edge (`crew:focusChatWidth`, `--crew-chat`
+  editor is (`EditorOverlay`). It is named "Paseo Command terminal" (`WORKSPACE_TERMINAL` in `web/server/agentPrompt.ts`),
+  and the standing prompt's `<paseo_command_terminal>` tells new agents to find it with Paseo's `list_terminals` and run
+  commands in it with `send_terminal_keys` / `capture_terminal` when the user asks (a shell started before keeps its old name). The mini games lost ⇧⌘B to the browser (⌘K and the top bar's gamepad open them). The conversation's width beside its tools is dragged on its right edge (`crew:focusChatWidth`, `--crew-chat`
   on the map's frame, which the tools read; at least 380 px, the tools 360). In focus the panes' own close, fill and title
   rows and the conversation's "← Fleet" are hidden (the tab bar and the strip have them). Under 900 px the tools lie over
   the conversation. Tests: `e2e/crew.e2e.ts`, `e2e/files-editor.e2e.ts`.

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AGENT_SYSTEM_PROMPT } from "./agentPrompt";
+import { AGENT_SYSTEM_PROMPT, WORKSPACE_TERMINAL } from "./agentPrompt";
 import { dispatchPlan } from "./api/validate";
 
 test("new agents are told to explain the context before asking a question", () => {
@@ -28,4 +28,10 @@ test("new agents are told how to answer with a visual reply", async () => {
 test("new agents are told that the browser tabs they open are shown to the user", () => {
   assert.match(AGENT_SYSTEM_PROMPT, /<paseo_command_browser>[\s\S]*browser_new_tab[\s\S]*<\/paseo_command_browser>/);
   assert.match(AGENT_SYSTEM_PROMPT, /Without those tools, give the user the address/);
+});
+
+test("new agents are told how to find and drive the Terminal tab's shell", () => {
+  assert.match(AGENT_SYSTEM_PROMPT, /<paseo_command_terminal>[\s\S]*send_terminal_keys[\s\S]*<\/paseo_command_terminal>/);
+  assert.ok(AGENT_SYSTEM_PROMPT.includes(`"${WORKSPACE_TERMINAL}"`));
+  assert.match(AGENT_SYSTEM_PROMPT, /rather than creating a terminal of that name/);
 });
