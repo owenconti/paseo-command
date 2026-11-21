@@ -1171,6 +1171,9 @@ button.crew-pool-name:hover {
 }
 /* The macOS app's Command tab with nothing open: the map aside, a word in its place. */
 .crew-command-empty {
+  /* The map's frame is a flex row: the word fills what the crew list leaves, so it's centred there. */
+  flex: 1;
+  min-width: 0;
   display: grid;
   place-content: center;
   justify-items: center;

@@ -803,6 +803,20 @@ test("while Probe reviews a workspace's pull request, its card says so: a ring r
   await page.context().close();
 });
 
+test("the Command tab with nothing open says so, centred in the space beside the crew list", async () => {
+  const page = await open({ mac: true });
+  await map(page).locator(".crew-node").first().waitFor();
+  await appEvent(page, "paseo:mode", { mode: "command" });
+  const empty = page.locator(".crew-command-empty");
+  await empty.waitFor();
+  const side = (await page.getByRole("navigation", { name: "Crew list" }).boundingBox())!;
+  const frame = (await page.locator(".crew-map").boundingBox())!;
+  const word = (await empty.locator("p").first().boundingBox())!;
+  const free = (side.x + side.width + frame.x + frame.width) / 2;
+  assert.ok(Math.abs(word.x + word.width / 2 - free) < 2, `the word at ${word.x + word.width / 2}, the free space's middle at ${free}`);
+  await page.context().close();
+});
+
 test("in the macOS app the Command tab has the crew as a list on its left; ⌘S hides and shows it, and the Crew tab keeps the map", async () => {
   const page = await open({ mac: true });
   await map(page).locator(".crew-node").first().waitFor();
