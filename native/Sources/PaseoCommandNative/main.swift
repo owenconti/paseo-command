@@ -376,8 +376,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func showBranchChanges() { main?.pageCommand(AppKeys.branchChangesCommand) }
     @objc private func tool(_ sender: NSMenuItem) {
         guard let main, let command = sender.representedObject as? String else { return }
-        // The message box and the Files tab are the page's: the keyboard goes back to the web view first.
-        if command == "focus-composer" || command == "tools-files" { main.window.makeFirstResponder(main.web) }
+        // The message box and the Files tab are the page's, and the tools hidden leave the keyboard to it: the keyboard
+        // goes back to the web view first.
+        if ["focus-composer", "tools-files", AppKeys.toggleTools.command].contains(command) { main.window.makeFirstResponder(main.web) }
         main.pageCommand(command)
     }
     @objc private func refreshPage() { main?.pageCommand(AppKeys.refreshPageCommand) }

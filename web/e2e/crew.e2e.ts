@@ -877,3 +877,26 @@ test("in the macOS app the Command tab has the crew as a list on its left; ⌘S 
   await side.waitFor();
   await page.context().close();
 });
+
+test("⌥⌘B (the app's View menu asks the page) hides the tools beside the conversation and shows the last one again", async () => {
+  const page = await open({ mac: true });
+  await map(page).locator(".crew-node").first().waitFor();
+  await page.locator('.crew-node[data-state="idle"]').first().click();
+  await page.locator(".crew-detail .session").waitFor();
+  // Nothing shown yet: the first time, Files' place… here the browser, once shown, is the one it brings back.
+  await appEvent(page, "paseo:command", "tools-browser");
+  await page.locator(".board-browser.crew").waitFor();
+  await appEvent(page, "paseo:command", "tools-toggle");
+  await page.locator(".board-browser.crew").waitFor({ state: "detached" });
+  assert.equal(await page.locator(".crew-tool-tabs").count(), 0, "the conversation takes the width");
+  await appEvent(page, "paseo:command", "tools-toggle");
+  await page.locator(".board-browser.crew").waitFor();
+  assert.equal(await page.locator(".crew-tool-tabs").getByRole("tab", { name: /Browser/ }).getAttribute("aria-selected"), "true");
+  // ⌘K has it, named for what it would do.
+  await page.locator(".crew-stage-state").click();
+  await page.keyboard.press("Meta+k");
+  await palette(page).getByRole("combobox").fill("tools beside");
+  await palette(page).getByRole("option", { name: /Hide the tools beside the conversation/ }).click();
+  await page.locator(".board-browser.crew").waitFor({ state: "detached" });
+  await page.context().close();
+});

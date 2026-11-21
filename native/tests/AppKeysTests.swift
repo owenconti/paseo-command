@@ -66,6 +66,12 @@ for (letter, command) in [("F", "tools-files"), ("E", "tools-editor"), ("T", "to
     assert(!AppKeys.offeredToMenu(key(letter.lowercased(), .command)), "⌘\(letter) alone isn't one")
 }
 assert(view.item(withTitle: "Show Terminal")?.keyEquivalent == "t")
+// ⌥⌘B: Show or Hide Tools, the panel beside the conversation, from anywhere too.
+let optB = key("b", [.command, .option])
+assert(AppKeys.offeredToMenu(optB), "⌥⌘B is offered to the menu")
+tools.ran = []
+assert(view.performKeyEquivalent(with: optB) && tools.ran == ["tools-toggle"], "⌥⌘B: \(tools.ran)")
+assert(!AppKeys.offeredToMenu(key("s", [.command, .option])), "⌥⌘S isn't one")
 // The tabs: Crew (the map), Command (the open conversation), GitHub, Activity; Settings is no tab but the tools' gear,
 // still a side the page draws. A saved Files, Terminal or Conquer mode is no mode (the map shows).
 assert(Mode.tabs == [.crew, .command, .github, .activity])

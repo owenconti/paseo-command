@@ -75,6 +75,7 @@ const NATIVE: Group = {
       label: "The mode bar's tab in that place: the crew, the conversation, GitHub, Activity",
     },
     { keys: [["⇧", "⌘", "F"]], label: "From anywhere: the open agent's Files tab beside its conversation, with the keyboard" },
+    { keys: [["⌥", "⌘", "B"]], label: "From anywhere: hide the tools beside the conversation, or show them again with the last one shown" },
     { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the open agent's editor beside its conversation, with the keyboard" },
     { keys: [["⇧", "⌘", "B"]], label: "From anywhere: the open agent's browser beside its conversation, with the keyboard" },
     { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },

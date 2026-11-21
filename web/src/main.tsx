@@ -890,11 +890,16 @@ function App() {
   const toggleFiles = () => showTool(filesShown ? null : "editor");
   const toggleTerminal = () => showTool(terminalShown ? null : "terminal");
   const toggleCode = () => showTool(codeShown ? null : "files");
+  // The tool last shown beside a conversation: ⌥⌘B (`tools-toggle`) brings it back once the panel is hidden.
+  const shownTool = codeShown ? "files" : filesShown ? "editor" : terminalShown ? "terminal" : browserShown ? "browser" : null;
+  useEffect(() => {
+    if (shownTool) writeStore("world:lastTool", shownTool);
+  }, [shownTool]);
   // ⇧⌘E, ⇧⌘T and ⇧⌘B (the macOS app's View menu, from anywhere, ahead of the editor, terminal and browser): the open
   // agent's editor, workspace terminal or browser beside its conversation, on the Command tab, with the keyboard.
   // ⇧⌘D: back to its message box.
-  const toolKeys = useRef({ agentOpen: false, codeShown, filesShown, terminalShown, browserShown });
-  Object.assign(toolKeys.current, { agentOpen: !!agent && !selection?.subagent, codeShown, filesShown, terminalShown, browserShown });
+  const toolKeys = useRef({ agentOpen: false, codeShown, filesShown, terminalShown, browserShown, shownTool });
+  Object.assign(toolKeys.current, { agentOpen: !!agent && !selection?.subagent, codeShown, filesShown, terminalShown, browserShown, shownTool });
   useEffect(() => {
     const show = (tool: "files" | "editor" | "terminal" | "browser") => {
       const now = toolKeys.current;
@@ -914,6 +919,23 @@ function App() {
     const offEditor = onAppCommand("tools-editor", () => show("editor"));
     const offTerminal = onAppCommand("tools-terminal", () => show("terminal"));
     const offBrowser = onAppCommand("tools-browser", () => show("browser"));
+    // ⌥⌘B: the panel of tools hidden (the conversation taking the width, the keyboard back to the page), or shown
+    // again with the tool last shown (Files the first time).
+    const offToggle = onAppCommand("tools-toggle", () => {
+      const now = toolKeys.current;
+      if (!macApp()) return setNotice("The tools beside a conversation are the macOS app’s.");
+      if (!now.agentOpen) return setNotice("Open an agent to show its tools.");
+      if (now.shownTool) {
+        postAppMenu("command");
+        setCodeOpen(false);
+        setFilesOpen(false);
+        setTerminalOpen(false);
+        setBrowserOpen(false);
+        return;
+      }
+      const last = readStore<string>("world:lastTool", "files");
+      show(last === "editor" || last === "terminal" || last === "browser" ? last : "files");
+    });
     const offComposer = onAppCommand("focus-composer", () => {
       if (macApp() && toolKeys.current.agentOpen) postAppMenu("command");
       // Once the conversation is drawn (it may have been on another tab).
@@ -931,6 +953,7 @@ function App() {
       offEditor();
       offTerminal();
       offBrowser();
+      offToggle();
       offComposer();
       window.removeEventListener("keydown", key);
     };
@@ -1681,6 +1704,15 @@ function App() {
     void import("./code/store").then((m) => githubWorkspace && m.setSide(m.filesOf({ id: githubWorkspace.id, ...(githubWorkspace.host ? { host: githubWorkspace.host } : {}), name: githubWorkspace.name }), side));
   const browserEntries = agent && crewBrowsing
     ? [
+        {
+          id: "tools-toggle",
+          group: "Actions",
+          page: "Command" as const,
+          label: shownTool ? "Hide the tools beside the conversation" : "Show the tools beside the conversation",
+          keys: [["⌥", "⌘", "B"]],
+          keywords: "tools panel right side files editor terminal browser toggle hide show collapse",
+          run: () => runAppCommand("tools-toggle"),
+        },
         {
           id: "crew-code-files",
           group: "Actions",

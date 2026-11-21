@@ -788,7 +788,9 @@ the component Crew's drawer is.
   the workspace's terminal, `WorkspaceEditor` with `kind` `editor` or `terminal`, and the browser, `BoardBrowser`, main's,
   the map's siblings, and the Files tab, `FilesPane`, below) under one tab bar (`.crew-tool-tabs`: Files, Editor, Terminal, Browser, × hides them and the conversation
   takes the width; F (your editor) and B still toggle; ⇧⌘F, ⇧⌘E, ⇧⌘T and ⇧⌘B show each from anywhere with the keyboard, ⇧⌘D gives the
-  message box the keyboard again). One shows at a time (main's `showTool`; `world:codeOpen|filesOpen|terminalOpen|browserOpen`: `codeOpen` is
+  message box the keyboard again; ⌥⌘B, View → Show or Hide Tools (`AppKeys.toggleTools`, offered the menu ahead of the views;
+  the page's `tools-toggle`, ⌘K "Show / Hide the tools beside the conversation"), hides the panel (the conversation taking the
+  width, the keyboard back to the page) or shows it again with the tool last shown, `world:lastTool`, Files the first time). One shows at a time (main's `showTool`; `world:codeOpen|filesOpen|terminalOpen|browserOpen`: `codeOpen` is
   the Files tab's, `filesOpen` your editor's, as it was named before the Files tab).
   The Terminal tab is one shell per workspace (`POST /api/terminals/create` in the workspace's folder, kept as
   `terminal:workspaces` and found again while the daemon lists it; Start again once it ends), laid over its pane as the
@@ -905,7 +907,11 @@ socket stops it. A host without the plugin or the server says so on the file's b
 workspace is the tab's (`PaneWorkspace`: a definition in another file opens its tab, `displayFile`); requests the client
 doesn't answer (`workspace/configuration`, `client/registerCapability`, progress) are answered in the transport; the
 server's Markdown is sanitized. Usages (`gr`, ⇧F12) and rename (F2, `<space>rn`: every file edited, left unsaved) are the
-tab's own (the client's skip files not open); usages list under the editor by file. Hover on the pointer is the
+tab's own (the client's skip files not open); usages open in a picker over the editor (`UsagesPicker` in `FilesPane.tsx`,
+Telescope's way, the user's ask: no panel to close from vim): the field narrows them by path, line or text (`filterUsages`),
+↑/↓ ⌃N/⌃P ⌃J/⌃K and PageUp/PageDown step, three lines either side of the one picked show beneath (`before`/`after` on each
+`Usage`), Enter or a click opens it and closes the picker (`pickUsage`), Esc or a click outside closes it where you were; it
+holds the keyboard while open. Go to file and it are as tall as what they list (`align-self: flex-start`). Hover on the pointer is the
 client's; `K` asks for the cursor's. ⌘-click and F12 go to a definition, ⌃O/⌃I (⌥←/⌥→) through where you've been. A
 chat's file link opens there, the tab shown for it (main's `ASK_EVENT` handler); in a browser it says the tab is the macOS app's. Tests: `server/lsp.test.ts` (a fake plugin), `server/api/files.test.ts`
 (write, conflict, version), `src/code/code.test.ts`, `e2e/files-tab.e2e.ts` (a fake `/api/lsp` socket).

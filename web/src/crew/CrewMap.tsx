@@ -438,7 +438,8 @@ export function CrewMap(props: Props) {
           <button
             className="crew-tool-tabs-close"
             aria-label="Hide the tools"
-            data-tip="Hide the tools: the conversation takes the width (F or B shows them again; the editor keeps running)"
+            aria-keyshortcuts="Alt+Meta+B"
+            data-tip="Hide the tools: the conversation takes the width (⌥⌘B shows them again; the editor keeps running)"
             onClick={() => (props.code?.shown ? props.code.toggle() : props.files?.shown ? props.files.toggle() : props.terminal?.shown ? props.terminal.toggle() : props.browser?.toggle())}
           >
             <X size={13} aria-hidden="true" />

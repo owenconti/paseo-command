@@ -10,6 +10,7 @@ export type AppCommand =
   | "tools-editor"
   | "tools-terminal"
   | "tools-browser"
+  | "tools-toggle"
   | "focus-composer"
   | "mermaid-diagram"
   | "board-browser-address"
