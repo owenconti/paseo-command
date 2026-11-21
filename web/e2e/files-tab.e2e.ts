@@ -232,7 +232,6 @@ test("the Files tab: first of the four tools, the branch's changes with a file's
       return boxes.slice(1).map((b, i) => Math.round(b.left - boxes[i]!.right));
     });
     assert.ok(gaps.every((g) => g <= 1), `the name's letters sit together: ${gaps}`);
-    if (process.env.QUICK_SHOT) await page.screenshot({ path: process.env.QUICK_SHOT });
     await page.keyboard.press("Enter");
     await page.locator(".files-tab[aria-selected=true]").getByText("long.ts").waitFor();
     assert.equal(await page.locator(".files-tab").count(), 3);
@@ -300,13 +299,26 @@ test("the language server: gd goes to a definition in another file, ⌃O comes b
     await page.locator(".files-tab[aria-selected=true]").getByText("util.ts").waitFor();
     await page.keyboard.press("Control+o");
     await page.locator(".files-tab[aria-selected=true]").getByText("app.ts").waitFor();
+    // gr: the usages in a picker over the editor, with the keyboard (Esc is its, not vim's).
     await page.keyboard.type("gr");
-    const usages = page.getByLabel("Usages of helper");
-    await usages.getByText("2 usages of").waitFor();
-    assert.equal(await usages.locator(".files-usage").count(), 2);
-    await page.keyboard.press("ArrowDown");
+    const usages = page.getByRole("dialog", { name: "Usages of helper" });
+    await usages.getByText("2 usages of helper in 2 files").waitFor();
+    assert.equal(await usages.getByRole("option").count(), 2);
+    await page.waitForFunction(() => document.activeElement?.matches(".files-usages-picker input"));
+    // A few lines around the one picked show beneath.
+    await usages.locator(".files-usage-preview .current").getByText("helper", { exact: true }).waitFor();
+    await page.keyboard.press("Escape");
+    await usages.waitFor({ state: "detached" });
+    await page.locator(".files-tab[aria-selected=true]").getByText("app.ts").waitFor();
+    // Typing narrows them; Enter opens the one picked and closes the picker.
+    await page.keyboard.type("gr");
+    await usages.getByText("2 usages of helper in 2 files").waitFor();
+    await page.keyboard.type("util.ts");
+    await waitFor(() => usages.getByRole("option").count(), (n) => n === 1, "narrowed to util.ts");
     await page.keyboard.press("Enter");
+    await usages.waitFor({ state: "detached" });
     await page.locator(".files-tab[aria-selected=true]").getByText("util.ts").waitFor();
+    await page.waitForFunction(() => !!document.activeElement?.closest(".files-editor"));
     await page.keyboard.type("K");
     await page.locator(".cm-lsp-hover-tooltip").getByText("the fake's hover").waitFor();
     // Its server stays while a TypeScript file is open, goes with the last, and comes back with the next one opened.

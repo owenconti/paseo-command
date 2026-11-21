@@ -461,78 +461,98 @@
   font-family: var(--font-mono);
   font-size: 0.92em;
 }
-.files-usages {
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 min(36%, 320px);
-  min-height: 120px;
-  border-top: 1px solid var(--line);
-  background: var(--panel-2, var(--panel));
+/* Usages (gr, ⇧F12): a picker over the editor (UsagesPicker), as Go to file is, with a preview of the one picked. */
+.files-usages-picker {
+  width: min(820px, calc(100% - 32px));
+  max-height: min(640px, calc(100% - 64px));
 }
 .files-usages-head {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 4px var(--space-2) 4px var(--space-3);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 5px 14px;
+  border-bottom: 1px solid var(--line);
   color: var(--text-3);
   font-size: var(--fs-xs);
 }
-.files-usages-head code {
-  color: var(--text-strong);
-  font-family: var(--font-mono);
-}
-.files-usages-list {
-  flex: 1;
+.files-usages-picker ul {
+  flex: 0 1 auto;
   min-height: 0;
-  overflow: auto;
-  outline: none;
 }
-.files-usages-path {
-  position: sticky;
-  top: 0;
-  padding: 3px var(--space-3);
-  background: var(--panel-2, var(--panel));
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.files-quick.files-usages-picker li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "where dir" "text text";
+  gap: 1px var(--space-2);
+  align-items: baseline;
+  padding: 5px 14px;
 }
-.files-usage {
-  display: flex;
-  gap: var(--space-2);
-  width: 100%;
-  padding: 2px var(--space-3) 2px var(--space-4);
-  border: 0;
-  background: transparent;
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+.files-usage-where {
+  grid-area: where;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 0;
+  font-weight: var(--fw-medium);
+}
+.files-usages-picker .files-quick-dir {
+  grid-area: dir;
   text-align: left;
-  white-space: pre;
-  overflow: hidden;
-  cursor: pointer;
-}
-.files-usage:hover {
-  background: var(--row-hover);
-}
-.files-usage[aria-selected="true"] {
-  background: var(--row-selected, var(--fill-strong));
-  color: var(--text-strong);
-}
-.files-usages-list:focus-visible .files-usage[aria-selected="true"] {
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 .files-usage-line {
-  flex: none;
-  min-width: 3em;
   color: var(--text-4);
-  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
 }
 .files-usage-text {
+  grid-area: text;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: pre;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+.files-usages-picker li[aria-selected="true"] .files-usage-text {
+  color: var(--text-2);
+}
+.files-usage-text strong,
+.files-usage-preview strong {
+  color: var(--accent-text, var(--accent));
+  font-weight: var(--fw-semibold);
+}
+.files-usage-preview {
+  flex: none;
+  margin: 0;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  background: var(--code-bg, var(--panel-2, var(--panel)));
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  overflow: hidden;
+}
+.files-usage-preview-line {
+  display: block;
+  padding: 0 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+.files-usage-preview-line i {
+  display: inline-block;
+  width: 3.5em;
+  margin-right: 10px;
+  color: var(--text-4);
+  font-style: normal;
+  text-align: right;
+}
+.files-usage-preview-line.current {
+  background: var(--row-selected, var(--fill-strong));
+  color: var(--text-strong);
 }
 .files-usage strong {
   color: var(--accent-text, var(--accent));
@@ -575,6 +595,8 @@
 .files-quick {
   display: flex;
   flex-direction: column;
+  /* As tall as what it lists (up to its most), not the pane. */
+  align-self: flex-start;
   width: min(620px, calc(100% - 32px));
   max-height: min(480px, calc(100% - 96px));
   border: 1px solid var(--line-mid);

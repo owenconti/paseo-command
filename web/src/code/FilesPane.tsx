@@ -25,6 +25,8 @@ import {
   checkDisk,
   closeBuffer,
   closeUsages,
+  filterUsages,
+  pickUsage,
   diffLayout,
   diffModeOf,
   filesOf,
@@ -248,7 +250,7 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
             </p>
           </div>
         )}
-        {f.usages && <UsagesPanel f={f} />}
+
         {f.notice && (
           <div className="files-notice" role="status">
             {f.notice}
@@ -259,6 +261,7 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
         )}
       </div>
       {quick && <QuickOpen f={f} onClose={() => setQuick(false)} />}
+      {f.usages && !quick && <UsagesPicker f={f} />}
     </section>
   );
 }
@@ -505,65 +508,109 @@ function TreeFolder({ f, dirPath, depth, open, toggle }: { f: Files; dirPath: st
   );
 }
 
-/** Usages of the symbol, by file, under the editor: ↑/↓ and Enter, or a click; Esc closes them. */
-function UsagesPanel({ f }: { f: Files }) {
+/**
+ * Usages of the symbol (gr, ⇧F12) in a picker over the editor, as Telescope's (the user's ask): the field narrows them by
+ * path, line or text; ↑/↓ (⌃N/⌃P, ⌃J/⌃K) step; a few lines around the one picked show beneath; Enter or a click opens it
+ * and closes the picker, Esc closes it where you were. It has the keyboard while open, so Esc is its, not vim's.
+ */
+function UsagesPicker({ f }: { f: Files }) {
   const u = f.usages!;
+  const [q, setQ] = useState("");
   const [at, setAt] = useState(0);
-  const list = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const shown = useMemo(() => filterUsages(u.items, q), [u.items, q]);
+  const files = new Set(u.items.map((x) => x.path)).size;
   useEffect(() => {
     setAt(0);
-    if (!u.loading) list.current?.focus();
-  }, [u.at, u.loading]);
-  const groups = useMemo(() => {
-    const out: { path: string; items: { u: Usage; i: number }[] }[] = [];
-    u.items.forEach((item, i) => {
-      const last = out[out.length - 1];
-      if (last?.path === item.path) last.items.push({ u: item, i });
-      else out.push({ path: item.path, items: [{ u: item, i }] });
-    });
-    return out;
-  }, [u.items]);
-  const keys = (e: ReactKeyboardEvent) => {
-    e.stopPropagation();
-    if (e.key === "Escape") return closeUsages(f);
-    if (e.key === "ArrowDown" || e.key === "j") (e.preventDefault(), setAt((n) => Math.min(n + 1, u.items.length - 1)));
-    else if (e.key === "ArrowUp" || e.key === "k") (e.preventDefault(), setAt((n) => Math.max(n - 1, 0)));
-    else if (e.key === "Enter" && u.items[at]) (e.preventDefault(), void showUsage(f, u.items[at]));
-  };
+  }, [q, u.at]);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => input.current?.focus());
+    return () => cancelAnimationFrame(raf);
+  }, [u.at]);
   useEffect(() => {
     list.current?.querySelector(`[data-i="${at}"]`)?.scrollIntoView({ block: "nearest" });
   }, [at]);
+  const pick = (item: Usage) => void pickUsage(f, item);
+  const picked = shown[at];
+  const keys = (e: ReactKeyboardEvent) => {
+    e.stopPropagation();
+    const down = e.key === "ArrowDown" || (e.ctrlKey && (e.key === "n" || e.key === "j"));
+    const up = e.key === "ArrowUp" || (e.ctrlKey && (e.key === "p" || e.key === "k"));
+    if (e.key === "Escape") (e.preventDefault(), closeUsages(f));
+    else if (down) (e.preventDefault(), setAt((n) => Math.min(n + 1, shown.length - 1)));
+    else if (up) (e.preventDefault(), setAt((n) => Math.max(n - 1, 0)));
+    else if (e.key === "PageDown") (e.preventDefault(), setAt((n) => Math.min(n + 10, shown.length - 1)));
+    else if (e.key === "PageUp") (e.preventDefault(), setAt((n) => Math.max(n - 10, 0)));
+    else if (e.key === "Enter" && picked) (e.preventDefault(), pick(picked));
+  };
+  const head = u.loading
+    ? `Finding usages of ${u.symbol}…`
+    : u.error
+      ? u.error
+      : `${u.items.length} usage${u.items.length === 1 ? "" : "s"} of ${u.symbol}${files > 1 ? ` in ${files} files` : ""}`;
   return (
-    <div className="files-usages" aria-label={`Usages of ${u.symbol}`}>
-      <div className="files-usages-head">
-        <span>
-          {u.loading ? `Finding usages of ${u.symbol}…` : u.error ? u.error : `${u.items.length} usage${u.items.length === 1 ? "" : "s"} of `}
-          {!u.loading && !u.error && <code>{u.symbol}</code>}
-          {!u.loading && !u.error && groups.length > 1 && ` in ${groups.length} files`}
-        </span>
-        <button className="files-icon-btn" aria-label="Close the usages" data-tip="Close (Esc)" onClick={() => closeUsages(f)}>
-          <X size={12} aria-hidden="true" />
-        </button>
-      </div>
-      <div className="files-usages-list" ref={list} tabIndex={0} role="listbox" aria-label="Usages" onKeyDown={keys}>
-        {groups.map((g) => (
-          <div key={g.path} className="files-usages-file">
-            <div className="files-usages-path" title={g.path}>
-              {g.items[0].u.outside && <span className="files-badge">outside</span>}
-              {g.path}
-            </div>
-            {g.items.map(({ u: item, i }) => (
-              <button key={i} data-i={i} role="option" aria-selected={i === at} className="files-usage" onClick={() => (setAt(i), void showUsage(f, item))}>
-                <span className="files-usage-line">{item.line}</span>
-                <span className="files-usage-text">
-                  {item.text.slice(Math.max(0, item.from - 60), item.from).trimStart()}
-                  <strong>{item.text.slice(item.from, item.to)}</strong>
-                  {item.text.slice(item.to, item.to + 120)}
-                </span>
-              </button>
+    <div className="files-quick-scrim" onMouseDown={(e) => e.target === e.currentTarget && closeUsages(f)}>
+      <div className="files-quick files-usages-picker" role="dialog" aria-label={`Usages of ${u.symbol}`}>
+        <input
+          ref={input}
+          value={q}
+          spellCheck={false}
+          placeholder={u.loading ? head : `Narrow ${u.items.length} usage${u.items.length === 1 ? "" : "s"} of ${u.symbol} by file or text…`}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={keys}
+        />
+        <p className="files-usages-head">
+          <span>{head}</span>
+          {q && !u.loading && <span>{shown.length} shown</span>}
+        </p>
+        <ul ref={list} role="listbox" aria-label="Usages">
+          {shown.map((item, i) => (
+            <li
+              key={`${item.path}:${item.line}:${item.from}:${i}`}
+              data-i={i}
+              role="option"
+              aria-selected={i === at}
+              onMouseEnter={() => setAt(i)}
+              onMouseDown={(e) => (e.preventDefault(), pick(item))}
+            >
+              <span className="files-usage-where">
+                <span className="files-quick-name">{name(item.path)}</span>
+                <span className="files-usage-line">:{item.line}</span>
+                {item.outside && <span className="files-badge">outside</span>}
+              </span>
+              <span className="files-usage-text">
+                {item.text.slice(Math.max(0, item.from - 60), item.from).trimStart()}
+                <strong>{item.text.slice(item.from, item.to)}</strong>
+                {item.text.slice(item.to, item.to + 160)}
+              </span>
+              <span className="files-quick-dir">{dir(item.path)}</span>
+            </li>
+          ))}
+          {!u.loading && !u.error && !shown.length && <li className="files-quick-none">{q ? "No usage matches." : "No usages found."}</li>}
+        </ul>
+        {picked && (
+          <pre className="files-usage-preview" aria-label={`${picked.path}, line ${picked.line}`}>
+            {(picked.before ?? []).map((l, i) => (
+              <span key={`b${i}`} className="files-usage-preview-line">
+                <i>{picked.line - (picked.before ?? []).length + i}</i>
+                {l}
+              </span>
             ))}
-          </div>
-        ))}
+            <span className="files-usage-preview-line current">
+              <i>{picked.line}</i>
+              {picked.text.slice(0, picked.from)}
+              <strong>{picked.text.slice(picked.from, picked.to)}</strong>
+              {picked.text.slice(picked.to)}
+            </span>
+            {(picked.after ?? []).map((l, i) => (
+              <span key={`a${i}`} className="files-usage-preview-line">
+                <i>{picked.line + i + 1}</i>
+                {l}
+              </span>
+            ))}
+          </pre>
+        )}
       </div>
     </div>
   );

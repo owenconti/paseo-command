@@ -70,7 +70,18 @@ export type Buffer = {
   /** The URI its language server knows it by, once attached. */
   uri: string | null;
 };
-export type Usage = { key: string; path: string; outside?: { uri: string; group: ServerGroup }; line: number; from: number; to: number; text: string };
+export type Usage = {
+  key: string;
+  path: string;
+  outside?: { uri: string; group: ServerGroup };
+  line: number;
+  from: number;
+  to: number;
+  text: string;
+  /** A few lines around it, for the picker's preview. */
+  before?: string[];
+  after?: string[];
+};
 export type Usages = { symbol: string; loading: boolean; error?: string; items: Usage[]; at: number };
 type Place = { key: string; pos: number };
 
@@ -637,7 +648,7 @@ async function linesOf(f: Files, where: { path: string } | { outside: string; ur
   }
 }
 
-/** Usages (gr, ⇧F12): every reference to the symbol under the cursor, listed beside the editor. */
+/** Usages (gr, ⇧F12): every reference to the symbol under the cursor, in a picker over the editor (FilesPane's `UsagesPicker`). */
 export async function findUsages(f: Files, b: Buffer) {
   const plugin = pluginOf(b);
   const conn = b.lsp ? f.lsp.get(b.lsp.group) : undefined;
@@ -670,11 +681,15 @@ export async function findUsages(f: Files, b: Buffer) {
       const doc = await linesOf(f, place, group);
       const lineNo = loc.range.start.line + 1;
       const text = doc && lineNo <= doc.lines ? doc.line(lineNo).text : "";
+      const around = (from: number, to: number) =>
+        doc ? Array.from({ length: Math.max(0, Math.min(to, doc.lines) - Math.max(from, 1) + 1) }, (_, k) => doc.line(Math.max(from, 1) + k).text) : [];
+      const before = around(lineNo - 4, lineNo - 1);
+      const after = around(lineNo + 1, lineNo + 4);
       const from = loc.range.start.character;
       const to = loc.range.end.line === loc.range.start.line ? loc.range.end.character : text.length;
       return "path" in where
-        ? { key: where.path, path: where.path, line: lineNo, from, to, text }
-        : { key: `outside:${where.outside}`, path: where.outside, outside: { uri: loc.uri, group }, line: lineNo, from, to, text };
+        ? { key: where.path, path: where.path, line: lineNo, from, to, text, before, after }
+        : { key: `outside:${where.outside}`, path: where.outside, outside: { uri: loc.uri, group }, line: lineNo, from, to, text, before, after };
     }),
   );
   if (f.usages?.at !== at) return;
@@ -692,6 +707,21 @@ export async function showUsage(f: Files, u: Usage) {
   // The cursor at it (a selection would put vim in visual mode).
   view.dispatch({ selection: { anchor: Math.min(line.from + u.from, line.to) }, scrollIntoView: true });
   view.focus();
+}
+/** The usages that fit what's typed: every word of it in the usage's path, line number or text. */
+export function filterUsages(items: Usage[], query: string): Usage[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return items;
+  return items.filter((u) => {
+    const hay = `${u.path}:${u.line} ${u.text}`.toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
+/** The picker's choice: it closes, and the usage opens with the keyboard. */
+export async function pickUsage(f: Files, u: Usage) {
+  f.usages = null;
+  changed();
+  await showUsage(f, u);
 }
 export function closeUsages(f: Files) {
   f.usages = null;
