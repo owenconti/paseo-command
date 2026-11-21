@@ -85,6 +85,7 @@ export function Composer({
   promptHistory,
   dropFiles,
   answerQuote,
+  insertText,
   replyAsks,
   inputId = "composer",
   label = "Message agent...",
@@ -118,6 +119,8 @@ export function Composer({
   dropFiles: { files: File[]; at: number } | null;
   /** A question quoted from the agent's reply, to answer in this message. */
   answerQuote?: { text: string; at: number } | null;
+  /** Text to put in the message box (a screen capture's tidied transcript): the whole of an empty one, else after what's there. */
+  insertText?: { text: string; at: number } | null;
   /** What the agent's last reply asks, as a decision model judged it. */
   replyAsks?: Asks;
   /** The input's id: `composer` is the one the shortcuts focus. */
@@ -197,6 +200,11 @@ export function Composer({
     if (answers.length) writeStore(answersKey, answers);
     else removeStore(answersKey);
   }, [answersKey, answers]);
+  useEffect(() => {
+    const inserted = insertText?.text.trim();
+    if (inserted) setText((t) => (t.trim() ? `${t.trimEnd()}\n\n${inserted}` : inserted));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insertText]);
   useEffect(() => {
     const question = answerQuote?.text.trim();
     if (!question) return;

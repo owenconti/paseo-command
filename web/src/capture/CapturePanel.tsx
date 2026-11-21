@@ -6,10 +6,12 @@
  * app's window opens in New agent with the capture as its first message (`paseo:capture` in main).
  * Keys: Enter in the composer sends (as everywhere), ⌘↩ or Send from elsewhere in the panel (an empty message too: the
  * capture is the message), ↑/↓ choose in the search, Esc closes. What you said while recording (the app heard it on this
- * Mac) shows under the sheet and goes with it unless "Send what you said" is switched off.
+ * Mac) shows under the sheet; the host's metadata model tidies it (`POST /api/captures/:id/tidy`, in the chosen agent's
+ * workspace, else the first agent's) into the message you meant, which goes into the composer once (`capture-tidied:<id>`),
+ * and the timed transcript then goes along only when "Send the timed transcript too" is on.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, errorMessage, readStore, removeStore } from "../api";
+import { api, errorMessage, readStore, removeStore, writeStore } from "../api";
 import { Composer, type Outgoing } from "../Composer";
 import { setAttachmentDraft, useAttachmentDraft } from "../composer/useAttachments";
 import { read } from "../live";
@@ -55,8 +57,12 @@ export function CapturePanel({ id }: { id: string }) {
   /** A provider's first model on a host, for a project's skills (`host|provider`; "" when it has none). */
   const [firstModels, setFirstModels] = useState<Record<string, string>>({});
   const [sent, setSent] = useState<{ title: string; agent: string }>();
-  /** Whether what you said goes with it. */
-  const [withSpeech, setWithSpeech] = useState(true);
+  /** Whether the timed transcript goes with it (on until the tidied one is in the message). */
+  const [withSpeech, setWithSpeech] = useState(() => !readStore(`capture-tidied:${id}`, false));
+  /** The tidied transcript's progress, and the text put into the composer. */
+  const [tidy, setTidy] = useState<{ state: "working" | "done" | "failed" | "empty"; error?: string }>();
+  const [insert, setInsert] = useState<{ text: string; at: number } | null>(null);
+  const tidyAsked = useRef(false);
   const root = useRef<HTMLDivElement>(null);
   // The composer's draft, the panel's own (never an agent's), so it stays as the target changes.
   const owner = `capture:${id}`;
@@ -101,6 +107,29 @@ export function CapturePanel({ id }: { id: string }) {
   /** The composer's message (its Enter), else what its draft holds now (Send, ⌘↩: an empty one too). */
   const speech = manifest?.transcript ?? [];
   const speaks = speech.length > 0;
+
+  // What you said, tidied once into the message you meant, in the chosen agent's workspace (else the first agent's).
+  const tidySource = target?.kind === "agent" ? target.agent.id : targets?.find((t) => t.kind === "agent")?.agent.id;
+  function tidyUp(agent = tidySource) {
+    if (!agent) return;
+    tidyAsked.current = true;
+    setTidy({ state: "working" });
+    api<{ text: string }>(`captures/${encodeURIComponent(id)}/tidy`, { agent }).then(
+      ({ text }) => {
+        writeStore(`capture-tidied:${id}`, true);
+        if (!text.trim()) return setTidy({ state: "empty" });
+        setInsert({ text, at: Date.now() });
+        setWithSpeech(false);
+        setTidy({ state: "done" });
+      },
+      (e) => setTidy({ state: "failed", error: errorMessage(e) || "the model didn't answer" }),
+    );
+  }
+  useEffect(() => {
+    if (!speaks || tidyAsked.current || !tidySource || readStore(`capture-tidied:${id}`, false)) return;
+    tidyUp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speaks, tidySource]);
 
   async function send(message?: Outgoing, to = target): Promise<boolean> {
     if (sending || sent || !manifest) return false;
@@ -224,9 +253,26 @@ export function CapturePanel({ id }: { id: string }) {
             <section className={`cap-speech${withSpeech ? "" : " left-out"}`} aria-label="What you said">
               <div className="cap-speech-head">
                 <span>What you said</span>
-                <label className="cap-speech-toggle" title="Whether the agent reads what you said, with the time of each sentence">
+                <span className="cap-speech-tidy" role="status">
+                  {tidy?.state === "working"
+                    ? "Tidying it into your message…"
+                    : tidy?.state === "done"
+                      ? "Tidied into your message"
+                      : tidy?.state === "empty"
+                        ? "Nothing in it was for the agent"
+                        : null}
+                  {tidy?.state === "failed" && (
+                    <>
+                      Couldn’t tidy it: {tidy.error}.{" "}
+                      <button type="button" className="cap-link" onClick={() => tidyUp()}>
+                        Try again
+                      </button>
+                    </>
+                  )}
+                </span>
+                <label className="cap-speech-toggle" title="Whether the agent also reads what you said word for word, with the time of each sentence">
                   <input type="checkbox" checked={withSpeech} onChange={(e) => setWithSpeech(e.target.checked)} />
-                  Send it
+                  Send the timed transcript too
                 </label>
               </div>
               <ol className="cap-speech-lines">
@@ -260,6 +306,7 @@ export function CapturePanel({ id }: { id: string }) {
               onFreshDraft={() => {}}
               promptHistory={[]}
               dropFiles={null}
+              insertText={insert}
             />
           </div>
           <input
