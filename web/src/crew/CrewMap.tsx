@@ -22,6 +22,10 @@ import { buildRoster, hostAgents, hostSpans, projectAgents, stateTally, type Ros
 import { CrewDetail } from "./CrewDetail";
 import { orderHosts, placeHost, showHosts, stepHost, useHostOrder } from "./hostOrder";
 import { Medals, Portrait, useCrewData, type CrewFleet } from "./parts";
+import { CrewSide } from "./CrewSide";
+import { readCrewSideWidth, setCrewSideHidden, toggleCrewSide, useCrewSideHidden, writeCrewSideWidth } from "./sideStore";
+import { onAppCommand } from "../appCommands";
+import { modalOpen } from "../focus";
 import "./crew.css";
 
 type Props = CrewFleet & {
@@ -182,8 +186,38 @@ export function CrewMap(props: Props) {
   /** The Command tab, nothing open: the map aside and a word in its place. */
   const nothingOpen = place === "conversation" && props.empty;
   const toolsShown = focus && !!(props.browser?.shown || props.files?.shown || props.terminal?.shown || props.code?.shown);
+  // The crew list down the left of the macOS app's Command tab, unless hidden (⌘S, ⌘K); a browser keeps the map and ← Crew.
+  const sideHidden = useCrewSideHidden();
+  const sideHere = place === "conversation";
+  const sideShown = sideHere && !sideHidden;
+  const [sideWidth, setSideWidth] = useState(readCrewSideWidth);
+  const sideW = sideShown ? sideWidth : 0;
+  useLayoutEffect(() => {
+    const frame = root.current?.parentElement;
+    if (!frame) return;
+    frame.style.setProperty("--crew-side", `${sideW}px`);
+    return () => {
+      frame.style.removeProperty("--crew-side");
+    };
+  }, [sideW]);
+  // ⌘S hides or shows it wherever the keyboard is on the Command tab, but the Files tab (where ⌘S saves) and dialogs.
+  useEffect(() => {
+    if (!sideHere) return;
+    const key = (e: globalThis.KeyboardEvent) => {
+      if (!e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.key.toLowerCase() !== "s" || e.defaultPrevented) return;
+      if ((e.target as HTMLElement | null)?.closest?.(".files-view") || modalOpen()) return;
+      e.preventDefault();
+      if (!e.repeat) toggleCrewSide();
+    };
+    window.addEventListener("keydown", key);
+    const off = onAppCommand("crew-sidebar", () => toggleCrewSide());
+    return () => {
+      window.removeEventListener("keydown", key);
+      off();
+    };
+  }, [sideHere]);
   const [chatWidth, setChatWidth] = useState<number | null>(() => readStore<number | null>(CHAT_WIDTH, null));
-  const chatMax = () => Math.max(CHAT_MIN, (root.current?.clientWidth ?? window.innerWidth) - TOOLS_KEEP);
+  const chatMax = () => Math.max(CHAT_MIN, (root.current?.clientWidth ?? window.innerWidth) - sideW - TOOLS_KEEP);
   const resizeChat = (w: number | null) => {
     const next = w === null ? null : Math.round(Math.max(CHAT_MIN, Math.min(chatMax(), w)));
     setChatWidth(next);
@@ -318,10 +352,22 @@ export function CrewMap(props: Props) {
       data-browser={(open && props.selection?.type === "agent" && (props.browser?.shown || props.files?.shown || props.terminal?.shown || props.code?.shown)) || undefined}
     >
       {strip && <FocusStrip back={() => props.select(null)} />}
+      {sideShown && (
+        <CrewSide
+          hosts={hosts}
+          selected={selected}
+          pick={pick}
+          medals={medals}
+          summaryOf={summaryOf}
+          width={sideWidth}
+          resize={(w) => setSideWidth(writeCrewSideWidth(w))}
+          hide={() => setCrewSideHidden(true)}
+        />
+      )}
       {nothingOpen && (
         <div className="crew-command-empty">
           <p>No conversation is open.</p>
-          <p>Open an agent on the Crew tab, or step through them with J and K.</p>
+          <p>Open an agent from the crew list or the Crew tab, or step through them with J and K.</p>
           {props.onShowMap && (
             <button className="page-btn" onClick={props.onShowMap}>
               Show the crew

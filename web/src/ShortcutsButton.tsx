@@ -105,6 +105,7 @@ const CREW: Group = {
     { keys: [["B"]], label: "Show or hide the open robot's browser beside its conversation (the macOS app's)" },
     { keys: [["F"]], label: "Show or hide its workspace in your editor (Settings → Files), beside the conversation (the macOS app's)" },
     { keys: [["⇧", "⌘", "W"]], label: "Hide the browser, from its page or a field too" },
+    { keys: [["⌘", "S"]], label: "On the Command tab: show or hide the crew list on the left (in the Files tab ⌘S saves)" },
   ],
 };
 

@@ -796,3 +796,57 @@ test("while Probe reviews a workspace's pull request, its card says so: a ring r
   assert.equal(await medal.getAttribute("data-tip"), "Probe: reviewing the pull request now.");
   await page.context().close();
 });
+
+test("in the macOS app the Command tab has the crew as a list on its left; ⌘S hides and shows it, and the Crew tab keeps the map", async () => {
+  const page = await open({ mac: true });
+  await map(page).locator(".crew-node").first().waitFor();
+  assert.equal(await page.locator(".crew-side").count(), 0, "no list beside the map on the Crew tab");
+  await page.locator('.crew-node[data-state="idle"]').first().click();
+  await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "conversation", "on the Command tab");
+  const side = page.getByRole("navigation", { name: "Crew list" });
+  await side.waitFor();
+  // Every agent is a row; the open one is marked; the conversation stands right of the list.
+  assert.equal(await side.locator(".crew-side-row.agent").count(), dungeon.agents.filter((a) => !(a as { child?: unknown }).child).length);
+  const open1 = await side.locator('.crew-side-row.agent[aria-current="true"]').getAttribute("data-key");
+  assert.ok(open1);
+  const sideBox = (await side.boundingBox())!;
+  const drawerBox = (await page.locator(".crew-drawer").boundingBox())!;
+  assert.ok(drawerBox.x >= sideBox.x + sideBox.width - 1, `the conversation (${drawerBox.x}) starts right of the list (${sideBox.x + sideBox.width})`);
+  // With a tool beside the conversation, the tool and its tabs start right of the conversation, the list still on the left.
+  await appEvent(page, "paseo:command", "tools-browser");
+  await page.locator(".board-browser.crew").waitFor();
+  const [chat, browser, tabs] = await Promise.all([".crew-drawer", ".board-browser.crew", ".crew-tool-tabs"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(chat.left >= sideBox.x + sideBox.width - 1, "the conversation right of the list");
+  assert.ok(Math.abs(browser.left - chat.right) <= 2 && Math.abs(tabs.left - chat.right) <= 2, `conversation to ${chat.right}, browser from ${browser.left}, tabs from ${tabs.left}`);
+  if (process.env.CREW_SHOT) {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.screenshot({ path: process.env.CREW_SHOT });
+  }
+  await page.locator(".crew-tool-tabs-close").click();
+  await page.locator(".board-browser.crew").waitFor({ state: "detached" });
+  // A row opens its agent.
+  const other = side.locator('.crew-side-row.agent[data-state="running"]').first();
+  const otherKey = await other.getAttribute("data-key");
+  await other.click();
+  await waitFor(() => side.locator('.crew-side-row.agent[aria-current="true"]').getAttribute("data-key"), (k) => k === otherKey, "the row's agent open");
+  // ⌘S (outside the Files tab) hides it, and the conversation takes the width; ⌘S shows it again, kept across a reload.
+  await page.locator(".crew-stage-state").click();
+  await page.keyboard.press("Meta+s");
+  await side.waitFor({ state: "detached" });
+  assert.ok(((await page.locator(".crew-drawer").boundingBox())!.x) < 2, "the conversation from the left edge");
+  await page.keyboard.press("Meta+s");
+  await side.waitFor();
+  await page.keyboard.press("Meta+s");
+  await side.waitFor({ state: "detached" });
+  await page.reload();
+  await page.locator(".crew-map").waitFor();
+  await appEvent(page, "paseo:mode", { mode: "command" });
+  await page.locator(".crew-detail").waitFor();
+  assert.equal(await page.locator(".crew-side").count(), 0, "still hidden after a reload");
+  // ⌘K shows it.
+  await page.keyboard.press("Meta+k");
+  await palette(page).getByRole("combobox").fill("crew list");
+  await palette(page).getByRole("option", { name: /Show the crew list/ }).click();
+  await side.waitFor();
+  await page.context().close();
+});

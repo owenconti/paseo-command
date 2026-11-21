@@ -795,6 +795,18 @@ the component Crew's drawer is.
   on the map's frame, which the tools read; at least 380 px, the tools 360). In focus the panes' own close, fill and title
   rows and the conversation's "← Fleet" are hidden (the tab bar and the strip have them). Under 900 px the tools lie over
   the conversation. Tests: `e2e/crew.e2e.ts`, `e2e/files-editor.e2e.ts`.
+- The crew list (the user's ask: the crew as a persistent left sidebar on the Command tab; the Crew tab keeps the map):
+  `web/src/crew/CrewSide.tsx`, only on the macOS app's Command tab (CrewMap's `sideHere`, `place === "conversation"`; a browser
+  keeps the map and ← Crew). The map's hosts (in the user's order) › projects › workspaces (their medallions, 16 px; Probe's
+  review a blue rule) › agents, each a row with its robot (22 px), name, unread dot and state, or what it is doing while it runs;
+  those that need you tinted; what is open marked and kept in view; a click opens it as the map's does; ↑/↓, Home and End move
+  through its rows. Its own folds (`crew:sideCollapsed`), apart from the map's. Its right edge resizes it (200–440 px,
+  `crew:sideWidth`); its width is `--crew-side` on the map's frame (0 hidden), which `.crew-map[data-focus]`'s padding and the
+  tools' and their tabs' `left` add, the default chat width 42% of what's left. ⌘S hides or shows it anywhere on the Command
+  tab but the Files tab (where ⌘S saves: FilesPane takes it only with the keyboard in the pane now) and dialogs; its head's
+  button hides it; ⌘K "Show / Hide the crew list beside the conversation" (`crew-sidebar`); kept as `crew:sideHidden`
+  (`sideStore.ts`). While your editor's terminal or the agent's browser has the keyboard the app keeps ⌘ keys, so ⌘S doesn't
+  reach it there. Tests: `e2e/crew.e2e.ts`.
 - The session panel (`FloatingPanel`, one column; what is open as the same `CrewDetail`) no longer shows anywhere: in the
   macOS app what is open is the Command tab's (above), and a browser's page is always Crew (main's `panelAbsent` =
   `crewShown || detailEmpty || macApp()`: the panel takes no width, the bar's panel buttons go, and ⌘B does nothing). It keeps its side, width and ⌘B; choosing something (J/K, ⌘K, a

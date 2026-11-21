@@ -145,7 +145,8 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
       } else if (k === "b" && !e.repeat) {
         e.preventDefault();
         toggleSide();
-      } else if (k === "s" && ((e.target as HTMLElement | null)?.closest?.(".files-view") || e.target === document.body)) {
+      } else if (k === "s" && (e.target as HTMLElement | null)?.closest?.(".files-view")) {
+        // Only with the keyboard in the pane: elsewhere on the Command tab ⌘S hides or shows the crew list (CrewMap).
         e.preventDefault();
         const now = activeBuffer(f);
         if (now) void save(f, now);

@@ -130,6 +130,7 @@ import { FloatingPanel } from "./FloatingPanel";
 import { AppPanel } from "./AppPanel";
 import { CrewDetail } from "./crew/CrewDetail";
 import { useGlanceData } from "./crew/Glance";
+import { useCrewSideHidden } from "./crew/sideStore";
 import { ASK_EVENT, askWorkspaceEditor, takeEditorAsk, type EditorAsk } from "./crew/workspaceEditorAsks";
 import { useOpenAgentMode } from "./agentModeStore";
 import { CrewMap } from "./crew/CrewMap";
@@ -698,6 +699,7 @@ function App() {
   // Crew: in the macOS app its Crew tab (the map) and Command tab (the open conversation); in a browser both at once.
   const crewShown = (appMode === "crew" || appMode === "command") && !settingsShown;
   const crewPlace: "map" | "conversation" | "both" = !macApp() ? "both" : appMode === "crew" ? "map" : "conversation";
+  const crewSideHidden = useCrewSideHidden();
   // Boxes are claimed and released outside the app too: read them now and then while the crew shows.
   usePoolPolling(integrations.pool && crewShown);
   // Reading an agent's conversation views it: Crew's drawer, or the session panel while it isn't hidden.
@@ -2020,6 +2022,20 @@ function App() {
             keywords,
             run: () => postAppMenu(action),
           })),
+          // The crew list beside the Command tab's conversation (CrewSide.tsx), where it is (CrewMap's `sideHere`).
+          ...(crewShown && crewPlace === "conversation"
+            ? [
+                {
+                  id: "crew-sidebar",
+                  group: "App",
+                  page: "Command" as const,
+                  label: crewSideHidden ? "Show the crew list beside the conversation" : "Hide the crew list beside the conversation",
+                  keys: [["⌘", "S"]],
+                  keywords: "crew sidebar list agents left panel toggle",
+                  run: () => runAppCommand("crew-sidebar"),
+                },
+              ]
+            : []),
           ...(appMode !== "crew"
             ? [
                 {
