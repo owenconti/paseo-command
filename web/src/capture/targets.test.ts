@@ -60,3 +60,34 @@ test("workspaces by their agents' latest activity, else the newest; stale ones l
     [["busy", "web · feat/busy"], ["quiet", "web"], ["box", "api · main · pool-1"]],
   );
 });
+
+test("the panel's first list: workspaces holding their agents, most recently active first, then projects", async () => {
+  const { groupTargets, filterGroups } = await import("./targets");
+  const ws = [
+    { workspaceId: "w1", name: "quiet", project: "web", isolation: "worktree", cwd: "/a", background: false, branch: "quiet", createdAt: "2026-11-19T00:00:00Z" },
+    { workspaceId: "w2", name: "busy", project: "web", isolation: "worktree", cwd: "/b", background: false, branch: "busy", createdAt: "2026-11-01T00:00:00Z" },
+  ] as Workspace[];
+  const targets = captureTargets(
+    [
+      agent({ id: "a", title: "Fix the menu", workspaceId: "w2", status: "running", lastUserMessageAt: "2026-11-20T00:00:00Z" }),
+      agent({ id: "b", title: "Docs pass", workspaceId: "w2", updatedAt: "2026-11-18T00:00:00Z" }),
+      agent({ id: "c", title: "Loose", updatedAt: "2026-11-21T00:00:00Z" }),
+    ],
+    projects,
+    ws,
+  );
+  const { groups, projects: news } = groupTargets(targets);
+  assert.deepEqual(
+    groups.map((g) => [g.title, g.agents.map((a) => a.title), g.running, !!g.newAgent]),
+    [
+      ["busy", ["Fix the menu", "Docs pass"], 1, true],
+      ["quiet", [], 0, true],
+      ["Other sessions", ["Loose"], 0, false],
+    ],
+  );
+  assert.deepEqual(news.map((p) => p.title), ["api", "web"]);
+  // Found by an agent's words, or the workspace's own.
+  assert.deepEqual(filterGroups(groups, "docs").map((g) => g.title), ["busy"]);
+  assert.deepEqual(filterGroups(groups, "quiet").map((g) => g.title), ["quiet"]);
+  assert.equal(filterGroups(groups, "").length, 3);
+});

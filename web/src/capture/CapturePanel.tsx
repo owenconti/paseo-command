@@ -4,8 +4,10 @@
  * chosen target's folder's, as New agent's are; images pasted or dropped go too), and who gets it: an agent (sent from
  * here, `POST /api/captures/:id/send`, joining its current turn while it works) or a project, for a new agent, which the
  * app's window opens in New agent with the capture as its first message (`paseo:capture` in main).
- * Laid out in two columns: who gets it on the left (the search over your sessions, most recently active first, then a
- * new agent in a workspace, then a new agent in a new workspace of a project, a worktree), the capture and your message on the right. Copy (⇧⌘C) puts the whole message on the
+ * Laid out in two columns: who gets it on the left, in two levels (the user's ask): your workspaces, the most recently
+ * active first, then a new workspace (a worktree) in each project; a workspace opens to its agents and a new agent there,
+ * ← (or Backspace in an empty search) going back. It opens in the most recently active workspace, its latest agent
+ * chosen, so a capture can go at once; the capture and your message on the right. Copy (⇧⌘C) puts the whole message on the
  * clipboard instead (the draft's `copy=1`: the sheet and video named by their files, for any tool on this Mac).
  * Keys: Enter in the composer sends (as everywhere), ⌘↩ or Send from elsewhere in the panel (an empty message too: the
  * What you said while recording (the app heard it on this Mac) goes into the composer, once (`capture-tidied:<id>`): first
@@ -20,7 +22,10 @@ import { setAttachmentDraft, useAttachmentDraft } from "../composer/useAttachmen
 import { read } from "../live";
 import { qualifyAgent } from "../agentIdentity";
 import type { Agent, Project, Workspace } from "../types";
-import { captureTargets, filterTargets, type CaptureTarget } from "./targets";
+import { captureTargets, filterGroups, filterTargets, groupTargets, type CaptureGroup, type CaptureTarget } from "./targets";
+
+/** A row of the left column: a workspace to open (the first list), or someone to send to. */
+type Item = { kind: "group"; key: string; group: CaptureGroup } | { kind: "target"; key: string; target: CaptureTarget };
 
 type Manifest = {
   id: string;
@@ -92,9 +97,45 @@ export function CapturePanel({ id }: { id: string }) {
     return () => observer.disconnect();
   }, []);
 
-  const shown = useMemo(() => filterTargets(targets ?? [], query), [targets, query]);
-  const target = shown[Math.min(chosen, shown.length - 1)];
-  useEffect(() => setChosen(0), [query]);
+  const grouped = useMemo(() => groupTargets(targets ?? []), [targets]);
+  /** The workspace open in the left column (its agents), else the list of workspaces. */
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const group = openGroup ? grouped.groups.find((g) => g.key === openGroup) : undefined;
+  const shown: Item[] = useMemo(() => {
+    const asTarget = (t: CaptureTarget): Item => ({ kind: "target", key: t.key, target: t });
+    if (group) return [...filterTargets(group.agents, query), ...(group.newAgent ? [group.newAgent] : [])].map(asTarget);
+    return [
+      ...filterGroups(grouped.groups, query).map((g): Item => ({ kind: "group", key: g.key, group: g })),
+      ...filterTargets(grouped.projects, query).map(asTarget),
+    ];
+  }, [grouped, group, query]);
+  const item = shown[Math.min(chosen, shown.length - 1)];
+  const target = item?.kind === "target" ? item.target : undefined;
+  // First, the most recently active workspace's latest agent: a capture can go at once.
+  const placed = useRef(false);
+  useEffect(() => {
+    if (placed.current || !targets) return;
+    placed.current = true;
+    const first = grouped.groups.find((g) => g.agents.length);
+    if (first) setOpenGroup(first.key);
+    setChosen(0);
+  }, [targets, grouped]);
+  const search = (value: string) => {
+    setQuery(value);
+    setChosen(0);
+  };
+  const openWorkspace = (g: CaptureGroup) => {
+    setOpenGroup(g.key);
+    setQuery("");
+    setChosen(0);
+  };
+  const back = () => {
+    const from = openGroup;
+    setOpenGroup(null);
+    setQuery("");
+    setChosen(Math.max(0, grouped.groups.findIndex((g) => g.key === from)));
+  };
+  const pick = (it: Item | undefined) => (it?.kind === "group" ? openWorkspace(it.group) : void send());
   useEffect(() => {
     listBox.current?.querySelector(`[data-index="${chosen}"]`)?.scrollIntoView({ block: "nearest" });
   }, [chosen]);
@@ -244,26 +285,52 @@ export function CapturePanel({ id }: { id: string }) {
 
   // The message box says who gets it (Enter sends; ⌘↩ from elsewhere in the panel).
   const placeholder = !target
-    ? "Choose who gets it on the left"
+    ? item?.kind === "group"
+      ? `Open ${item.group.title} on the left to choose its agent`
+      : "Choose who gets it on the left"
     : target.kind === "project"
       ? `Message a new agent in a new workspace of ${target.project.name}… (/ for skills, @ for files)`
       : target.kind === "workspace"
         ? `Message a new agent in ${target.title}… (/ for skills, @ for files)`
         : `Message ${target.title}${target.running ? " (it's working: this joins its turn)" : ""}… (/ for skills, @ for files)`;
 
-  const agents = shown.filter((t) => t.kind === "agent");
-  const workspaceRows = shown.filter((t) => t.kind === "workspace");
-  const projects = shown.filter((t) => t.kind === "project");
-  const row = (t: CaptureTarget) => {
-    const i = shown.indexOf(t);
-    const sub = t.kind === "agent" ? [t.running ? "Working" : "", t.place].filter(Boolean).join(" · ") : t.place;
+  const row = (it: Item, i: number) => {
+    const chosenRow = it === item;
+    if (it.kind === "group") {
+      const g = it.group;
+      const count = `${g.agents.length} ${g.agents.length === 1 ? "agent" : "agents"}${g.running ? ` · ${g.running} working` : ""}`;
+      return (
+        <div
+          key={it.key}
+          role="option"
+          data-index={i}
+          aria-selected={chosenRow}
+          className={`cap-target cap-workspace${chosenRow ? " chosen" : ""}`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => openWorkspace(g)}
+          title={g.title}
+        >
+          <span className={`cap-dot${g.running ? " running" : ""}`} aria-hidden />
+          <span className="cap-target-text">
+            <span className="cap-target-title">{g.title}</span>
+            <span className="cap-target-place">{[g.place, count].filter(Boolean).join(" · ")}</span>
+          </span>
+          <span className="cap-chevron" aria-hidden>
+            ›
+          </span>
+        </div>
+      );
+    }
+    const t = it.target;
+    const title = t.kind === "workspace" ? "New agent in this workspace" : t.title;
+    const sub = t.kind === "agent" ? [t.running ? "Working" : "", t.agent.provider.split("/").pop()].filter(Boolean).join(" · ") : t.kind === "workspace" ? "" : t.place;
     return (
       <div
-        key={t.key}
+        key={it.key}
         role="option"
         data-index={i}
-        aria-selected={t === target}
-        className={`cap-target${t === target ? " chosen" : ""}${t.kind === "project" ? " new" : ""}`}
+        aria-selected={chosenRow}
+        className={`cap-target${chosenRow ? " chosen" : ""}${t.kind !== "agent" ? " new" : ""}`}
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setChosen(i)}
         onDoubleClick={() => void send(undefined, t)}
@@ -273,29 +340,44 @@ export function CapturePanel({ id }: { id: string }) {
           {t.kind !== "agent" ? "+" : ""}
         </span>
         <span className="cap-target-text">
-          <span className="cap-target-title">{t.title}</span>
+          <span className="cap-target-title">{title}</span>
           {sub && <span className="cap-target-place">{sub}</span>}
         </span>
       </div>
     );
   };
+  const firstProject = shown.findIndex((it) => it.kind === "target");
 
   return (
     <div className="cap" ref={root} onKeyDown={onKey}>
       <aside className="cap-side" aria-label="Who gets it">
         <div className="cap-side-inner">
+          {group && (
+            <div className="cap-crumb">
+              <button type="button" className="cap-back" onClick={back} title="All workspaces (Backspace in an empty search)" aria-label="All workspaces">
+                ‹ Workspaces
+              </button>
+              <div className="cap-crumb-text" title={group.title}>
+                <strong>{group.title}</strong>
+                {group.place && <span>{group.place}</span>}
+              </div>
+            </div>
+          )}
           <input
             className="cap-search"
-            placeholder="Search sessions and projects"
+            placeholder={group ? `Search ${group.title}` : "Search workspaces and agents"}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => search(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                 e.preventDefault();
                 step(e.key === "ArrowDown" ? 1 : -1);
               } else if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
                 e.preventDefault();
-                void send();
+                pick(item);
+              } else if (e.key === "Backspace" && !query && group) {
+                e.preventDefault();
+                back();
               }
             }}
             aria-label="Search agents and projects"
@@ -304,12 +386,11 @@ export function CapturePanel({ id }: { id: string }) {
           <div className="cap-targets" id="cap-targets" role="listbox" ref={listBox} aria-label="Sessions and projects">
             {!targets && !failure && <div className="cap-empty">Reading your agents…</div>}
             {targets && !shown.length && <div className="cap-empty">Nothing matches “{query}”.</div>}
-            {agents.length > 0 && <div className="cap-group">Sessions</div>}
-            {agents.map(row)}
-            {workspaceRows.length > 0 && <div className="cap-group">New agent in a workspace</div>}
-            {workspaceRows.map(row)}
-            {projects.length > 0 && <div className="cap-group">New agent in a new workspace</div>}
-            {projects.map(row)}
+            {!group && shown[0]?.kind === "group" && <div className="cap-group">Workspaces</div>}
+            {shown.map((it, i) => [
+              !group && i === firstProject && <div key="new-head" className="cap-group">New workspace in</div>,
+              row(it, i),
+            ])}
           </div>
         </div>
       </aside>

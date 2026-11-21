@@ -111,3 +111,50 @@ export function filterTargets(targets: CaptureTarget[], query: string): CaptureT
     return words.every((w) => text.includes(w));
   });
 }
+
+/** A workspace in the panel's first list: its agents and a new agent there (`newAgent`; none for agents without a
+ * workspace the fleet lists, "Other sessions"). */
+export type CaptureGroup = {
+  key: string;
+  title: string;
+  place: string;
+  agents: Extract<CaptureTarget, { kind: "agent" }>[];
+  newAgent?: Extract<CaptureTarget, { kind: "workspace" }>;
+  running: number;
+  active: number;
+};
+
+/**
+ * The targets as the panel lists them: workspaces, the most recently active first (their agents' latest, else when
+ * made), each holding its agents (most recent first) and a new agent there; agents in no listed workspace in "Other
+ * sessions" last; then a new workspace in each project.
+ */
+export function groupTargets(targets: CaptureTarget[]): { groups: CaptureGroup[]; projects: Extract<CaptureTarget, { kind: "project" }>[] } {
+  const byKey = new Map<string, CaptureGroup>();
+  const order: CaptureGroup[] = [];
+  for (const t of targets)
+    if (t.kind === "workspace") {
+      const g: CaptureGroup = { key: t.key, title: t.title, place: t.place, agents: [], newAgent: t, running: 0, active: t.active };
+      byKey.set(`${t.workspace.host ?? ""}|${t.workspace.workspaceId}`, g);
+      order.push(g);
+    }
+  let other: CaptureGroup | undefined;
+  for (const t of targets) {
+    if (t.kind !== "agent") continue;
+    const g =
+      (t.agent.workspaceId && byKey.get(`${t.agent.host ?? ""}|${t.agent.workspaceId}`)) ||
+      (other ??= { key: "workspace:other", title: "Other sessions", place: "Not in a workspace", agents: [], running: 0, active: 0 });
+    g.agents.push(t);
+    if (t.running) g.running++;
+    g.active = Math.max(g.active, t.active);
+  }
+  const groups = order.sort((a, b) => b.active - a.active);
+  if (other) groups.push(other);
+  return { groups, projects: targets.filter((t): t is Extract<CaptureTarget, { kind: "project" }> => t.kind === "project") };
+}
+
+/** The workspaces the search finds: by the workspace's own words or any of its agents'. */
+export function filterGroups(groups: CaptureGroup[], query: string): CaptureGroup[] {
+  if (!query.trim()) return groups;
+  return groups.filter((g) => (g.newAgent && filterTargets([g.newAgent], query).length) || filterTargets(g.agents, query).length);
+}

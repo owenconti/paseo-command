@@ -287,10 +287,13 @@ and GitHub publication; report the published version and release link.
   from the video (click rings drawn), draws the numbered `contact-sheet.png` and writes `capture.json`, then `capture.gif` in the
   background, all in the data folder's `captures/<cap-yyyymmdd-hhmmss>/`. Then the send panel (`CaptureSend.swift`, a key but
   non-activating panel at the top of the screen, over the app you were in) shows `capture.html?id=` (`web/src/capture/`:
-  `CapturePanel.tsx`, `targets.ts`; 920 px wide, two columns, the user's ask): on the left the search over your sessions
-  ("Sessions", two-line rows), then "New agent in a workspace" (each workspace not stale, its agents' latest activity first: New
-  agent there, `newAgent {workspaceId}`), then "New agent in a new workspace" (each project: New agent in Worktree mode, `newAgent
-  {projectId, isolation: "worktree"}`, `DispatchTarget.isolation`), as tall as the right column; on the right the sheet, your message in the app's own `Composer` (draft mode, its draft the panel's,
+  `CapturePanel.tsx`, `targets.ts`; 920 px wide, two columns, the user's ask): on the left, in two levels (the user's ask; `groupTargets`, `filterGroups`
+  in `targets.ts`): "Workspaces" (each not stale, its agents' latest activity first, with its agents and how many work; agents in
+  no listed workspace under "Other sessions") then "New workspace in" each project (New agent in Worktree mode, `newAgent {projectId,
+  isolation: "worktree"}`, `DispatchTarget.isolation`); a workspace opens (click, Enter) to its agents and "New agent in this
+  workspace" (`newAgent {workspaceId}`), "‹ Workspaces" or Backspace in the empty search going back. It opens in the most recently
+  active workspace with its latest agent chosen. The search filters the level shown (a workspace by its own words or its agents'),
+  as tall as the right column; on the right the sheet, your message in the app's own `Composer` (draft mode, its draft the panel's,
   `capture:<id>`, so it stays as the target changes; its /skills and @files the chosen target's folder's, as New agent's, asked with a model, without which the daemon
   lists none: an agent's own, a project's provider's first; images pasted or
   dropped go with the sheet, `images`/`attachments` in the send, and into New agent), and a searchable list of agents (most recently active first; not

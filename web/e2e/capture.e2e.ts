@@ -79,15 +79,23 @@ test("the send panel sends the capture, with your message, to the agent chosen",
     await page.waitForFunction(() => document.activeElement?.id === "capture-composer");
     await page.keyboard.type("The labels overlap here");
     assert.equal(await composer.inputValue(), "The labels overlap here");
-    // Agents, then a new agent in each project.
-    const titles = await page.locator(".cap-target-title").allInnerTexts();
-    assert.ok(titles.includes("Idler") && titles.includes("Runner"), titles.join(", "));
-    // Sessions, then "New agent in" each project, in the left column.
-    assert.deepEqual(await page.locator(".cap-group").allInnerTexts(), ["SESSIONS", "NEW AGENT IN A WORKSPACE", "NEW AGENT IN A NEW WORKSPACE"]);
-    assert.ok(await page.locator(".cap-side .cap-target.new").count() > 0);
+    // It opens in the most recently active workspace: its agents, then a new agent there.
+    assert.equal(await page.locator(".cap-crumb strong").innerText(), "Map polish");
+    assert.deepEqual(await page.locator(".cap-target-title").allInnerTexts(), ["Runner", "Idler", "New agent in this workspace"]);
+    await page.screenshot({ path: "/tmp/capture-panel-workspace.png" });
+    // Back: the workspaces, then a new workspace in each project.
+    await page.getByRole("button", { name: "All workspaces" }).click();
+    assert.deepEqual(await page.locator(".cap-group").allInnerTexts(), ["WORKSPACES", "NEW WORKSPACE IN"]);
+    assert.deepEqual((await page.locator(".cap-workspace .cap-target-title").allInnerTexts()).slice(0, 3), ["Map polish", "Labels", "Schema"]);
+    assert.match(await page.locator(".cap-workspace").first().innerText(), /2 agents · 1 working/);
+    await page.screenshot({ path: "/tmp/capture-panel-workspaces.png" });
+    // A workspace opens to its agents.
+    await page.locator(".cap-workspace", { hasText: "Map polish" }).click();
+    assert.equal(await page.locator(".cap-crumb strong").innerText(), "Map polish");
     // The search narrows; ↓ chooses; ⌘↩ sends from anywhere in the panel.
     await page.locator(".cap-search").fill("runn");
-    assert.deepEqual(await page.locator(".cap-target-title").allInnerTexts(), ["Runner"]);
+    // The search narrows its agents; a new agent there stays offered.
+    assert.deepEqual(await page.locator(".cap-target-title").allInnerTexts(), ["Runner", "New agent in this workspace"]);
     assert.match((await composer.getAttribute("placeholder")) ?? "", /^Message Runner \(it's working: this joins its turn\)/);
     // ⌘↩ from outside the composer sends what it holds.
     await page.locator(".cap-search").press("Meta+Enter");
@@ -207,10 +215,15 @@ test("a workspace in the send panel asks for a new agent there, a project for on
   const page = await context.newPage();
   const sent = await panel(page);
   try {
-    // The three kinds, each under its head.
-    assert.deepEqual(await page.locator(".cap-group").allInnerTexts(), ["SESSIONS", "NEW AGENT IN A WORKSPACE", "NEW AGENT IN A NEW WORKSPACE"]);
-    await page.locator(".cap-search").fill("workspace labels");
+    // Backspace in the empty search: the workspaces; Enter on one opens it.
+    await page.locator(".cap-search").focus();
+    await page.keyboard.press("Backspace");
+    await page.locator(".cap-search").fill("labels");
     assert.deepEqual(await page.locator(".cap-target-title").allInnerTexts(), ["Labels"]);
+    await page.locator(".cap-search").press("Enter");
+    assert.deepEqual(await page.locator(".cap-target-title").allInnerTexts(), ["Finisher", "Asker for leave", "New agent in this workspace"]);
+    // ↑ from the first: the new agent there.
+    await page.locator(".cap-search").press("ArrowUp");
     assert.match((await page.locator("#capture-composer").getAttribute("placeholder")) ?? "", /^Message a new agent in Labels…/);
     await page.locator("#capture-composer").fill("Start on this");
     await page.locator(".cap-search").press("Enter");
@@ -226,6 +239,7 @@ test("a workspace in the send panel asks for a new agent there, a project for on
   const sent2 = await panel(page2);
   try {
     await page2.locator("#capture-composer").fill("Start on this");
+    await page2.getByRole("button", { name: "All workspaces" }).click();
     await page2.locator(".cap-search").fill("new workspace atlas");
     assert.match((await page2.locator("#capture-composer").getAttribute("placeholder")) ?? "", /^Message a new agent in a new workspace of atlas…/);
     await page2.locator(".cap-search").press("Enter");
@@ -344,6 +358,7 @@ test("a project in the panel asks for its folder's /skills with the provider's f
     return route.fulfill({ json: { error: null, commands: [{ name: "prep", description: "Prepare", argumentHint: "", kind: "skill" }] } });
   });
   try {
+    await page.getByRole("button", { name: "All workspaces" }).click();
     await page.locator(".cap-search").fill("new workspace atlas");
     const composer = page.locator("#capture-composer");
     await composer.click();
