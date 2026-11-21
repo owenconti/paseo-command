@@ -51,6 +51,7 @@ import {
   type Tooltip,
 } from "@codemirror/view";
 import { getCM, Vim, vim } from "@replit/codemirror-vim";
+import { setWrapSetting, toggleWrapSetting, wrapSetting } from "./wrapSetting";
 
 /** What a buffer's keys and Ex commands ask of the Files tab. */
 export type BufferActions = {
@@ -78,6 +79,7 @@ export type Parts = {
   lsp: Compartment;
   diff: Compartment;
   readOnly: Compartment;
+  wrap: Compartment;
 };
 export const newParts = (): Parts => ({
   language: new Compartment(),
@@ -86,6 +88,7 @@ export const newParts = (): Parts => ({
   lsp: new Compartment(),
   diff: new Compartment(),
   readOnly: new Compartment(),
+  wrap: new Compartment(),
 });
 
 const dark = () => document.documentElement.dataset.theme !== "light";
@@ -183,7 +186,15 @@ function setUpVim() {
   map("[d", "paseoPrevDiagnostic");
   map("<C-p>", "paseoQuickOpen");
   map("<Space>rn", "paseoRename");
+  // :set wrap / :set nowrap (and :set wrap?) are the Files tab's line wrapping, every buffer's.
+  Vim.defineOption("wrap", wrapSetting(), "boolean", [], (value?: boolean | string) => {
+    if (value === undefined) return wrapSetting();
+    setWrapSetting(value === true || value === "true");
+  });
 }
+
+/** ⌥Z: wrap long lines or keep them whole (VS Code's key), every buffer's; ahead of vim, which takes ⌥Z's Ω in normal mode. */
+const wrapKey = keymap.of([{ key: "Alt-z", run: () => (toggleWrapSetting(), true), preventDefault: true }]);
 
 /** The keys every buffer has, vim or not. */
 const paneKeys = keymap.of([
@@ -253,12 +264,13 @@ const cursorHover = StateField.define<Tooltip | null>({
 });
 
 /** A buffer's starting state. */
-export function bufferState(text: string, parts: Parts, options: { vim: boolean; readOnly: boolean }): EditorState {
+export function bufferState(text: string, parts: Parts, options: { vim: boolean; readOnly: boolean; wrap: boolean }): EditorState {
   setUpVim();
   return EditorState.create({
     doc: text,
     extensions: [
-      // Vim first: its keys go ahead of every other keymap.
+      wrapKey,
+      // Vim next: its keys go ahead of every other keymap.
       parts.vim.of(options.vim ? vim({ status: true }) : []),
       lineNumbers(),
       highlightActiveLineGutter(),
@@ -286,6 +298,7 @@ export function bufferState(text: string, parts: Parts, options: { vim: boolean;
       parts.lsp.of([]),
       parts.diff.of([]),
       parts.readOnly.of(options.readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(true)] : []),
+      parts.wrap.of(options.wrap ? EditorView.lineWrapping : []),
       EditorView.contentAttributes.of({ "aria-label": "File", spellcheck: "false", autocorrect: "off", autocapitalize: "off" }),
     ],
   });
@@ -306,6 +319,8 @@ export async function loadLanguage(view: EditorView, parts: Parts, path: string)
 /** Every buffer follows the app's light or dark theme, and the vim setting. */
 export const reconfigureTheme = (view: EditorView, parts: Parts) => view.dispatch({ effects: parts.theme.reconfigure(themeOf()) });
 export const reconfigureVim = (view: EditorView, parts: Parts, on: boolean) => view.dispatch({ effects: parts.vim.reconfigure(on ? vim({ status: true }) : []) });
+/** Long lines wrapped, or kept whole (a split diff's buffer keeps them whole, as its base does). */
+export const reconfigureWrap = (view: EditorView, parts: Parts, on: boolean) => view.dispatch({ effects: parts.wrap.reconfigure(on ? EditorView.lineWrapping : []) });
 
 /** Whether the buffer's vim is in insert or visual mode (Esc is then vim's, never the page's). */
 export function vimMode(view: EditorView): "normal" | "insert" | "visual" | null {

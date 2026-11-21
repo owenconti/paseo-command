@@ -28,6 +28,7 @@ import {
   newParts,
   reconfigureTheme,
   reconfigureVim,
+  reconfigureWrap,
   setActions,
   setHover,
   themeOf,
@@ -36,6 +37,7 @@ import {
 import { LspConnection, type LspState } from "./lsp";
 import { languageOf, placeOf, workspaceUri, type ServerGroup } from "./paths";
 import { onVimSetting, vimSetting } from "./vimSetting";
+import { onWrapSetting, wrapSetting } from "./wrapSetting";
 import { SplitDiff } from "./split";
 
 export type FilesWorkspace = { id: string; host?: string; name: string; branch?: string };
@@ -217,7 +219,7 @@ const goTo = (b: Buffer, line?: number, col = 1) => {
 function makeBuffer(f: Files, key: string, path: string, text: string, saved: Saved | null, outside?: Buffer["outside"]): Buffer {
   const parts = newParts();
   const view = new EditorView({
-    state: bufferState(text, parts, { vim: vimSetting(), readOnly: !!outside }),
+    state: bufferState(text, parts, { vim: vimSetting(), readOnly: !!outside, wrap: wrapSetting() }),
     dispatch: (tr, v) => {
       v.update([tr]);
       if (tr.docChanged) {
@@ -564,6 +566,8 @@ function applyDiff(f: Files, b: Buffer) {
     } else b.split.setBase(b.diff.base);
     b.view.dispatch({ effects: b.parts.diff.reconfigure(b.split.bufferExtension) });
   }
+  // A split diff's two sides line up line by line, so its buffer keeps lines whole, as its base does.
+  reconfigureWrap(b.view, b.parts, wrapSetting() && !b.split);
   if (f.active === b.key) place(f);
   changed();
 }
@@ -810,6 +814,10 @@ async function hoverAtCursor(b: Buffer) {
 // Settings → Files' vim switch, followed by every open buffer.
 onVimSetting(() => {
   for (const f of all.values()) for (const b of f.buffers) reconfigureVim(b.view, b.parts, vimSetting());
+});
+// ⌥Z, :set wrap and Settings → Files' wrap switch, followed by every open buffer (but a split diff's).
+onWrapSetting(() => {
+  for (const f of all.values()) for (const b of f.buffers) reconfigureWrap(b.view, b.parts, wrapSetting() && !b.split);
 });
 let themeWatch: MutationObserver | null = null;
 export function followTheme() {

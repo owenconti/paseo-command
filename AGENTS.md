@@ -884,7 +884,11 @@ dark, the file's language from `@codemirror/language-data` by name, search, fold
 then a match starting the file's name and covering more of it, then the shorter path; 200 shown), each row the name as one
 piece with its matched letters marked in runs, then its folder, `name:line` to a line. Vim keys
 (`@replit/codemirror-vim`; Settings → Files "Vim keys in the Files tab", `files:vim`, on by default, `vimSetting.ts`):
-`:w` `:wa` `:x` `:q` `:e` `:diff` and `gd` `gy` `gr` `K` ⌃O ⌃I `]d` `[d` `<space>rn` are the tab's (`setUpVim`); the
+`:w` `:wa` `:x` `:q` `:e` `:diff` and `gd` `gy` `gr` `K` ⌃O ⌃I `]d` `[d` `<space>rn` are the tab's (`setUpVim`); long lines
+wrap or stay whole (the user's ask: Settings → Files "Wrap long lines in the Files tab", `files:wrap`, off by default,
+`wrapSetting.ts`; ⌥Z in the editor, a keymap ahead of vim's, which takes ⌥Z's Ω in normal mode; vim's `:set wrap` /
+`:set nowrap`, `Vim.defineOption`; ⌘K "Wrap / Don't wrap long lines in Files"), every buffer's `wrap` compartment at once,
+but a split diff's, whose sides line up line by line (`applyDiff`); the
 editor's keydowns without ⌘ stop at it, so Esc is vim's, never the page's. Saving (⌘S, `:w`) is `POST /api/files/write`
 (`filesWrite`: the daemon's `writeFile` with the read's `modifiedAt`/`revision`, never over another version: `conflict`);
 the shown file's version (`GET /api/files/version`, one daemon `subscribeFile` per file held while asked,

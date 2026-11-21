@@ -235,6 +235,29 @@ test("the Files tab: first of the four tools, the branch's changes with a file's
     await page.keyboard.press("Enter");
     await page.locator(".files-tab[aria-selected=true]").getByText("long.ts").waitFor();
     assert.equal(await page.locator(".files-tab").count(), 3);
+    // Wrapping long lines: off at first; ⌥Z in the editor turns it on for every file, :set nowrap off, ⌘K on again,
+    // kept across a reload. A side-by-side diff keeps its lines whole.
+    const wraps = () => page.locator(".files-editor .cm-content.cm-lineWrapping").count();
+    assert.equal(await wraps(), 0);
+    await editor(page).click();
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Alt+z");
+    await waitFor(wraps, (n) => n === 1, "⌥Z wraps");
+    await page.keyboard.type(":set nowrap");
+    await page.keyboard.press("Enter");
+    await waitFor(wraps, (n) => n === 0, ":set nowrap");
+    await page.keyboard.press("Meta+k");
+    await page.getByRole("combobox", { name: "Search commands" }).fill("wrap long lines");
+    await page.getByRole("option", { name: /^Wrap long lines in Files/ }).click();
+    await waitFor(wraps, (n) => n === 1, "⌘K wraps");
+    assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:files:wrap")), "true");
+    await page.locator(".files-tab").getByText("app.ts").click();
+    await page.getByRole("radio", { name: "Split" }).click();
+    await page.locator(".files-split").waitFor();
+    assert.equal(await page.locator(".files-split .cm-content.cm-lineWrapping").count(), 0, "a split diff keeps lines whole");
+    await page.getByRole("radio", { name: "Stacked" }).click();
+    await page.locator(".files-split").waitFor({ state: "detached" });
+    await waitFor(wraps, (n) => n === 1, "the stacked diff wraps again");
   } finally {
     await context.close();
   }

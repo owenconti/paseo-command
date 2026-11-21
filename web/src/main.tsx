@@ -130,6 +130,7 @@ import { FloatingPanel } from "./FloatingPanel";
 import { AppPanel } from "./AppPanel";
 import { CrewDetail } from "./crew/CrewDetail";
 import { useGlanceData } from "./crew/Glance";
+import { toggleWrapSetting, useWrapSetting } from "./code/wrapSetting";
 import { SIDE_GROUPS, SIDE_SORTS, setCrewSideGroup, setCrewSideSort, useCrewSide } from "./crew/sideStore";
 import { ASK_EVENT, askWorkspaceEditor, takeEditorAsk, type EditorAsk } from "./crew/workspaceEditorAsks";
 import { useOpenAgentMode } from "./agentModeStore";
@@ -700,6 +701,7 @@ function App() {
   const crewShown = (appMode === "crew" || appMode === "command") && !settingsShown;
   const crewPlace: "map" | "conversation" | "both" = !macApp() ? "both" : appMode === "crew" ? "map" : "conversation";
   const crewSide = useCrewSide();
+  const filesWrap = useWrapSetting();
   const crewSideHidden = crewSide.hidden;
   // Boxes are claimed and released outside the app too: read them now and then while the crew shows.
   usePoolPolling(integrations.pool && crewShown);
@@ -1725,6 +1727,15 @@ function App() {
         ...(codeShown
           ? [
               { id: "files-sidebar", group: "Navigate", page: "Command" as const, label: "Show or hide the Files sidebar", keys: [["⌘", "B"]], keywords: "files sidebar list tree changes collapse expand panel hide show", run: () => runAppCommand("files-sidebar") },
+              {
+                id: "files-wrap",
+                group: "Navigate",
+                page: "Command" as const,
+                label: filesWrap ? "Don't wrap long lines in Files" : "Wrap long lines in Files",
+                keys: [["⌥", "Z"]],
+                keywords: "files wrap line wrapping long lines soft wrap nowrap editor",
+                run: toggleWrapSetting,
+              },
               { id: "files-diff-split", group: "Navigate", page: "Command" as const, label: "Show diffs side by side in Files", keywords: "files diff split side by side two columns layout base", run: () => void import("./code/store").then((m) => m.setDiffLayout("split")) },
               { id: "files-diff-stacked", group: "Navigate", page: "Command" as const, label: "Show diffs stacked in Files", keywords: "files diff stacked unified inline one column layout", run: () => void import("./code/store").then((m) => m.setDiffLayout("stacked")) },
               { id: "files-go-to-file", group: "Navigate", page: "Command" as const, label: "Go to file…", keys: [["⌘", "P"]], keywords: "files quick open find file path fuzzy jump", run: () => window.dispatchEvent(new CustomEvent("paseo:files-quick-open")) },

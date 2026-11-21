@@ -21,6 +21,7 @@ import { macApp } from "./worldBridge";
 import { plainText } from "./ui";
 import { DEFAULT_CHANGES_COMMAND, DEFAULT_EDITOR_COMMAND, changesCommandProblem, editorCommandProblem } from "./files/editorCommand";
 import { setVimSetting, useVimSetting } from "./code/vimSetting";
+import { setWrapSetting, useWrapSetting } from "./code/wrapSetting";
 import { saveFilesSettings, useFilesSettings } from "./files/filesSettings";
 import { Picker } from "./Picker";
 import { familyCss, familyLabel, parseLineHeight, setTerminalFont, useTerminalFont, type TerminalFontValues } from "./terminalFont";
@@ -559,13 +560,22 @@ function BoardBrowserSettings() {
 /** Settings → Files: the Files tab's editor. */
 function FilesTabSettings() {
   const vim = useVimSetting();
+  const wrap = useWrapSetting();
   return (
-    <SwitchRow
-      title="Vim keys in the Files tab"
-      description="Normal, insert and visual modes, motions, registers, macros and Ex commands (:w saves, :e opens a file). Off, the editor's keys are the usual ones. Either way: ⌘P goes to a file, F12 or ⌘-click to a definition, ⇧F12 lists usages, F2 renames."
-      checked={vim}
-      onChange={setVimSetting}
-    />
+    <>
+      <SwitchRow
+        title="Vim keys in the Files tab"
+        description="Normal, insert and visual modes, motions, registers, macros and Ex commands (:w saves, :e opens a file). Off, the editor's keys are the usual ones. Either way: ⌘P goes to a file, F12 or ⌘-click to a definition, ⇧F12 lists usages, F2 renames."
+        checked={vim}
+        onChange={setVimSetting}
+      />
+      <SwitchRow
+        title="Wrap long lines in the Files tab"
+        description="Long lines wrap at the editor's edge instead of scrolling sideways, in every open file and stacked diffs (⌥Z in the editor, or vim's :set wrap and :set nowrap). Side-by-side diffs keep their lines whole, so their two sides stay level."
+        checked={wrap}
+        onChange={setWrapSetting}
+      />
+    </>
   );
 }
 
