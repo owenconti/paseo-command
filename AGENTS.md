@@ -1012,7 +1012,11 @@ too (its tab strip, address or the conversation; `BoardBrowser.tsx`'s window key
 entry says ⌘R). Tabs (addresses and
 titles, at most 12 an agent, the 40 most recently used agents') come back on launch, unloaded, in the app's preferences
 (`boardBrowserState`; check runs keep none). Its pages have a cookie store of their own, apart from the app's and your
-default browser's: an agent never acts with your logins. Nothing is downloaded.
+default browser's: an agent never acts with your logins. Nothing is downloaded (the context menu's download items are hidden).
+Links open in new tabs as browsers do (the user's ask): ⌘-click and a middle click open one behind, ⇧⌘-click shows it
+(`BrowserPolicy.newTab`, in `decidePolicyFor`); the context menu's Open Link in New Tab (WebKit's "…New Window", retitled
+by `TabWebView`) opens one behind; a link asking for a window of its own (`target=_blank`, `window.open`) becomes a tab
+that shows, as before (`createWebViewWith`), at most `maxTabs` an agent.
 Agents open and drive its tabs with Paseo's own browser tools, not a tool of this app's: the daemon gives agents
 `browser_new_tab`, `browser_list_tabs`, `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_fill`,
 `browser_type`, `browser_keypress`, `browser_select`, `browser_hover`, `browser_drag`, `browser_scroll`, `browser_wait`,

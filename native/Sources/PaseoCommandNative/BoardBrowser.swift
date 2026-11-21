@@ -1030,6 +1030,16 @@ final class BoardBrowser: NSObject, WKNavigationDelegate, WKUIDelegate, WKScript
         if ["about", "blob", "data"].contains(scheme) { return decisionHandler(main && scheme == "data" ? .cancel : .allow) }
         // mailto:, tel:, javascript: and the rest go nowhere.
         guard ["http", "https"].contains(scheme) else { return decisionHandler(.cancel) }
+        // ⌘-click, ⇧⌘-click or a middle click on a link: a new tab of the same browser, as browsers do.
+        if let shows = BrowserPolicy.newTab(link: navigationAction.navigationType == .linkActivated,
+                                            flags: navigationAction.modifierFlags, button: navigationAction.buttonNumber),
+           BrowserPolicy.refusal(url, host: tab.host) == nil {
+            decisionHandler(.cancel)
+            guard (browsers[AgentBrowser.key(tab.host, tab.agent)]?.tabs.count ?? 0) < Self.maxTabs else { return }
+            open(host: tab.host, agent: tab.agent, workspace: tab.workspace, url: url, select: shows && shownTab === tab)
+            arrange()
+            return
+        }
         if BrowserPolicy.refusal(url, host: tab.host) != nil {
             if main {
                 tab.failure = "This agent runs on another host, so its browser doesn't open this Mac's own addresses (\(url.host ?? ""))."
@@ -1052,8 +1062,10 @@ final class BoardBrowser: NSObject, WKNavigationDelegate, WKUIDelegate, WKScript
                  windowFeatures: WKWindowFeatures) -> WKWebView? {
         guard let tab = tab(of: webView), let url = navigationAction.request.url, BrowserPolicy.refusal(url, host: tab.host) == nil,
               (browsers[AgentBrowser.key(tab.host, tab.agent)]?.tabs.count ?? 0) < Self.maxTabs else { return nil }
-        // Shown at once when a person clicked; an agent's stays behind the tab it works in.
-        open(host: tab.host, agent: tab.agent, workspace: tab.workspace, url: url, select: tab.busy == 0 && shownTab === tab)
+        // Shown at once when a person clicked; an agent's stays behind the tab it works in, as does one opened from the
+        // context menu (Open Link in New Tab) or with ⌘ held (WebKit's own ⌘-click on a target=_blank link).
+        let behind = (webView as? TabWebView)?.fromMenu == true || navigationAction.modifierFlags.contains(.command) && !navigationAction.modifierFlags.contains(.shift)
+        open(host: tab.host, agent: tab.agent, workspace: tab.workspace, url: url, select: tab.busy == 0 && shownTab === tab && !behind)
         arrange()
         return nil
     }

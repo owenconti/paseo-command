@@ -223,4 +223,14 @@ _ = js("(document.body.innerHTML = Array.from({ length: 900 }, (_, i) => '<butto
 let big = run("snapshot").value
 assert(big["truncated"] as? Bool == true && (big["stats"] as? [String: Any])?["refCount"] as? Int == 500)
 assert((big["snapshot"] as! String).hasSuffix("cut short.\""))
+
+// A link in a new tab, as browsers do: ⌘-click and a middle click behind; ⇧⌘-click (and ⇧ middle) shown; else in place.
+assert(BrowserPolicy.newTab(link: true, flags: .command, button: 0) == false)
+assert(BrowserPolicy.newTab(link: true, flags: [.command, .shift], button: 0) == true)
+assert(BrowserPolicy.newTab(link: true, flags: [], button: 2) == false)
+assert(BrowserPolicy.newTab(link: true, flags: .shift, button: 2) == true)
+assert(BrowserPolicy.newTab(link: true, flags: [], button: 0) == nil)
+assert(BrowserPolicy.newTab(link: true, flags: .shift, button: 0) == nil, "⇧-click alone opens in place")
+assert(BrowserPolicy.newTab(link: true, flags: [.command, .option], button: 0) == nil, "⌥⌘ isn't a new tab")
+assert(BrowserPolicy.newTab(link: false, flags: .command, button: 0) == nil, "only a link's click")
 print("Board browser automation checks passed.")

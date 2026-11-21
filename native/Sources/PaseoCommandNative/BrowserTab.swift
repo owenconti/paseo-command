@@ -39,7 +39,7 @@ final class BrowserTab: NSObject {
     /// `prepare` sets it up before anything loads.
     func load(_ configuration: WKWebViewConfiguration, prepare: (WKWebView) -> Void) -> WKWebView {
         if let web { return web }
-        let web = WKWebView(frame: .zero, configuration: configuration)
+        let web = TabWebView(frame: .zero, configuration: configuration)
         attach(web)
         prepare(web)
         if let savedURL { web.load(URLRequest(url: savedURL)) }
@@ -91,3 +91,32 @@ final class BrowserTab: NSObject {
     }
 }
 
+
+/// An agent's browser tab's web view: its context menu's "Open Link in New Window" says New Tab, as that's what it does
+/// (`createWebViewWith` makes a tab), and opens it behind the tab it was in, as browsers do (`fromMenu`); nothing is
+/// downloaded, so the download items go.
+final class TabWebView: WKWebView {
+    /// A context menu's choice is under way: the tab it opens stays behind.
+    private(set) var fromMenu = false
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+        for item in menu.items {
+            switch item.identifier?.rawValue {
+            case "WKMenuItemIdentifierOpenLinkInNewWindow": item.title = "Open Link in New Tab"
+            case "WKMenuItemIdentifierOpenImageInNewWindow": item.title = "Open Image in New Tab"
+            case "WKMenuItemIdentifierOpenFrameInNewWindow": item.title = "Open Frame in New Tab"
+            case "WKMenuItemIdentifierDownloadLinkedFile", "WKMenuItemIdentifierDownloadImage", "WKMenuItemIdentifierDownloadMedia":
+                item.isHidden = true
+            default: break
+            }
+        }
+        fromMenu = true
+    }
+
+    override func didCloseMenu(_ menu: NSMenu, with event: NSEvent?) {
+        super.didCloseMenu(menu, with: event)
+        // The item's action comes just after the menu closes.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.fromMenu = false }
+    }
+}

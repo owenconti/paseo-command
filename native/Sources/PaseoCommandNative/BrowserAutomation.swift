@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// What an agent's browser tools ask of the board's browser (`BoardBrowser.swift`), as Paseo's daemon sends
@@ -127,6 +128,17 @@ enum BrowserPolicy {
     }
 
     /// Why `url` may not open in a tab of an agent on `host` (nil: it may).
+    /// A link a person opens in a new tab, as browsers do: ⌘-click or a middle click, behind the tab it was in; ⇧⌘-click
+    /// shown at once. Nil: it opens where it was clicked. (Links that ask for a window of their own, `target=_blank` and
+    /// `window.open`, become tabs through `createWebViewWith`.) The answer: whether the new tab shows.
+    static func newTab(link: Bool, flags: NSEvent.ModifierFlags, button: Int) -> Bool? {
+        guard link else { return nil }
+        let flags = flags.intersection([.command, .shift, .option, .control])
+        if button == 2 { return flags.contains(.shift) }
+        guard flags.contains(.command), !flags.contains(.option), !flags.contains(.control) else { return nil }
+        return flags.contains(.shift)
+    }
+
     static func refusal(_ url: URL, host: String) -> String? {
         guard ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return "Only http and https addresses open in the browser." }
         if host != "local", isLoopback(url) {
