@@ -32,6 +32,8 @@ type Props = {
   width: number;
   resize: (w: number | null) => void;
   hide: () => void;
+  /** Its cards' keys in the order shown (folded groups left out), or null as it goes. */
+  onOrder?: (keys: string[] | null) => void;
 };
 
 const words = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
@@ -79,6 +81,11 @@ export function CrewSide(props: Props) {
     rows[next]?.focus();
   };
   const groups = groupItems(props.items, group, sort);
+  // Its order as shown (folded groups left out), for J/K and ↑/↓ in main (`sideOrder.ts`).
+  const shownKeys = groups.flatMap((g) => (g.label && collapsed.includes(g.key) ? [] : g.items.map((i) => i.key))).join("\n");
+  const onOrder = props.onOrder;
+  useEffect(() => onOrder?.(shownKeys ? shownKeys.split("\n") : []), [shownKeys, onOrder]);
+  useEffect(() => () => onOrder?.(null), [onOrder]);
   const now = Date.now();
 
   const card = (item: SideCard) => {

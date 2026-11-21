@@ -896,8 +896,10 @@ the component Crew's drawer is.
   notification, the GitHub tab's Open in agent) opens it. There are no lists (the Agents, Workspaces, Projects and Hosts
   tabs, their filters and the host filter were removed: Crew is the list). The bar's "need you" opens the next agent
   that needs you.
-- J/K (and → / ←, ‹ › in the conversation's header) and N walk a stable roster (`conversationOrder.ts`: host, project,
-  workspace, age). The shortcuts dialog's "The crew" group lists Crew's keys.
+- J/K (and → / ←, ↓ / ↑, ‹ › in the conversation's header) and N walk a stable roster (`conversationOrder.ts`: host, project,
+  workspace, age); while the crew list shows (the macOS app's Command tab), its order as shown instead: its grouping and sort,
+  folded groups left out (the user's ask: ↓ went to an agent elsewhere in the list; `crew/sideOrder.ts`, published by
+  `CrewSide`'s `onOrder`, `inSideOrder` in main; the header's "n / m" counts it too). The shortcuts dialog's "The crew" group lists Crew's keys.
 - The robots, drones, glows, marks and medallions are `parts.tsx`'s, from the art in `rendering/src/assets/dungeon/`
   (`sheets.ts`, sizes checked against the PNGs in `roster.test.ts`); an agent's report in the chat shows its robot
   (`Robot`). All motion is CSS and stops with reduced motion. The fleet's vocabulary (states, models and robot colours,

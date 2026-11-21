@@ -4,7 +4,7 @@
  * opens it in the drawer on the map's right (`CrewDetail`, the same component the session panel shows beside the other
  * tabs); Back (or Esc) returns to the map. A workspace's head archives it, and a claimed pool box's host head releases
  * the box. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Archive, ArrowLeft, ChevronDown, FolderTree, Globe, GripVertical, RotateCcw, Terminal, X } from "lucide-react";
 import { STATE_NAMES, STATE_PRIORITY, modelName, type State } from "../model/fleet";
 import { PoolClaims } from "../PoolClaims";
@@ -23,6 +23,7 @@ import { CrewDetail } from "./CrewDetail";
 import { orderHosts, placeHost, showHosts, stepHost, useHostOrder } from "./hostOrder";
 import { Medals, Portrait, useCrewData, type CrewFleet } from "./parts";
 import { CrewSide, type SideCard } from "./CrewSide";
+import { setSideOrder } from "./sideOrder";
 import { readCrewSideWidth, setCrewSideHidden, toggleCrewSide, useCrewSideHidden, writeCrewSideWidth } from "./sideStore";
 import { onAppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
@@ -257,6 +258,20 @@ export function CrewMap(props: Props) {
   useEffect(() => {
     if (selected) board.current?.querySelector(`[data-key="${CSS.escape(selected)}"]`)?.scrollIntoView({ block: "nearest" });
   }, [selected]);
+  // The crew list's order, as agent ids, for J/K and ↑/↓ (`sideOrder.ts`).
+  const snapshotNow = useRef(snapshot);
+  snapshotNow.current = snapshot;
+  const onSideOrder = useCallback(
+    (keys: string[] | null) =>
+      setSideOrder(
+        keys &&
+          keys.flatMap((key) => {
+            const s = targetSelection({ kind: "agent", key }, snapshotNow.current);
+            return s?.type === "agent" ? [s.id] : [];
+          }),
+      ),
+    [],
+  );
   const pick = (kind: "agent" | "workspace" | "project", key: string) => {
     if (props.blocked) return;
     const s = targetSelection({ kind, key }, snapshot);
@@ -393,6 +408,7 @@ export function CrewMap(props: Props) {
           width={sideWidth}
           resize={(w) => setSideWidth(writeCrewSideWidth(w))}
           hide={() => setCrewSideHidden(true)}
+          onOrder={onSideOrder}
         />
       )}
       {nothingOpen && (

@@ -888,6 +888,30 @@ test("in the macOS app the Command tab has the crew as a list on its left; ⌘S 
   await page.context().close();
 });
 
+test("J/K and ↓/↑ step through the crew list in the order it shows, not the map's roster", async () => {
+  const page = await open({ mac: true });
+  await map(page).locator(".crew-node").first().waitFor();
+  await page.locator('.crew-node[data-state="idle"]').first().click();
+  const side = page.getByRole("navigation", { name: "Crew list" });
+  await side.waitFor();
+  const cards = () => side.locator(".crew-side-card").evaluateAll((els) => els.map((el) => el.getAttribute("data-key")));
+  const current = () => side.locator('.crew-side-card[aria-current="true"]').getAttribute("data-key");
+  // Grouped by status, so its order is far from the roster's (host, project, workspace, age).
+  await side.getByRole("button", { name: "Display preferences" }).click();
+  await side.getByRole("menuitemradio", { name: "Status" }).click();
+  await page.keyboard.press("Escape");
+  await side.getByRole("menu").waitFor({ state: "detached" });
+  await side.locator(".crew-side-card").first().click();
+  const order = await cards();
+  assert.equal(await current(), order[0]);
+  for (const [key, want] of [["j", 1], ["ArrowDown", 2], ["k", 1], ["ArrowUp", 0], ["k", order.length - 1]] as const) {
+    await page.locator(".crew-stage-state").click();
+    await page.keyboard.press(key);
+    await waitFor(current, (k) => k === order[want], `${key}: the card at ${want}`);
+  }
+  await page.context().close();
+});
+
 test("⌥⌘B (the app's View menu asks the page) hides the tools beside the conversation and shows the last one again", async () => {
   const page = await open({ mac: true });
   await map(page).locator(".crew-node").first().waitFor();

@@ -4,6 +4,7 @@ import "./mermaid/mermaid.css";
 import { mermaidPalette, useMermaidCommands } from "./mermaidCommands";
 import { useMapBridge } from "./mapBridge";
 import { conversationOrder } from "./conversationOrder";
+import { inSideOrder, useSideOrder } from "./crew/sideOrder";
 import { hostRank, resetHostOrder, stepHost, useHostOrder } from "./crew/hostOrder";
 import {
   browserFollowsSetting,
@@ -795,9 +796,14 @@ function App() {
       setNotice(message);
     },
   });
-  // J/K, ‹ › and N walk a stable roster: host, project, workspace, then age (reading a reply never reorders it).
+  // J/K, ‹ › and N walk a stable roster: host, project, workspace, then age (reading a reply never reorders it); while
+  // the crew list shows beside the conversation, its order as shown instead (its grouping and sort: the card below).
   const { order: hostOrder, shown: shownHosts } = useHostOrder();
-  const navigationOrder = useMemo(() => conversationOrder(active, hostRank(hostOrder)), [active, hostOrder]);
+  const sideOrder = useSideOrder();
+  const navigationOrder = useMemo(
+    () => inSideOrder(conversationOrder(active, hostRank(hostOrder)), sideOrder),
+    [active, hostOrder, sideOrder],
+  );
   const order = navigationOrder;
   const attentionAgents = useMemo(
     () => active.filter((a) => needsAttention(a, needYou)),
