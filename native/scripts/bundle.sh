@@ -1,6 +1,7 @@
 #!/bin/sh
 # Build the native app with its own Node, server and page.
-#   sh native/scripts/bundle.sh             native/build/Paseo Command Dev.app (port 4321, ad-hoc signed)
+#   sh native/scripts/bundle.sh             native/build/Paseo Command Dev.app (port 4321, signed with your
+#                                           Developer ID when there is one, else ad hoc; no hardened runtime)
 #   sh native/scripts/bundle.sh --release   native/release/Paseo Command.app (port 4310, signed with
 #                                           your Developer ID under the hardened runtime, updating
 #                                           itself with Sparkle; release.mjs notarizes it)
@@ -39,8 +40,13 @@ if [ "$flavour" = release ]; then
   fi
   name="Paseo Command"; id=io.github.owenconti.paseo-command; port=4310; out=release
 else
-  identity=-
+  # Your Developer ID when there is one, so macOS knows each rebuild as the same app and keeps what you
+  # allowed it (Screen & System Audio Recording for screen captures). An ad hoc signature is the build's own
+  # hash, so every rebuild was a stranger whose grant had gone. Without one, ad hoc as before.
+  identity=$(node "$root/scripts/signing.mjs" identity 2>/dev/null) || identity=-
   hardened=
+  # Builds stay offline: no secure timestamp (only notarization needs one).
+  stamp=--timestamp=none
   name="Paseo Command Dev"; id=io.github.owenconti.paseo-command.dev; port=4321; out=build
 fi
 cd "$here"
@@ -105,7 +111,7 @@ ditto "$bin/Sparkle.framework" "$app/Contents/Frameworks/Sparkle.framework"
 # docs sign it outside Xcode), then the app. codesign's own output is kept for a failure.
 sign() {
   target=$1; shift
-  if ! log=$(codesign --force --sign "$identity" "$@" "$target" 2>&1); then
+  if ! log=$(codesign --force --sign "$identity" ${stamp:-} "$@" "$target" 2>&1); then
     echo "codesign failed for $target:" >&2
     echo "$log" >&2
     exit 1

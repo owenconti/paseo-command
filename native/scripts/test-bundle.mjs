@@ -57,6 +57,12 @@ for (const f of flavours) {
   check('CFBundleVersion', /^[1-9][0-9]*$/.test(build), `(got ${build}, want a positive integer)`);
   try { run('codesign', ['--verify', '--deep', '--strict', app]); } catch (e) { check('codesign', false, String(e.stderr ?? e).trim()); }
   const adhoc = /flags=0x\w*\(adhoc/.test(execFileSync('sh', ['-c', 'codesign -dvv "$0" 2>&1', app], { encoding: 'utf8' }));
+  // A dev copy signed with a Developer ID is required by its identity and team, not its hash, so a rebuild
+  // keeps what macOS allowed it (Screen & System Audio Recording).
+  if (f.flavour === 'dev' && !adhoc) {
+    const requirement = execFileSync('sh', ['-c', 'codesign -dr - "$0" 2>&1', app], { encoding: 'utf8' });
+    check('dev designated requirement', !/cdhash/.test(requirement) && /certificate leaf/.test(requirement), `(got ${requirement.trim().split('\n').pop()})`);
+  }
   if (f.flavour === 'release' && adhoc) console.log(`${f.dir}: unsigned (ad hoc) release build; Developer ID checks skipped`);
   if (f.flavour === 'release' && !adhoc) {
     // Notarization needs Developer ID signatures under the hardened runtime, with the entitlements it needs.

@@ -162,6 +162,10 @@ final class CaptureController: NSObject, NSMenuDelegate {
                 Log.line("capture \(id): couldn't start: \(error.localizedDescription)")
                 self.teardown()
                 try? FileManager.default.removeItem(at: folder)
+                // macOS refused though the setting may show on: its grant was for another build of the app.
+                if (error as NSError).domain == SCStreamErrorDomain, (error as NSError).code == SCStreamError.Code.userDeclined.rawValue {
+                    return self.permissionHelp(stale: true)
+                }
                 self.notice("Couldn't record the screen", error.localizedDescription)
             }
         }
@@ -253,10 +257,19 @@ final class CaptureController: NSObject, NSMenuDelegate {
             if CGRequestScreenCaptureAccess() { start() }
             return
         }
+        permissionHelp(stale: false)
+    }
+
+    /// Where to allow recording. `stale`: macOS refused though the app may be listed as allowed (a grant
+    /// for an earlier build of it), so it says to turn it off and on again.
+    private func permissionHelp(stale: Bool) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "\(AppFlavor.name) needs to record your screen"
-        alert.informativeText = "Turn on \(AppFlavor.name) in System Settings → Privacy & Security → Screen & System Audio Recording, then press \(Self.hotkeyLabel) again. macOS may ask you to quit and reopen the app first."
+        alert.messageText = stale ? "macOS didn't let \(AppFlavor.name) record the screen" : "\(AppFlavor.name) needs to record your screen"
+        let settings = "System Settings → Privacy & Security → Screen & System Audio Recording"
+        alert.informativeText = stale
+            ? "Its permission may be for an earlier build of the app. In \(settings), turn \(AppFlavor.name) off and on again (or remove it with − and press \(Self.hotkeyLabel) to be asked again), then quit and reopen the app."
+            : "Turn on \(AppFlavor.name) in \(settings), then press \(Self.hotkeyLabel) again. macOS may ask you to quit and reopen the app first."
         alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "Not Now")
         if alert.runModal() == .alertFirstButtonReturn,

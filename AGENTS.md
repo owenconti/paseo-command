@@ -104,7 +104,8 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
   ad hoc signed, non-notarized release while no Developer ID is available; its notes explain Open Anyway.
 - `npm run app:typecheck`: checks the React app's and the API's TypeScript.
 - `npm run app:e2e`: browser tests of the app against a mocked fleet (no daemon is reached).
-- `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`), the React app in a WKWebView, built as the dev flavour "Paseo Command Dev" (`io.github.owenconti.paseo-command.dev`,
+- `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`), the React app in a WKWebView, built as the dev flavour "Paseo Command Dev" (`io.github.owenconti.paseo-command.dev`;
+  signed with the Developer ID when the keychain has one, else ad hoc, so macOS's permissions survive rebuilds;
   port 4321, no updates, data in `~/Library/Application Support/Paseo Command Dev/`); `sh native/scripts/bundle.sh --release` (done by
   `npm run release`) builds "Paseo Command" (`io.github.owenconti.paseo-command`, port 4310, Sparkle). `native:mock` serves web/dist
   with a mocked fleet. See `native/README.md`. The app is self-contained: `Contents/Resources/node/node`, `server/server.mjs` and `ui/`
@@ -256,7 +257,9 @@ and GitHub publication; report the published version and release link.
   capture for an agent", "Send the last screen capture to an agent…", `menu` `capture-start|capture-last`) record the display
   under the pointer (`Capture.swift` `CaptureController`; `CaptureRecorder.swift`: ScreenCaptureKit straight to an H.264
   `recording.mp4` through `AVAssetWriter`, long edge ≤ 2560 px, 30 fps; needs Screen & System Audio Recording, asked on first use;
-  the ad hoc signed Dev app may need it granted again after a rebuild). While it records, holding ⇧ and dragging draws red ink
+  the Dev app is signed with the Developer ID when there is one (`bundle.sh`, no hardened runtime or timestamp), so a rebuild keeps
+  the grant; an ad hoc build's grant is its hash's, gone with the next build, and a refusal (`SCStreamError.userDeclined`) says to
+  turn it off and on again, `permissionHelp`). While it records, holding ⇧ and dragging draws red ink
   on a non-activating overlay (`CaptureOverlay.swift` `InkOverlay`, in the recording; ⇧ read from `NSEvent.modifierFlags`, no
   event tap), clicks elsewhere are noted (a global mouse monitor, no permission), and a capsule (`CaptureHUD`, left out of the
   recording) has the time, Clear ink, Cancel and Done. The hotkey or Done finishes: `CaptureBundle.swift` picks keyframes
