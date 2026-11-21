@@ -97,12 +97,14 @@ const dark = () => document.documentElement.dataset.theme !== "light";
 
 /** The app's look: its surfaces, text, lines and accent, a monospace at the pages' text size. */
 const look = EditorView.theme({
-  "&": { height: "100%", color: "var(--text)", backgroundColor: "var(--surface, var(--panel))", fontSize: "calc(var(--fs-sm) + var(--page-text, 0px) * 0.5)" },
-  ".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "1.55" },
+  // Settings → Files' text size and line height (`lookSetting.ts`), else the pages' text size and 1.55.
+  "&": { height: "100%", color: "var(--text)", backgroundColor: "var(--surface, var(--panel))", fontSize: "var(--files-font-size, calc(var(--fs-sm) + var(--page-text, 0px) * 0.5))" },
+  ".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "var(--files-line-height, 1.55)" },
   ".cm-content": { caretColor: "var(--accent)" },
   ".cm-gutters": { backgroundColor: "var(--surface, var(--panel))", color: "var(--text-4)", borderRight: "1px solid var(--line-soft, var(--line))" },
-  ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--text-2)" },
-  ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--fill) 55%, transparent)" },
+  // The cursor's row: a band in the accent, its number bright in the gutter.
+  ".cm-activeLineGutter": { backgroundColor: "color-mix(in srgb, var(--accent) 10%, transparent)", color: "var(--text-strong)" },
+  ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--accent) 10%, transparent)" },
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": { backgroundColor: "color-mix(in srgb, var(--accent) 28%, transparent) !important" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--accent)" },
   // Lines an agent showed (show_in_files): a band and an edge in the accent, until the file is edited or another range shows.

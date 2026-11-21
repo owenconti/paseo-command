@@ -181,7 +181,7 @@ and GitHub publication; report the published version and release link.
   back to the side before, the gear and ⌘, opening it again; ⌘` steps on from that side; the palette's Settings asks with `menu` `settings`; a saved
   `settings` mode still shows it), in a browser the page's own state (its bar's gear; Esc or its × closes it). Laid out as the other pages (a resizable sidebar of its
   sections, the chosen one beside it under its heading, kept in localStorage; ↑/↓ step through them; Manage … key opens Integrations): sound and music (a
-  volume only while its sound is on), notifications, integrations, New agent (presets, profiles), Files (the Files tab's vim keys and wrapping),
+  volume only while its sound is on), notifications, integrations, New agent (presets, profiles), Files (the Files tab's text size, line height, vim keys and wrapping),
   Terminal (the macOS app's terminal font: family from a searchable `Picker`, size, line height (a typed number: any value above 0 up to 100,
   applied as it parses, ↑/↓ stepping 0.05; what can't work is said beside it and the last good value stays), letter spacing, a preview and Restore defaults; ⌘K
   "Terminal settings…", `openSettings("terminal")`; in a browser it says it's the app's). Rows put what a setting is on the left and
@@ -910,6 +910,11 @@ editing with vim keys), drawn by the page (`web/src/code/`), unlike the terminal
 hide the Files sidebar" too, `files-sidebar`, kept as `files:sidebarHidden`; ⌃B stays vim's) of Uncommitted (`GET /api/changes?mode=uncommitted`), Branch
 (`mode=all`: everything the branch changes against its base, committed or not; the default, `files:side`) or All files
 (`files/tree`, folder by folder, `files:tree:<host>|<workspace>`); a changed file opens with its diff against that base.
+Its text size and line height are Settings → Files' (the user's ask: `code/lookSetting.ts`, `files:fontSize`
+and `files:lineHeight` in localStorage, set on the page as `--files-font-size` and `--files-line-height`, which the editor's
+look reads; unset, the size follows the pages' text, 12 px and 1.5× their step, and lines are 1.55; every open view measures
+again as they change; sliders, a preview and Restore defaults; ⌘K "Files tab settings…", `openSettings("files")`), and the
+cursor's row is a band in the accent with its number bright (`.cm-activeLine`, `.cm-activeLineGutter`).
 Open files are tabs (`store.ts`, per workspace for the page's life: stepping away keeps unsaved edits; at most 24, the
 oldest unchanged one going first), each a CodeMirror 6 view (`editor.ts`: the app's tokens, `oneDarkHighlightStyle` in
 dark, the file's language from `@codemirror/language-data` by name, search, folding, brackets, lint gutter). ⌘P (⌃P and

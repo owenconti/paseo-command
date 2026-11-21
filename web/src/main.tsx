@@ -2697,6 +2697,14 @@ function App() {
       run: () => openSettings("terminal"),
     },
     {
+      id: "files-settings",
+      group: "App",
+      page: "Settings" as const,
+      label: "Files tab settings… (text size, line height, vim keys, wrapping)",
+      keywords: "files editor font text size line height spacing vim wrap code settings",
+      run: () => openSettings("files"),
+    },
+    {
       id: "radio",
       group: "App",
       page: "Settings" as const,

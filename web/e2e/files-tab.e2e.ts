@@ -466,3 +466,47 @@ test("an agent's show_in_files opens the Files tab at its place as it arrives, i
     await context.close();
   }
 });
+
+test("Settings → Files sizes the editor's text and line height; the cursor's row is marked", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 950 });
+  try {
+    await openFilesTab(page);
+    await page.locator(".files-row[data-kind=M]").click();
+    await editor(page).waitFor();
+    const scroller = page.locator(".files-editor .cm-scroller").first();
+    const style = () => scroller.evaluate((el) => ({ size: getComputedStyle(el).fontSize, line: getComputedStyle(el).lineHeight }));
+    // The default: the pages' text size (12 px and one and a half times their 2 px step), 1.55 lines.
+    assert.deepEqual(await style(), { size: "15px", line: "23.25px" });
+    // The cursor's row: a band across the text and its number.
+    await editor(page).click();
+    const band = await page.locator(".files-editor .cm-activeLine").first().evaluate((el) => getComputedStyle(el).backgroundColor);
+    assert.notEqual(band, "rgba(0, 0, 0, 0)", "the cursor's row is tinted");
+    assert.equal(await page.locator(".files-editor .cm-activeLineGutter").count() > 0, true);
+    // Settings → Files: 16 px, 1.8 lines.
+    await appEvent(page, "paseo:mode", { mode: "settings" });
+    await page.locator('.settings-nav-item[data-section="files"]').click();
+    const set = (name: string, value: number) =>
+      page.getByRole("slider", { name }).evaluate((el, v) => {
+        const input = el as HTMLInputElement;
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, String(v));
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }, value);
+    await set("Text size in the Files tab", 16);
+    await set("Line height in the Files tab", 1.8);
+    assert.match(await page.locator(".settings-range output").first().innerText(), /^16 px$/);
+    await appEvent(page, "paseo:mode", { mode: "command" });
+    await waitFor(style, (s) => s.size === "16px" && s.line === "28.8px", "the editor's new size");
+    // Kept across reloads.
+    assert.deepEqual(await page.evaluate(() => [localStorage.getItem("paseo-command:files:fontSize"), localStorage.getItem("paseo-command:files:lineHeight")]), ["16", "1.8"]);
+    // Restore defaults: the pages' size again.
+    await appEvent(page, "paseo:mode", { mode: "settings" });
+    await page.getByRole("button", { name: "Restore defaults" }).click();
+    await appEvent(page, "paseo:mode", { mode: "command" });
+    await waitFor(style, (s) => s.size === "15px" && s.line === "23.25px", "the default size again");
+    assert.deepEqual(await page.evaluate(() => [localStorage.getItem("paseo-command:files:fontSize"), localStorage.getItem("paseo-command:files:lineHeight")]), [null, null]);
+  } finally {
+    await context.close();
+  }
+});

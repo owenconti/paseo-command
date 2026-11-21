@@ -38,6 +38,7 @@ import { LspConnection, type LspState } from "./lsp";
 import { languageOf, placeOf, workspaceUri, type ServerGroup } from "./paths";
 import { onVimSetting, vimSetting } from "./vimSetting";
 import { onWrapSetting, wrapSetting } from "./wrapSetting";
+import { onFilesLook } from "./lookSetting";
 import { SplitDiff } from "./split";
 
 export type FilesWorkspace = { id: string; host?: string; name: string; branch?: string };
@@ -814,6 +815,16 @@ async function hoverAtCursor(b: Buffer) {
 // Settings → Files' vim switch, followed by every open buffer.
 onVimSetting(() => {
   for (const f of all.values()) for (const b of f.buffers) reconfigureVim(b.view, b.parts, vimSetting());
+});
+// Settings → Files' text size and line height: every open view (a split's base too) measures again.
+onFilesLook(() => {
+  requestAnimationFrame(() => {
+    for (const f of all.values())
+      for (const b of f.buffers) {
+        b.view.requestMeasure();
+        b.split?.base.requestMeasure();
+      }
+  });
 });
 // ⌥Z, :set wrap and Settings → Files' wrap switch, followed by every open buffer (but a split diff's).
 onWrapSetting(() => {

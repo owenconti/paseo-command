@@ -21,6 +21,8 @@ import { macApp } from "./worldBridge";
 import { plainText } from "./ui";
 import { setVimSetting, useVimSetting } from "./code/vimSetting";
 import { setWrapSetting, useWrapSetting } from "./code/wrapSetting";
+import { FILES_LOOK, resetFilesLook, setFilesLook, useFilesLook } from "./code/lookSetting";
+import { usePageTextStep } from "./pageText";
 import { Picker } from "./Picker";
 import { familyCss, familyLabel, parseLineHeight, setTerminalFont, useTerminalFont, type TerminalFontValues } from "./terminalFont";
 
@@ -88,7 +90,8 @@ export function SettingsPage({
   // Opening (the gear, ⌘,, the palette, Manage … key) puts the keyboard in the
   // page: on its section in the sidebar, or on the asked integration's key editor.
   useEffect(() => {
-    const terminal = request.target === "terminal" || request.target === "browser" ? request.target : null;
+    // A section of its own (not an integration's key).
+    const terminal = request.target === "terminal" || request.target === "browser" || request.target === "files" ? request.target : null;
     if (terminal) setSection(terminal);
     else if (request.target) setSectionState("integrations");
     let tries = 0;
@@ -556,8 +559,43 @@ function BoardBrowserSettings() {
 function FilesTabSettings() {
   const vim = useVimSetting();
   const wrap = useWrapSetting();
+  const look = useFilesLook();
+  // Unset, the editor's size follows the pages' text: their small size (12 px and the step) and half the step again.
+  const pageSize = 12 + usePageTextStep() * 1.5;
+  const size = look.fontSize ?? pageSize;
+  const changed = look.fontSize !== null || look.lineHeight !== FILES_LOOK.lineHeight.default;
   return (
     <>
+      <RangeRow
+        title="Text size in the Files tab"
+        description={look.fontSize === null ? "Follows the pages' text size (⌘+ and ⌘−) until you set it." : "The editor's text, whatever the pages' size."}
+        value={size}
+        range={[FILES_LOOK.size.min, FILES_LOOK.size.max]}
+        step={FILES_LOOK.size.step}
+        format={(v) => `${trim(v, 1)} px`}
+        onChange={(v) => setFilesLook({ fontSize: v })}
+      />
+      <RangeRow
+        title="Line height in the Files tab"
+        description="The space each line takes, as a multiple of the text size."
+        value={look.lineHeight}
+        range={[FILES_LOOK.lineHeight.min, FILES_LOOK.lineHeight.max]}
+        step={FILES_LOOK.lineHeight.step}
+        format={(v) => trim(v, 2)}
+        onChange={(v) => setFilesLook({ lineHeight: v })}
+      />
+      <div className="settings-row terminal-font-preview-row">
+        <pre
+          className="terminal-font-preview files-look-preview"
+          aria-label="Preview"
+          style={{ fontSize: `${size}px`, lineHeight: look.lineHeight }}
+        >
+          {"export function total(items: Item[]) {\n  return items.reduce((n, i) => n + i.price, 0);\n}"}
+        </pre>
+        <button className="secondary" disabled={!changed} onClick={resetFilesLook}>
+          Restore defaults
+        </button>
+      </div>
       <SwitchRow
         title="Vim keys in the Files tab"
         description="Normal, insert and visual modes, motions, registers, macros and Ex commands (:w saves, :e opens a file). Off, the editor's keys are the usual ones. Either way: ⌘P goes to a file, F12 or ⌘-click to a definition, ⇧F12 lists usages, F2 renames."
