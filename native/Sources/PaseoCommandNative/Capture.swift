@@ -249,33 +249,51 @@ final class CaptureController: NSObject, NSMenuDelegate {
     // MARK: Permission and notices
 
     private func askPermission() {
-        // The first time, macOS asks by itself (and lists the app in System Settings).
-        let asked = UserDefaults.standard.bool(forKey: "captureAskedPermission")
-        UserDefaults.standard.set(true, forKey: "captureAskedPermission")
-        if !asked {
-            // macOS's own prompt says what to do; ours would only stack on it.
-            if CGRequestScreenCaptureAccess() { start() }
-            return
-        }
+        // Every time: macOS prompts by itself when it hasn't been asked (the first time, or after the app's entry was
+        // reset or removed) and lists the app in System Settings; otherwise it answers at once. (Asking only once left an
+        // app whose entry had gone, or no longer matched its signature, unable to be asked again.)
+        if CGRequestScreenCaptureAccess() { return start() }
         permissionHelp(stale: false)
     }
 
-    /// Where to allow recording. `stale`: macOS refused though the app may be listed as allowed (a grant
-    /// for an earlier build of it), so it says to turn it off and on again.
+    /// Where to allow recording. `stale`: macOS refused though the app may be listed as allowed (an entry for an
+    /// earlier build of it, signed otherwise). Reset and Ask Again clears this app's entry only (`tccutil reset
+    /// ScreenCapture <its bundle id>`) and asks macOS again, which prompts.
     private func permissionHelp(stale: Bool) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = stale ? "macOS didn't let \(AppFlavor.name) record the screen" : "\(AppFlavor.name) needs to record your screen"
         let settings = "System Settings → Privacy & Security → Screen & System Audio Recording"
-        alert.informativeText = stale
-            ? "Its permission may be for an earlier build of the app. In \(settings), turn \(AppFlavor.name) off and on again (or remove it with − and press \(Self.hotkeyLabel) to be asked again), then quit and reopen the app."
-            : "Turn on \(AppFlavor.name) in \(settings), then press \(Self.hotkeyLabel) again. macOS may ask you to quit and reopen the app first."
+        alert.informativeText = (stale
+            ? "Its permission may be for an earlier build of the app. "
+            : "Turn on \(AppFlavor.name) in \(settings), then press \(Self.hotkeyLabel) again. ")
+            + "If it's already on there, or isn't listed, choose Reset and Ask Again: macOS forgets this app's entry and asks you again. After allowing it, quit and reopen the app if macOS asks."
+        alert.addButton(withTitle: "Reset and Ask Again")
         alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "Not Now")
-        if alert.runModal() == .alertFirstButtonReturn,
-           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-            NSWorkspace.shared.open(url)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: resetPermission()
+        case .alertSecondButtonReturn:
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") { NSWorkspace.shared.open(url) }
+        default: break
         }
+    }
+
+    /// Forgets this app's Screen Recording entry (only its own: `tccutil` needs no administrator for that) and asks again.
+    private func resetPermission() {
+        guard let id = Bundle.main.bundleIdentifier else { return }
+        let reset = Process()
+        reset.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        reset.arguments = ["reset", "ScreenCapture", id]
+        do {
+            try reset.run()
+            reset.waitUntilExit()
+            Log.line("capture: reset the Screen Recording permission for \(id) (exit \(reset.terminationStatus))")
+        } catch {
+            Log.line("capture: couldn't reset the Screen Recording permission: \(error.localizedDescription)")
+        }
+        // macOS's own prompt, now that it's undecided again.
+        if CGRequestScreenCaptureAccess() { start() }
     }
 
     private func notice(_ title: String, _ text: String) {

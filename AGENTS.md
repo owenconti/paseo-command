@@ -267,8 +267,9 @@ and GitHub publication; report the published version and release link.
   under the pointer (`Capture.swift` `CaptureController`; `CaptureRecorder.swift`: ScreenCaptureKit straight to an H.264
   `recording.mp4` through `AVAssetWriter`, long edge ≤ 2560 px, 30 fps; needs Screen & System Audio Recording, asked on first use;
   the Dev app is signed with the Developer ID when there is one (`bundle.sh`, no hardened runtime or timestamp), so a rebuild keeps
-  the grant; an ad hoc build's grant is its hash's, gone with the next build, and a refusal (`SCStreamError.userDeclined`) says to
-  turn it off and on again, `permissionHelp`). While it records, holding ⇧ and dragging draws red ink
+  the grant; an ad hoc build's grant is its hash's, gone with the next build, and a missing permission asks macOS every time (`CGRequestScreenCaptureAccess`, which prompts
+  only while undecided) and a refusal (`SCStreamError.userDeclined`) offers Reset and Ask Again (`tccutil reset ScreenCapture <bundle id>`,
+  this app's entry only, then macOS's prompt), `permissionHelp`). While it records, holding ⇧ and dragging draws red ink
   on a non-activating overlay (`CaptureOverlay.swift` `InkOverlay`, in the recording; ⇧ read from `NSEvent.modifierFlags`, no
   event tap), clicks elsewhere are noted (a global mouse monitor, no permission), and a capsule (`CaptureHUD`, left out of the
   recording) has the time, Clear ink, Cancel and Done. The hotkey or Done finishes: `CaptureBundle.swift` picks keyframes
