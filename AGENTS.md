@@ -272,7 +272,8 @@ and GitHub publication; report the published version and release link.
   this app's entry only, then macOS's prompt), `permissionHelp`). While it records, holding ⇧ and dragging draws red ink
   on a non-activating overlay (`CaptureOverlay.swift` `InkOverlay`, in the recording; ⇧ read from `NSEvent.modifierFlags`, no
   event tap), clicks elsewhere are noted (a global mouse monitor, no permission), and a capsule (`CaptureHUD`, left out of the
-  recording) has the time, Clear ink, Cancel and Done. The hotkey or Done finishes: `CaptureBundle.swift` picks keyframes
+  recording; always dark, laid out with constraints and sized to fit, `CaptureHUDTests`) has a pulsing dot and the time, the hint, and
+  `PillButton`s Clear (once there's ink), Cancel and Done (the accent: its panel is never key, so system buttons drew gray). The hotkey or Done finishes: `CaptureBundle.swift` picks keyframes
   (`CaptureKeyframes.choose`: each stroke's end, each click, the last frame, moments under 0.75 s merged, at most 12), decodes them
   from the video (click rings drawn), draws the numbered `contact-sheet.png` and writes `capture.json`, then `capture.gif` in the
   background, all in the data folder's `captures/<cap-yyyymmdd-hhmmss>/`. Then the send panel (`CaptureSend.swift`, a key but

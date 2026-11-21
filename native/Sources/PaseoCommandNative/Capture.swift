@@ -88,7 +88,10 @@ final class CaptureController: NSObject, NSMenuDelegate {
     @objc private func startFromMenu() { start() }
     @objc private func finishFromMenu() { finish() }
     @objc private func cancelFromMenu() { cancel() }
-    @objc private func clearInk() { session?.ink.clear() }
+    @objc private func clearInk() {
+        session?.ink.clear()
+        session?.hud.canClear(false)
+    }
     @objc func sendLast() {
         guard let id = Self.latest() else { return notice("No captures yet", "Press \(Self.hotkeyLabel) to record one.") }
         openPanel(id)
@@ -133,8 +136,14 @@ final class CaptureController: NSObject, NSMenuDelegate {
         let hud = CaptureHUD(screen: screen, hotkey: Self.hotkeyLabel)
         hud.onDone = { [weak self] in self?.finish() }
         hud.onCancel = { [weak self] in self?.cancel() }
-        hud.onClear = { [weak self] in self?.session?.ink.clear() }
-        ink.onStroke = { [weak self] host in self?.session?.events.append((.stroke, host, 0, 0)) }
+        hud.onClear = { [weak self, weak hud] in
+            self?.session?.ink.clear()
+            hud?.canClear(false)
+        }
+        ink.onStroke = { [weak self, weak hud] host in
+            self?.session?.events.append((.stroke, host, 0, 0))
+            hud?.canClear(true)
+        }
         recorder.onFailure = { [weak self] why in self?.failed(why) }
         session = Session(id: id, folder: folder, started: started, app: app, screen: screen, recorder: recorder, ink: ink, hud: hud)
         ink.show()

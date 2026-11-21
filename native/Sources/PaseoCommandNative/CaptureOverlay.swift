@@ -114,66 +114,109 @@ final class InkView: NSView {
     }
 }
 
-/// The recording's controls, a capsule at the top of the display, left out of the recording: the time, how to
-/// draw, Clear ink, Done (the hotkey too) and Cancel. A non-activating panel, so its buttons work without bringing
-/// the app forward.
+/// The recording's controls, a capsule at the top of the display, left out of the recording: a pulsing red dot and the
+/// time, how to draw, then Clear (once there's ink), Cancel and Done (the default button; the hotkey too). A
+/// non-activating panel, so its buttons work without bringing the app forward. Always dark, as a recording HUD is; laid
+/// out with constraints and sized to fit, so its row stays centred (`CaptureHUDTests`).
 final class CaptureHUD {
     let panel: CapturePanel
     private let time = NSTextField(labelWithString: "0:00")
     private let hint = NSTextField(labelWithString: "")
+    private let clear = PillButton()
     private var timer: Timer?
     private let started = Date()
     var onDone: (() -> Void)?
     var onCancel: (() -> Void)?
     var onClear: (() -> Void)?
 
+    static let height: CGFloat = 44
+    /// What the hint may say, so its width never changes as it does.
+    static let hints = ["Starting…", "Hold ⇧ and drag to draw", "Saving…"]
+
     init(screen: NSScreen, hotkey: String) {
-        let size = CGSize(width: 470, height: 40)
-        // Below the menu bar (and the notch), centred.
-        let top = screen.visibleFrame.maxY
-        panel = CapturePanel(frame: CGRect(x: screen.frame.midX - size.width / 2, y: top - size.height - 8, width: size.width, height: size.height))
+        panel = CapturePanel(frame: CGRect(x: 0, y: 0, width: 400, height: Self.height))
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
         panel.hasShadow = true
         // Never in a screenshot or recording of the screen, where the system honours it.
         panel.sharingType = .none
-        let effect = NSVisualEffectView(frame: CGRect(origin: .zero, size: size))
+        panel.appearance = NSAppearance(named: .darkAqua)
+
+        let effect = NSVisualEffectView()
         effect.material = .hudWindow
         effect.blendingMode = .behindWindow
         effect.state = .active
         effect.wantsLayer = true
-        effect.layer?.cornerRadius = size.height / 2
+        effect.layer?.cornerRadius = Self.height / 2
+        effect.layer?.cornerCurve = .continuous
         effect.layer?.masksToBounds = true
+        effect.layer?.borderWidth = 1
+        effect.layer?.borderColor = NSColor(white: 1, alpha: 0.12).cgColor
         panel.contentView = effect
 
+        // The dot pulses while it records (still under reduced motion).
         let dot = NSView()
         dot.wantsLayer = true
         dot.layer?.backgroundColor = NSColor.systemRed.cgColor
         dot.layer?.cornerRadius = 5
-        dot.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([dot.widthAnchor.constraint(equalToConstant: 10), dot.heightAnchor.constraint(equalToConstant: 10)])
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            let pulse = CABasicAnimation(keyPath: "opacity")
+            pulse.fromValue = 1
+            pulse.toValue = 0.35
+            pulse.duration = 0.8
+            pulse.autoreverses = true
+            pulse.repeatCount = .infinity
+            dot.layer?.add(pulse, forKey: "pulse")
+        }
         time.font = .monospacedDigitSystemFont(ofSize: 13, weight: .semibold)
-        hint.stringValue = "Hold ⇧ and drag to draw"
-        hint.font = .systemFont(ofSize: 12)
+        time.textColor = .labelColor
+        let divider = NSView()
+        divider.wantsLayer = true
+        divider.layer?.backgroundColor = NSColor(white: 1, alpha: 0.18).cgColor
+        hint.font = .systemFont(ofSize: 13)
         hint.textColor = .secondaryLabelColor
-        func button(_ title: String, _ action: Selector, tip: String) -> NSButton {
-            let b = NSButton(title: title, target: self, action: action)
-            b.bezelStyle = .rounded
-            b.controlSize = .small
+        hint.lineBreakMode = .byTruncatingTail
+        let hintWidth = Self.hints.map { ($0 as NSString).size(withAttributes: [.font: hint.font!]).width }.max()! + 4
+
+        func button(_ b: PillButton, _ title: String, _ action: Selector, tip: String) -> PillButton {
+            b.title = title
+            b.target = self
+            b.action = action
             b.toolTip = tip
             return b
         }
-        let clear = button("Clear ink", #selector(clearInk), tip: "Erase what you've drawn (it stays in the frames already recorded)")
-        let done = button("Done", #selector(done), tip: "Finish and choose who gets it (\(hotkey))")
+        _ = button(clear, "Clear", #selector(clearInk), tip: "Erase what you've drawn (it stays in the frames already recorded)")
+        clear.isEnabled = false
+        let cancel = button(PillButton(), "Cancel", #selector(cancel), tip: "Stop and keep nothing")
+        let done = button(PillButton(prominent: true), "Done", #selector(done), tip: "Finish and choose who gets it (\(hotkey))")
         done.keyEquivalent = "\r"
-        let cancel = button("Cancel", #selector(cancel), tip: "Stop and keep nothing")
-        let row = NSStackView(views: [dot, time, hint, NSView(), clear, cancel, done])
+
+        let row = NSStackView(views: [dot, time, divider, hint, clear, cancel, done])
         row.orientation = .horizontal
-        row.spacing = 8
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 16, bottom: 0, right: 8)
         row.alignment = .centerY
-        row.frame = effect.bounds
-        row.autoresizingMask = [.width, .height]
+        row.spacing = 8
+        row.setCustomSpacing(12, after: time)
+        row.setCustomSpacing(12, after: divider)
+        row.setCustomSpacing(16, after: hint)
+        row.setCustomSpacing(6, after: clear)
+        row.setCustomSpacing(6, after: cancel)
+        row.translatesAutoresizingMaskIntoConstraints = false
         effect.addSubview(row)
+        for v in [dot, divider, hint] { v.translatesAutoresizingMaskIntoConstraints = false }
+        NSLayoutConstraint.activate([
+            dot.widthAnchor.constraint(equalToConstant: 10), dot.heightAnchor.constraint(equalToConstant: 10),
+            divider.widthAnchor.constraint(equalToConstant: 1), divider.heightAnchor.constraint(equalToConstant: 18),
+            hint.widthAnchor.constraint(equalToConstant: ceil(hintWidth)),
+            // The time keeps its width as minutes go by.
+            time.widthAnchor.constraint(greaterThanOrEqualToConstant: ceil(("00:00" as NSString).size(withAttributes: [.font: time.font!]).width) + 2),
+            row.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: 18),
+            row.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -10),
+            row.centerYAnchor.constraint(equalTo: effect.centerYAnchor),
+        ])
+        hint.stringValue = Self.hints[1]
+        // As wide as the row, centred below the menu bar (and the notch).
+        let width = ceil(row.fittingSize.width) + 28
+        let top = screen.visibleFrame.maxY
+        panel.setFrame(CGRect(x: round(screen.frame.midX - width / 2), y: top - Self.height - 10, width: width, height: Self.height), display: false)
     }
 
     func show() {
@@ -186,6 +229,8 @@ final class CaptureHUD {
     }
 
     func say(_ text: String) { hint.stringValue = text }
+    /// Clear is offered once there's ink to clear.
+    func canClear(_ yes: Bool) { clear.isEnabled = yes }
 
     func close() {
         timer?.invalidate()
@@ -195,4 +240,44 @@ final class CaptureHUD {
     @objc private func done() { onDone?() }
     @objc private func cancel() { onCancel?() }
     @objc private func clearInk() { onClear?() }
+}
+
+/// The capsule's buttons, drawn the same whether or not their panel is key (it never is: a system button would draw
+/// gray and flat): a rounded pill, the accent filled for the main one, a faint one otherwise, dimmer while disabled.
+final class PillButton: NSButton {
+    private let prominent: Bool
+    init(prominent: Bool = false) {
+        self.prominent = prominent
+        super.init(frame: .zero)
+        isBordered = false
+        bezelStyle = .regularSquare
+        wantsLayer = true
+        layer?.cornerRadius = 14
+        layer?.cornerCurve = .continuous
+        font = .systemFont(ofSize: 13, weight: prominent ? .semibold : .medium)
+        focusRingType = .none
+        setButtonType(.momentaryChange)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override var title: String { didSet { restyle() } }
+    override var isEnabled: Bool { didSet { restyle() } }
+    override var isHighlighted: Bool { didSet { restyle() } }
+    override var intrinsicContentSize: NSSize {
+        let text = (title as NSString).size(withAttributes: [.font: font ?? .systemFont(ofSize: 13)])
+        return NSSize(width: ceil(text.width) + 26, height: 28)
+    }
+    override func updateLayer() { restyle() }
+    override var wantsUpdateLayer: Bool { true }
+
+    private func restyle() {
+        let fill: NSColor = prominent ? .controlAccentColor : NSColor(white: 1, alpha: 0.14)
+        let pressed = isHighlighted ? 0.75 : 1.0
+        layer?.backgroundColor = fill.withAlphaComponent(fill.alphaComponent * (isEnabled ? pressed : 0.45)).cgColor
+        attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: font ?? .systemFont(ofSize: 13),
+            .foregroundColor: NSColor.white.withAlphaComponent(isEnabled ? 1 : 0.4),
+        ])
+        invalidateIntrinsicContentSize()
+    }
 }
