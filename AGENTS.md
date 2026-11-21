@@ -314,8 +314,8 @@ and GitHub publication; report the published version and release link.
   quoting its sentence), the contact sheet as an image, and, for an agent on this Mac only,
   the bundle's paths (video, frames, GIF) with an ffmpeg line for cutting frames around a moment (`captureMessage`; agents
   elsewhere can't read this Mac's files). A project opens the app's window on New agent there (`paseo:capture` →
-  `capture/appCapture.ts`: `GET /api/captures/:id/draft` into `draft:dispatch` and the composer's attachments); "Open the
-  conversation" after a send selects it. `GET /api/captures`, `/:id`, `/:id/sheet`. Check runs never register the hotkey or the
+  `capture/appCapture.ts`: `GET /api/captures/:id/draft` into `draft:dispatch` and the composer's attachments); a send that
+  works closes the panel at once (the user's ask; Copy says "Copied to the clipboard." a moment first). `GET /api/captures`, `/:id`, `/:id/sheet`. Check runs never register the hotkey or the
   icon; the `capturepanel` hook opens the panel (not key) for `<info>.capture`'s id, and `--info` reports `capture`. Tests:
   `native/tests/CaptureBundleTests.swift` (a generated recording through the whole bundle), `CaptureVoiceTests.swift` (sentences,
   moments, and `say`'s speech heard, when the language's model is on the Mac), `server/captures.test.ts`,

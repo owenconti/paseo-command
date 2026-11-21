@@ -64,7 +64,8 @@ export function CapturePanel({ id }: { id: string }) {
   const [sending, setSending] = useState(false);
   /** A provider's first model on a host, for a project's skills (`host|provider`; "" when it has none). */
   const [firstModels, setFirstModels] = useState<Record<string, string>>({});
-  const [sent, setSent] = useState<{ title: string; agent: string }>();
+  /** Sent: the panel goes at once (the user's ask); until it's gone nothing sends again. */
+  const [sent, setSent] = useState(false);
   const [copied, setCopied] = useState(false);
   /** The transcript is being tidied; the text put into the composer. */
   const [generating, setGenerating] = useState(false);
@@ -142,10 +143,10 @@ export function CapturePanel({ id }: { id: string }) {
 
   // Sent or copied: it says so a moment, then goes.
   useEffect(() => {
-    if (!sent && !copied) return;
-    const t = setTimeout(() => post({ type: "close" }), sent ? 2500 : 1200);
+    if (!copied) return;
+    const t = setTimeout(() => post({ type: "close" }), 1200);
     return () => clearTimeout(t);
-  }, [sent, copied]);
+  }, [copied]);
 
   /** The whole message, as an agent on this Mac would read it, to the clipboard (the app's, else the browser's). */
   async function copy() {
@@ -233,7 +234,8 @@ export function CapturePanel({ id }: { id: string }) {
         ...(to.running ? { behavior: "steer" } : {}),
       });
       done();
-      setSent({ title: to.title, agent: to.agent.id });
+      setSent(true);
+      post({ type: "close" });
       return true;
     } catch (e) {
       setFailure(errorMessage(e) || "Couldn't send it.");
@@ -417,18 +419,9 @@ export function CapturePanel({ id }: { id: string }) {
             ×
           </button>
         </header>
-        {sent || copied ? (
+        {copied ? (
           <div className="cap-sent" role="status">
-            {copied ? (
-              <span>Copied to the clipboard.</span>
-            ) : (
-              <>
-                <span>Sent to {sent!.title}.</span>
-                <button type="button" className="cap-quiet" onClick={() => post({ type: "app", open: sent!.agent })}>
-                  Open the conversation
-                </button>
-              </>
-            )}
+            <span>Copied to the clipboard.</span>
           </div>
         ) : (
           <>
@@ -448,7 +441,7 @@ export function CapturePanel({ id }: { id: string }) {
                 label="Message for the agent"
                 placeholder={placeholder}
                 running={false}
-                disabled={!manifest || sending || !!sent}
+                disabled={!manifest || sending || sent}
                 started={false}
                 modes={[]}
                 onSetMode={() => {}}

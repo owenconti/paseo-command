@@ -101,10 +101,8 @@ test("the send panel sends the capture, with your message, to the agent chosen",
     await page.locator(".cap-search").press("Meta+Enter");
     await waitFor(() => Promise.resolve(sent.length), (n) => n === 1, "the capture sent");
     assert.deepEqual(sent[0].body, { agent: "a-running", message: "The labels overlap here", behavior: "steer" });
-    await page.locator(".cap-sent").waitFor();
-    assert.match(await page.locator(".cap-sent").innerText(), /Sent to Runner/);
-    await page.getByRole("button", { name: "Open the conversation" }).click();
-    assert.ok((await posted(page)).some((m) => m.type === "app" && m.open === "a-running"));
+    // Sent: the panel goes at once.
+    await waitFor(() => posted(page), (p) => p.some((m) => m.type === "close"), "the panel closes");
   } finally {
     await context.close();
   }
@@ -350,7 +348,7 @@ test("the panel's composer offers the chosen target's /skills, and Enter sends w
     assert.equal(sent[0].body.agent, "a-idle");
     assert.equal(sent[0].body.message, "/review-code the header");
     assert.deepEqual(sent[0].body.images, [{ data: SHEET.toString("base64"), mimeType: "image/png" }]);
-    await page.locator(".cap-sent").waitFor();
+    await waitFor(() => posted(page), (p) => p.some((m) => m.type === "close"), "the panel closes");
   } finally {
     await context.close();
   }
