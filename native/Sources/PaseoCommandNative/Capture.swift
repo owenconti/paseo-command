@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Carbon.HIToolbox
 import ScreenCaptureKit
 
@@ -93,6 +94,28 @@ final class CaptureController: NSObject, NSMenuDelegate {
             voice.state = CaptureVoice.wanted ? .on : .off
             voice.toolTip = "Record the microphone with your captures; what you say goes to the agent as text (heard on this Mac)"
             menu.addItem(voice)
+            // Which microphone: the system's default input (as it is when a capture starts), or one pinned.
+            let mics = NSMenuItem(title: "Microphone", action: nil, keyEquivalent: "")
+            let list = NSMenu()
+            let chosen = CaptureVoice.chosenMicrophone
+            let devices = CaptureMicrophone.devices()
+            let pinned = devices.contains { $0.id == chosen }
+            let fallback = AVCaptureDevice.default(for: .audio)?.localizedName
+            let system = NSMenuItem(title: "System Default" + (fallback.map { " (\($0))" } ?? ""), action: #selector(chooseMicrophone(_:)), keyEquivalent: "")
+            system.target = self
+            system.state = pinned ? .off : .on
+            list.addItem(system)
+            list.addItem(.separator())
+            for d in devices {
+                let item = NSMenuItem(title: d.name, action: #selector(chooseMicrophone(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = d.id
+                item.state = d.id == chosen ? .on : .off
+                list.addItem(item)
+            }
+            mics.submenu = list
+            mics.isEnabled = CaptureVoice.wanted
+            menu.addItem(mics)
         }
         menu.addItem(.separator())
         add("Show Captures in Finder", #selector(revealFolder))
@@ -103,6 +126,11 @@ final class CaptureController: NSObject, NSMenuDelegate {
     @objc private func finishFromMenu() { finish() }
     @objc private func cancelFromMenu() { cancel() }
     @objc private func toggleVoice() { CaptureVoice.wanted.toggle() }
+    /// The Microphone menu: a device pinned (its unique id), or the system's default (none).
+    @objc private func chooseMicrophone(_ item: NSMenuItem) {
+        CaptureVoice.chosenMicrophone = item.representedObject as? String
+        Log.line("capture: microphone \(item.representedObject as? String ?? "system default")")
+    }
     @objc private func toggleMute() { mic() }
 
     /// The capsule's mic: mutes or unmutes this capture's voice; off, does what turns it on.
@@ -218,6 +246,7 @@ final class CaptureController: NSObject, NSMenuDelegate {
                 guard self.session?.id == id else { return await recorder.cancel() }
                 self.session?.voice = recorder.recordsVoice
                 hud.mic.state(recorder.recordsVoice ? .on : .off(voice ? "Your microphone couldn't be recorded" : self.micOffReason()))
+                if let name = recorder.microphoneName { hud.mic.toolTip = "Recording your voice from \(name): click to mute" }
                 hud.say("Hold ⇧ and drag to draw")
                 self.session?.clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { _ in
                     // Removed with the session (`teardown`), so it holds the controller only meanwhile.
@@ -291,12 +320,16 @@ final class CaptureController: NSObject, NSMenuDelegate {
                     let words = try await CaptureVoice.words(in: s.recorder.url)
                     speech = CaptureTranscript.sentences(words)
                     events += CaptureTranscript.moments(words).filter { $0 <= duration }.map { CaptureEvent(kind: .said, t: $0) }
-                    if speech.isEmpty { note = "Nothing was said" }
+                    if speech.isEmpty { note = s.recorder.quiet(duration: duration) ?? "Nothing was said" }
                 } catch {
-                    note = error.localizedDescription
+                    note = s.recorder.quiet(duration: duration) ?? error.localizedDescription
                     Log.line("capture \(s.id): no transcript: \(error.localizedDescription)")
                 }
+            } else if s.recorder.recordsVoice {
+                // Recorded, but nothing reached the file: why (silent, gone), unless you muted it throughout.
+                note = s.recorder.quiet(duration: duration)
             }
+            if let mic = s.recorder.microphoneSummary { Log.line("capture \(s.id): microphone \(mic)") }
             self.teardown()
             var bundle = CaptureBundle(folder: s.folder, id: s.id, created: s.started, duration: duration, app: s.app,
                                        size: s.recorder.size, events: events)

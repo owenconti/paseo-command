@@ -439,9 +439,7 @@ export function CapturePanel({ id }: { id: string }) {
                 Generating transcript…
               </div>
             )}
-            {!speaks && manifest?.voice && manifest.transcriptNote && (
-              <div className="cap-status">Your voice is in the video, without a transcript: {manifest.transcriptNote}.</div>
-            )}
+            {!speaks && manifest?.transcriptNote && <div className="cap-status">No transcript: {manifest.transcriptNote}.</div>}
             <div className="cap-composer">
               <Composer
                 draft={{ ...(source ? { source } : {}), ...(host ? { host } : {}), controls: null }}

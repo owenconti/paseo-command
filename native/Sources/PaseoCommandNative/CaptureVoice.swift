@@ -4,8 +4,8 @@ import Speech
 
 /// Your voice in a screen capture: the Microphone permission, and what you said, heard on this Mac from the
 /// recording's sound (Apple's `SpeechAnalyzer` with a `SpeechTranscriber`, macOS 26; nothing leaves the Mac, and it
-/// needs no Speech Recognition permission). The microphone is recorded from macOS 15 (`CaptureRecorder`); before 26
-/// the capture keeps its sound without a transcript.
+/// needs no Speech Recognition permission). The microphone is recorded by `CaptureMicrophone`; before macOS 26 the
+/// capture keeps its sound without a transcript.
 enum CaptureVoice {
     /// Whether to record the microphone with a capture: the menu bar's Record Your Voice and the capsule's mic, kept
     /// in the app's preferences (on by default).
@@ -14,10 +14,13 @@ enum CaptureVoice {
         set { UserDefaults.standard.set(newValue, forKey: "captureVoice") }
     }
 
-    /// The microphone can be recorded at all (ScreenCaptureKit's, macOS 15).
-    static var recordable: Bool {
-        if #available(macOS 15, *) { return true }
-        return false
+    /// The microphone can be recorded (an `AVCaptureSession`'s, on every macOS the app runs on).
+    static var recordable: Bool { true }
+
+    /// The microphone chosen in the menu bar's Microphone menu (its unique id), else nil: the system's default input.
+    static var chosenMicrophone: String? {
+        get { UserDefaults.standard.string(forKey: "captureMicrophone") }
+        set { UserDefaults.standard.set(newValue, forKey: "captureMicrophone") }
     }
 
     static var transcribes: Bool {

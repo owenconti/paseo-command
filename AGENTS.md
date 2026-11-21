@@ -274,15 +274,18 @@ and GitHub publication; report the published version and release link.
   event tap), clicks elsewhere are noted (a global mouse monitor, no permission), and a capsule (`CaptureHUD`, left out of the
   recording; always dark, laid out with constraints and sized to fit, `CaptureHUDTests`) has a pulsing dot and the time, the hint, and
   `PillButton`s Clear (once there's ink), Cancel and Done (the accent: its panel is never key, so system buttons drew gray), and the mic (`MicButton`).
-  Your voice (the user's ask; `CaptureVoice.swift`): from macOS 15 the microphone is an AAC track of `recording.mp4` (ScreenCaptureKit's
-  `captureMicrophone`, on the frames' clock, written from the first frame; `CaptureRecorder` `voice`, `muted`, `voiced`), while the menu bar's
-  Record Your Voice (`captureVoice` in the app's preferences, on by default) is on and the Microphone permission given (asked as a capture
+  Your voice (the user's ask; `CaptureVoice.swift`): the microphone is an AAC track of `recording.mp4` (`CaptureMicrophone.swift`: an
+  `AVCaptureSession` asking for 48 kHz mono float whatever the device gives, its buffers on the host clock as the frames are, written from
+  the first frame; not ScreenCaptureKit's `captureMicrophone`, which went silent a second in on AirPods as they changed profile;
+  `CaptureRecorder` `voice`, `muted`, `voiced`), from the menu bar's Microphone menu's device (`captureMicrophone` in the app's preferences,
+  its unique id; System Default otherwise), while the menu bar's Record Your Voice (`captureVoice`, on by default) is on and the Microphone permission given (asked as a capture
   starts while undecided; `NSMicrophoneUsageDescription`, and the release's hardened runtime has `entitlements/app.plist`'s audio-input). The capsule's
   mic pill shows its level (`onLevel`, four bars) and mutes this capture (the menu too); off, it says why and a click opens System Settings
   or turns the preference on. After Done the capsule says "Hearing what you said…": the recording's sound is transcribed on this Mac (macOS 26's
   `SpeechAnalyzer` with a `SpeechTranscriber` for the Mac's language, no Speech Recognition permission, its model fetched as the capture starts,
   `prepare`; 90 s at most), in sentences (`CaptureTranscript`: punctuation or a 1.2 s pause) into the manifest's `transcript` (`transcriptNote`
-  says why there's none), each sentence a keyframe ("said": its first "this/that/these/those/here/there" 0.3 s on, else its end). The hotkey or Done finishes: `CaptureBundle.swift` picks keyframes
+  says why there's none, naming the microphone when it sent only silence or stopped partway, `CaptureRecorder.quiet`; the panel's "No
+  transcript: …"; each capture's microphone, buffers and loudness are in `native.log`), each sentence a keyframe ("said": its first "this/that/these/those/here/there" 0.3 s on, else its end). The hotkey or Done finishes: `CaptureBundle.swift` picks keyframes
   (`CaptureKeyframes.choose`: each stroke's end, each click, each sentence said, the last frame, moments under 0.75 s merged, at most 12), decodes them
   from the video (click rings drawn), draws the numbered `contact-sheet.png` and writes `capture.json`, then `capture.gif` in the
   background, all in the data folder's `captures/<cap-yyyymmdd-hhmmss>/`. Then the send panel (`CaptureSend.swift`, a key but

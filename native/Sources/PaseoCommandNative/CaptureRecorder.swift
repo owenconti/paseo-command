@@ -5,9 +5,10 @@ import ScreenCaptureKit
 
 /// Records one display to an H.264 `.mp4` with ScreenCaptureKit (macOS 14), the frames going straight to an
 /// `AVAssetWriter`: nothing is kept in memory. Its clock is the host's (`CACurrentMediaTime`), as ScreenCaptureKit
-/// stamps its frames, so the capture's events are timed against `firstFrame`. With `voice` (macOS 15, the Microphone
-/// permission given) the microphone is an AAC track of the same file, on the same clock; `muted` drops its sound
-/// meanwhile, and `onLevel` gives its loudness (0…1) for the capsule's meter.
+/// stamps its frames, so the capture's events are timed against `firstFrame`. With `voice` (the Microphone permission
+/// given) the microphone (`CaptureMicrophone`) is an AAC track of the same file, on the same clock; `muted` drops its
+/// sound meanwhile, `onLevel` gives its loudness (0…1) for the capsule's meter, and `quiet` says afterwards when the
+/// microphone sent silence or stopped partway.
 final class CaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     let url: URL
     /// The recording's size in pixels: the display's, its long edge at most `maxEdge`.
@@ -24,14 +25,24 @@ final class CaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var audio: AVAssetWriterInput?
     /// The microphone is being recorded (asked for, and its stream started).
     private(set) var recordsVoice = false
+    /// The microphone recorded, by name.
+    private(set) var microphoneName: String?
+    private var microphone: CaptureMicrophone?
+    /// The loudest it got (0…1, as `level`), and the host times it first and last sent sound, for `quiet`.
+    private var loudest: Float = 0
+    private var firstHeard: Double?
+    private var lastHeard: Double?
+    private var heardBuffers = 0
     /// Whether the file has any sound (the microphone was recorded and not muted throughout).
     private(set) var voiced = false
     /// Read on the frames' queue; set from anywhere.
     var muted: Bool {
         get { queue.sync { _muted } }
-        set { queue.async { self._muted = newValue } }
+        set { queue.async { self._muted = newValue; if newValue { self.everMuted = true } } }
     }
     private var _muted = false
+    /// Muted at some point: its silence then is yours, not the microphone's.
+    private var everMuted = false
     /// The microphone's loudness, about 10 times a second, on the main queue.
     var onLevel: ((Float) -> Void)?
     private var lastLevel = 0.0
@@ -56,6 +67,8 @@ final class CaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             try await begin(display: display, scale: scale, excluding: excluding, voice: true)
         } catch {
             Log.line("capture: couldn't record the microphone, recording the screen alone: \(error.localizedDescription)")
+            microphone?.stop()
+            microphone = nil
             if let stream { try? await stream.stopCapture() }
             stream = nil
             queue.sync {
@@ -95,8 +108,8 @@ final class CaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         writer.add(input)
         self.writer = writer
         self.input = input
-        var microphone = false
-        if voice, #available(macOS 15, *) {
+        var mic: CaptureMicrophone?
+        if voice {
             let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
                 AVFormatIDKey: kAudioFormatMPEG4AAC, AVNumberOfChannelsKey: 1, AVSampleRateKey: 48_000, AVEncoderBitRateKey: 96_000,
             ])
@@ -104,21 +117,24 @@ final class CaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             if writer.canAdd(audio) {
                 writer.add(audio)
                 self.audio = audio
-                config.captureMicrophone = true
-                microphone = true
+                mic = try CaptureMicrophone(chosen: CaptureVoice.chosenMicrophone, queue: queue) { [weak self] in self?.heard($0) }
             }
         }
         let filter = SCContentFilter(display: display, excludingWindows: excluding)
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: queue)
-        if microphone, #available(macOS 15, *) { try stream.addStreamOutput(self, type: .microphone, sampleHandlerQueue: queue) }
         self.stream = stream
         try await stream.startCapture()
-        recordsVoice = microphone
+        if let mic {
+            await mic.start()
+            microphone = mic
+            microphoneName = mic.name
+            recordsVoice = true
+            Log.line("capture: recording the microphone \(mic.name)")
+        }
     }
 
     func stream(_ stream: SCStream, didOutputSampleBuffer buffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        if #available(macOS 15, *), type == .microphone { return heard(buffer) }
         guard type == .screen, !stopped, buffer.isValid, let writer, let input,
               let attachments = CMSampleBufferGetSampleAttachmentsArray(buffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
               let raw = attachments.first?[.status] as? Int, SCFrameStatus(rawValue: raw) == .complete
@@ -137,6 +153,12 @@ final class CaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         guard !stopped, buffer.isValid, let writer, let audio else { return }
         let level = _muted ? 0 : Self.level(buffer)
         let now = CACurrentMediaTime()
+        heardBuffers += 1
+        if !_muted {
+            loudest = max(loudest, level)
+            let t = buffer.presentationTimeStamp.seconds
+            if level > Self.silent { firstHeard = firstHeard ?? t; lastHeard = t }
+        }
         if now - lastLevel > 0.1, let onLevel {
             lastLevel = now
             DispatchQueue.main.async { onLevel(level) }
@@ -144,6 +166,28 @@ final class CaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         guard !_muted, writer.status == .writing, let first = firstFrame, buffer.presentationTimeStamp.seconds >= first,
               audio.isReadyForMoreMediaData else { return }
         if audio.append(buffer) { voiced = true }
+    }
+
+    /// For the log: the microphone, how many buffers it sent and how loud it got.
+    var microphoneSummary: String? {
+        guard let microphoneName else { return nil }
+        return "\(microphoneName): \(heardBuffers) buffers, loudest \(String(format: "%.2f", loudest)), sound until \(lastHeard.flatMap { l in firstFrame.map { String(format: "%.1f s", l - $0) } } ?? "never")"
+    }
+
+    /// Below this (about -45 dB) a buffer is silence: a microphone that sends nothing louder sent no sound.
+    static let silent: Float = 0.1
+
+    /// Why the recording has no voice in it though the microphone was recorded, or nil: it sent only silence, or
+    /// stopped sending sound partway (a Bluetooth headset changing profile, a device unplugged). Read after `stop`.
+    func quiet(duration: Double) -> String? {
+        guard recordsVoice else { return nil }
+        let name = microphoneName ?? "Your microphone"
+        if heardBuffers == 0 { return "\(name) sent no sound at all" }
+        if loudest <= Self.silent, !everMuted { return "\(name) sent only silence: check its input level in System Settings → Sound, or choose another in the menu bar's Microphone menu" }
+        if !everMuted, let first = firstFrame, let last = lastHeard, duration - (last - first) > 4, (last - first) < duration / 2 {
+            return "\(name) stopped sending sound \(Int(max(0, last - first).rounded())) s in: choose another in the menu bar's Microphone menu"
+        }
+        return nil
     }
 
     /// A buffer's loudness for a meter: its RMS (over every channel) in decibels, -50…0 dB as 0…1.
@@ -187,6 +231,7 @@ final class CaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
     /// Stops and finishes the file; the duration in seconds, or nil when nothing was recorded.
     func stop() async -> Double? {
+        microphone?.stop()
         if let stream { try? await stream.stopCapture() }
         stream = nil
         return await withCheckedContinuation { (done: CheckedContinuation<Double?, Never>) in
@@ -210,6 +255,7 @@ final class CaptureRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
     /// Stops without keeping anything.
     func cancel() async {
+        microphone?.stop()
         if let stream { try? await stream.stopCapture() }
         stream = nil
         queue.sync {

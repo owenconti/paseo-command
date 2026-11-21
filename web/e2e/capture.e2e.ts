@@ -209,7 +209,7 @@ test("a voice without a transcript says why", async () => {
   const page = await context.newPage();
   await panel(page, { ...manifest, voice: true, transcript: [], transcriptNote: "Nothing was said" });
   try {
-    await page.getByText("Your voice is in the video, without a transcript: Nothing was said.").waitFor();
+    await page.getByText("No transcript: Nothing was said.").waitFor();
     assert.equal(await page.getByRole("region", { name: "What you said" }).count(), 0);
   } finally {
     await context.close();
