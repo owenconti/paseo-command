@@ -172,8 +172,9 @@ export function captureDraft(id: string, message: unknown, local: boolean) {
 }
 
 /**
- * `POST /api/captures/:id/send {agent, message, behavior?}`: the capture to an agent, through the composer's own
- * send (`send`, `agentCommand("send", …)`), on the agent's host.
+ * `POST /api/captures/:id/send {agent, message, behavior?, images?, attachments?}`: the capture to an agent, through the
+ * composer's own send (`send`, `agentCommand("send", …)`, which checks the images and attachments), on the agent's host;
+ * the contact sheet first, then what the panel's composer added.
  */
 export async function sendCapture(
   id: string,
@@ -183,9 +184,12 @@ export async function sendCapture(
   if (typeof body.agent !== "string" || !body.agent) throw new Error("Choose an agent");
   const { id: agentId, host } = agentIdParts(body.agent);
   const draft = captureDraft(id, body.message, !host);
+  // Images and files added in the panel's composer go with the contact sheet (each checked by the send itself).
+  const extra = Array.isArray(body.images) ? body.images : [];
   return send(agentId, {
     prompt: draft.prompt,
-    images: [draft.image],
+    images: [draft.image, ...extra],
+    ...(Array.isArray(body.attachments) && body.attachments.length ? { attachments: body.attachments } : {}),
     ...(host ? { host } : {}),
     ...(body.behavior === "steer" || body.behavior === "interrupt" ? { behavior: body.behavior } : {}),
   });

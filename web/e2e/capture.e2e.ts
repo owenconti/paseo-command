@@ -62,9 +62,11 @@ test("the send panel sends the capture, with your message, to the agent chosen",
     assert.match(await page.locator(".cap-meta").innerText(), /0:33 · Safari · 2 frames · 1 mark/);
     // It says how tall it is, for the app's panel.
     assert.ok((await posted(page)).some((m) => m.type === "size" && (m.height ?? 0) > 200));
-    // The message box has the keyboard first.
+    // The message box, the app's own composer, has the keyboard first.
+    const composer = page.locator("#capture-composer");
+    await page.waitForFunction(() => document.activeElement?.id === "capture-composer");
     await page.keyboard.type("The labels overlap here");
-    assert.equal(await page.locator(".cap-message").inputValue(), "The labels overlap here");
+    assert.equal(await composer.inputValue(), "The labels overlap here");
     // Agents, then a new agent in each project.
     const titles = await page.locator(".cap-target-title").allInnerTexts();
     assert.ok(titles.includes("Idler") && titles.includes("Runner"), titles.join(", "));
@@ -73,8 +75,8 @@ test("the send panel sends the capture, with your message, to the agent chosen",
     await page.locator(".cap-search").fill("runn");
     assert.deepEqual(await page.locator(".cap-target-title").allInnerTexts(), ["Runner"]);
     assert.match(await page.locator(".cap-hint").innerText(), /joins its current turn/);
-    await page.locator(".cap-message").focus();
-    await page.keyboard.press("Meta+Enter");
+    // ⌘↩ from outside the composer sends what it holds.
+    await page.locator(".cap-search").press("Meta+Enter");
     await waitFor(() => Promise.resolve(sent.length), (n) => n === 1, "the capture sent");
     assert.deepEqual(sent[0].body, { agent: "a-running", message: "The labels overlap here", behavior: "steer" });
     await page.locator(".cap-sent").waitFor();
@@ -91,7 +93,7 @@ test("a project in the send panel asks the app's window for New agent there; Esc
   const page = await context.newPage();
   const sent = await panel(page);
   try {
-    await page.locator(".cap-message").fill("Start on this");
+    await page.locator("#capture-composer").fill("Start on this");
     await page.locator(".cap-search").fill("new agent atlas");
     await page.locator(".cap-search").press("Enter");
     const ask = await waitFor(() => posted(page), (p) => p.some((m) => m.type === "app"), "the ask");
@@ -136,6 +138,48 @@ test("the app's window opens New agent on the project with the capture as its fi
     await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the dispatch");
     assert.match(String(dispatched[0].prompt), /^Start on this/);
     assert.deepEqual(dispatched[0].images, [{ data: SHEET.toString("base64"), mimeType: "image/png" }]);
+  } finally {
+    await context.close();
+  }
+});
+
+test("the panel's composer offers the chosen target's /skills, and Enter sends with a pasted image", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const sent = await panel(page);
+  const asked: string[] = [];
+  await page.route("**/api/drafts/commands?**", (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ json: { error: null, commands: [{ name: "review-code", description: "Review the branch", argumentHint: "", kind: "skill" }] } });
+  });
+  try {
+    await page.locator(".cap-search").fill("idler");
+    const composer = page.locator("#capture-composer");
+    await composer.click();
+    await composer.pressSequentially("/rev");
+    const option = page.locator(".cap .autocomplete [role=option]");
+    await waitFor(() => option.count(), (n) => n === 1, "the matching skill");
+    await composer.press("Enter");
+    assert.equal(await composer.inputValue(), "/review-code ");
+    const url = new URL(asked.at(-1)!);
+    assert.equal(url.searchParams.get("cwd"), "/work/atlas/a", "the chosen agent's folder");
+    // The composer places the caret after the skill on the next frame (faster typing than a person's would race it).
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await composer.pressSequentially("the header");
+    // A pasted screenshot joins the contact sheet.
+    await composer.evaluate((el, data) => {
+      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+      const paste = new DataTransfer();
+      paste.items.add(new File([bytes], "shot.png", { type: "image/png" }));
+      el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: paste, bubbles: true, cancelable: true }));
+    }, SHEET.toString("base64"));
+    await waitFor(() => page.locator(".cap .thumb").count(), (n) => n === 1, "the pasted image");
+    await composer.press("Enter");
+    await waitFor(() => Promise.resolve(sent.length), (n) => n === 1, "sent from the composer");
+    assert.equal(sent[0].body.agent, "a-idle");
+    assert.equal(sent[0].body.message, "/review-code the header");
+    assert.deepEqual(sent[0].body.images, [{ data: SHEET.toString("base64"), mimeType: "image/png" }]);
+    await page.locator(".cap-sent").waitFor();
   } finally {
     await context.close();
   }

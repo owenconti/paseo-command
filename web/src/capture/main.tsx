@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource-variable/inter";
-import "../styles/tokens.css";
-import "../styles/base.css";
+// The app's styles, for the composer and its menus, under the panel's own.
+import "../style.css";
 import "./capture.css";
 import { CapturePanel } from "./CapturePanel";
 

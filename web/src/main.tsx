@@ -1186,7 +1186,7 @@ function App() {
           postAppMenu("command");
           return;
         }
-        prepareCaptureDraft(c.capture, c.message ?? "", c.newAgent.host).then(
+        prepareCaptureDraft(c.capture, c.message ?? "", c.newAgent.host, c.images).then(
           () => {
             openDispatch({ projectId: projectKey(c.newAgent) });
             postAppMenu("command");

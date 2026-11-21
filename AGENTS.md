@@ -278,8 +278,11 @@ and GitHub publication; report the published version and release link.
   from the video (click rings drawn), draws the numbered `contact-sheet.png` and writes `capture.json`, then `capture.gif` in the
   background, all in the data folder's `captures/<cap-yyyymmdd-hhmmss>/`. Then the send panel (`CaptureSend.swift`, a key but
   non-activating panel at the top of the screen, over the app you were in) shows `capture.html?id=` (`web/src/capture/`:
-  `CapturePanel.tsx`, `targets.ts`): the sheet, your message, and a searchable list of agents (most recently active first; not
-  archived or subagents) then "New agent in <project>"; ⌘↩ sends, Esc closes. An agent gets it through `POST
+  `CapturePanel.tsx`, `targets.ts`): the sheet, your message in the app's own `Composer` (draft mode, its draft the panel's,
+  `capture:<id>`, so it stays as the target changes; its /skills and @files the chosen target's folder's, as New agent's; images pasted or
+  dropped go with the sheet, `images`/`attachments` in the send, and into New agent), and a searchable list of agents (most recently active first; not
+  archived or subagents) then "New agent in <project>"; Enter in the composer sends, Send or ⌘↩ elsewhere sends what it holds (an empty message
+  too), Esc closes. An agent gets it through `POST
   /api/captures/:id/send` (`web/server/captures.ts`, the composer's own `agentCommand("send")`; a working agent's as `steer`): your
   message, a `[Screen capture …]` block naming each keyframe, the contact sheet as an image, and, for an agent on this Mac only,
   the bundle's paths (video, frames, GIF) with an ffmpeg line for cutting frames around a moment (`captureMessage`; agents

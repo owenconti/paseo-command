@@ -1,4 +1,5 @@
-/* The macOS app's screen capture send panel: the app's tokens over the panel's own frosted background. */
+/* The macOS app's screen capture send panel: the app's styles (its composer's among them) over the panel's own frosted
+   background. */
 html,
 :root,
 body {
@@ -68,7 +69,6 @@ body {
   border-radius: var(--radius-md);
   background: #121212;
 }
-.cap-message,
 .cap-search {
   width: 100%;
   font: inherit;
@@ -79,11 +79,6 @@ body {
   padding: var(--space-2) var(--space-3);
   outline: none;
 }
-.cap-message {
-  resize: none;
-  line-height: 1.45;
-}
-.cap-message:focus,
 .cap-search:focus {
   border-color: var(--focus);
   box-shadow: var(--focus-ring);

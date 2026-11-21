@@ -100,7 +100,7 @@ test("sending goes through the agent's send with the contact sheet, on the agent
     return { ok: true };
   };
   await sendCapture(ID, { agent: "agent-1", message: "Fix this", behavior: "steer" }, send);
-  await sendCapture(ID, { agent: "remote:srv_box:agent-2", message: "" }, send);
+  await sendCapture(ID, { agent: "remote:srv_box:agent-2", message: "", images: [{ data: "AAAA", mimeType: "image/png" }], attachments: [{ type: "github_pr", number: 3 }] }, send);
   assert.equal(sent[0][0], "agent-1");
   assert.equal(sent[0][1].host, undefined);
   assert.equal(sent[0][1].behavior, "steer");
@@ -108,6 +108,10 @@ test("sending goes through the agent's send with the contact sheet, on the agent
   assert.deepEqual(sent[0][1].images, [{ data: PNG.toString("base64"), mimeType: "image/png" }]);
   assert.equal(sent[1][0], "agent-2");
   assert.equal(sent[1][1].host, "srv_box");
+  // What the composer added follows the contact sheet.
+  assert.deepEqual((sent[1][1].images as unknown[]).slice(1), [{ data: "AAAA", mimeType: "image/png" }]);
+  assert.deepEqual(sent[1][1].attachments, [{ type: "github_pr", number: 3 }]);
+  assert.equal(sent[0][1].attachments, undefined);
   assert.ok(!String(sent[1][1].prompt).includes(capturesDir()));
   await assert.rejects(sendCapture(ID, { message: "x" }, send), /Choose an agent/);
   // Only the daemon's behaviours pass (the composer's "queue" is the page's own).
