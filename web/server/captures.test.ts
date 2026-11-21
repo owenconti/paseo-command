@@ -230,6 +230,10 @@ test("the GETs: the list, a manifest, the sheet's PNG and a new agent's draft", 
   assert.equal(draft.image.name, "contact-sheet.png");
   assert.match((get(`/api/captures/${ID}/draft?message=Look`).body as { prompt: string }).prompt, /Video: /);
   assert.ok(!(get(`/api/captures/${ID}/draft?transcript=0`).body as { prompt: string }).prompt.includes("What the user said"));
+  // For the clipboard: the sheet named by its file, not as an attachment.
+  const copied = (get(`/api/captures/${ID}/draft?message=Look&copy=1`).body as { prompt: string }).prompt;
+  assert.ok(copied.includes(`The contact sheet (${join(dir(), "contact-sheet.png")}) shows`), copied);
+  assert.ok(!copied.includes("attached"));
   assert.equal(get("/api/captures/cap-20261120-000000").status, 404);
   assert.equal(get("/api/captures/..%2Fsecrets").status, 400);
   assert.equal(get(`/api/captures/${ID}/frames`).status, 404);

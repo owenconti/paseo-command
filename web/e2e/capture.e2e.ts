@@ -54,6 +54,10 @@ async function panel(page: Page, shown: Record<string, unknown> = manifest, tidi
     },
   } as never);
   await page.route(`**/api/captures/${ID}`, (route) => route.fulfill({ json: shown }));
+  await page.route(`**/api/captures/${ID}/draft?**`, (route) => {
+    const q = new URL(route.request().url()).searchParams;
+    return route.fulfill({ json: { prompt: `${q.get("message")}\n\n[Screen capture 0:33] copy=${q.get("copy")}`, image: { name: "contact-sheet.png", data: "", mimeType: "image/png" } } });
+  });
   await page.route(`**/api/captures/${ID}/sheet`, (route) => route.fulfill({ body: SHEET, contentType: "image/png" }));
   await page.goto(`${app.url}capture.html?id=${ID}`);
   await page.locator(".cap-target").first().waitFor();
@@ -77,7 +81,9 @@ test("the send panel sends the capture, with your message, to the agent chosen",
     // Agents, then a new agent in each project.
     const titles = await page.locator(".cap-target-title").allInnerTexts();
     assert.ok(titles.includes("Idler") && titles.includes("Runner"), titles.join(", "));
-    assert.ok(titles.at(-1)?.startsWith("New agent in "), titles.join(", "));
+    // Sessions, then "New agent in" each project, in the left column.
+    assert.deepEqual(await page.locator(".cap-group").allInnerTexts(), ["SESSIONS", "NEW AGENT IN"]);
+    assert.ok(await page.locator(".cap-side .cap-target.new").count() > 0);
     // The search narrows; ↓ chooses; ⌘↩ sends from anywhere in the panel.
     await page.locator(".cap-search").fill("runn");
     assert.deepEqual(await page.locator(".cap-target-title").allInnerTexts(), ["Runner"]);
@@ -107,7 +113,7 @@ test("what you said shows under the sheet, and is left out when switched off", a
     ],
   });
   try {
-    assert.match(await page.locator(".cap-meta").innerText(), /with your voice/);
+    assert.match(await page.locator(".cap-meta").innerText(), / · voice$/);
     const speech = page.getByRole("region", { name: "What you said" });
     assert.deepEqual(await speech.locator("li").allInnerTexts(), ["0:02\nMake this button blue.", "1:04\nAnd move that menu over here."]);
     await page.screenshot({ path: "/tmp/capture-panel-voice.png" });
@@ -174,6 +180,29 @@ test("what you said is tidied into the message box once, and the timed transcrip
     await again.waitForTimeout(300);
     assert.equal(tidyAsks.length, 0);
     assert.ok(!(await again.locator("#capture-composer").inputValue()).includes("SHOULD NOT APPEAR"));
+  } finally {
+    await context.close();
+  }
+});
+
+test("Copy puts the whole message on the clipboard instead of sending it", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 920, height: 640 });
+  const sent = await panel(page);
+  try {
+    // The sessions on the left, beside the capture and the message.
+    const side = await page.locator(".cap-side").boundingBox();
+    const main = await page.locator(".cap-main").boundingBox();
+    assert.ok(side && main && side.x + side.width <= main.x + 1 && Math.abs(side.y - main.y) < 2, `${JSON.stringify(side)} ${JSON.stringify(main)}`);
+    await page.screenshot({ path: "/tmp/capture-panel-columns.png" });
+    await page.locator("#capture-composer").fill("Fix the overlap");
+    await page.getByRole("button", { name: /^Copy/ }).click();
+    const copies = await waitFor(() => posted(page), (p) => p.some((m) => m.type === "copy"), "the copy");
+    assert.equal((copies.find((m) => m.type === "copy") as { text?: string }).text, "Fix the overlap\n\n[Screen capture 0:33] copy=1");
+    await page.getByText("Copied to the clipboard.").waitFor();
+    assert.equal(sent.length, 0, "nothing sent");
+    await waitFor(() => posted(page), (p) => p.some((m) => m.type === "close"), "it closes");
   } finally {
     await context.close();
   }

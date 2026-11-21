@@ -7,7 +7,7 @@
  *
  * `GET /api/captures` (the newest), `GET /api/captures/:id` (its manifest), `GET /api/captures/:id/sheet` (the
  * contact sheet's PNG), `GET /api/captures/:id/draft?host=` (a new agent's first message and image for it, on that
- * host; `transcript=0` leaves out what you said), `POST /api/captures/:id/send {agent, message, behavior, transcript}` (to an
+ * host; `transcript=0` leaves out what you said; `copy=1` the text for the clipboard, naming the sheet's file), `POST /api/captures/:id/send {agent, message, behavior, transcript}` (to an
  * agent). What an agent gets (`captureMessage`): your message, what you said while recording (unless `transcript` is
  * false), a block naming the keyframes, and for an agent on this Mac the bundle's paths
  * (the video, the full-size frames, the GIF) with how to pull frames from the video with ffmpeg; the contact
@@ -159,14 +159,14 @@ const REASON: Record<string, string> = { marked: "marked", clicked: "clicked", s
  * What an agent reads with the contact sheet: your message, then the capture's block. `local`: the agent runs on
  * this Mac, so it can open the bundle's files (named by absolute path) and cut frames from the video.
  */
-export function captureMessage(m: CaptureManifest, message: string, dir: string, local: boolean, transcript = true): string {
+export function captureMessage(m: CaptureManifest, message: string, dir: string, local: boolean, transcript = true, copy = false): string {
   const head = `[Screen capture ${clock(m.duration)}${m.app ? ` · ${m.app}` : ""}${local ? ` · ${dir}` : ""}]`;
   const said = transcript ? m.transcript : [];
   // The sentence being said at a keyframe (or the last one begun before it), for its line.
   const saying = (t: number) => [...said].reverse().find((s) => s.t <= t + 0.05 && t <= s.end + 1.5);
   const lines = [
     head,
-    "The attached contact sheet shows the capture's keyframes in time order (left to right, top to bottom), each numbered in a white chip in a top corner. Red strokes are marks the user drew while recording; a red ring is a click.",
+    `${copy && local ? `The contact sheet (${join(dir, m.sheet)}) shows` : "The attached contact sheet shows"} the capture's keyframes in time order (left to right, top to bottom), each numbered in a white chip in a top corner. Red strokes are marks the user drew while recording; a red ring is a click.`,
     ...(said.length
       ? [
           "What the user said while recording (transcribed on their Mac, so it may mishear words; \"this\" and \"here\" usually mean what's under the pointer at that moment):",
@@ -201,12 +201,12 @@ function sheetImage(id: string, m: CaptureManifest) {
 const MAX_MESSAGE = 100_000;
 
 /** A capture's text and image for an agent on `host` (undefined: this Mac). */
-export function captureDraft(id: string, message: unknown, local: boolean, transcript = true) {
+export function captureDraft(id: string, message: unknown, local: boolean, transcript = true, copy = false) {
   const m = readManifest(validCaptureId(id));
   if (!m) throw new Error("Unknown capture");
   const text = typeof message === "string" ? message : "";
   if (text.length > MAX_MESSAGE || text.includes("\0")) throw new Error("Invalid message");
-  return { manifest: m, prompt: captureMessage(m, text, join(capturesDir(), id), local, transcript), image: sheetImage(id, m) };
+  return { manifest: m, prompt: captureMessage(m, text, join(capturesDir(), id), local, transcript, copy), image: sheetImage(id, m) };
 }
 
 /**
@@ -299,7 +299,9 @@ export function capturesGet(url: URL, res: ServerResponse, reply: (status: numbe
     }
     if (parts.length === 2 && parts[1] === "draft") {
       const local = !url.searchParams.get("host");
-      const { prompt, image } = captureDraft(id, url.searchParams.get("message") ?? "", local, url.searchParams.get("transcript") !== "0");
+      // `copy=1`: for the clipboard (the panel's Copy), naming the sheet's file in place of an attachment.
+      const copy = url.searchParams.get("copy") === "1";
+      const { prompt, image } = captureDraft(id, url.searchParams.get("message") ?? "", local, url.searchParams.get("transcript") !== "0", copy && local);
       return reply(200, { prompt, image: { name: "contact-sheet.png", ...image } });
     }
     return reply(404, { error: "Unknown endpoint" });

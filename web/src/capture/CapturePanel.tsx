@@ -4,6 +4,9 @@
  * chosen target's folder's, as New agent's are; images pasted or dropped go too), and who gets it: an agent (sent from
  * here, `POST /api/captures/:id/send`, joining its current turn while it works) or a project, for a new agent, which the
  * app's window opens in New agent with the capture as its first message (`paseo:capture` in main).
+ * Laid out in two columns: who gets it on the left (the search over your sessions, most recently active first, then a
+ * new agent in each project), the capture and your message on the right. Copy (⇧⌘C) puts the whole message on the
+ * clipboard instead (the draft's `copy=1`: the sheet and video named by their files, for any tool on this Mac).
  * Keys: Enter in the composer sends (as everywhere), ⌘↩ or Send from elsewhere in the panel (an empty message too: the
  * capture is the message), ↑/↓ choose in the search, Esc closes. What you said while recording (the app heard it on this
  * Mac) shows under the sheet; the host's metadata model tidies it (`POST /api/captures/:id/tidy`, in the chosen agent's
@@ -57,6 +60,7 @@ export function CapturePanel({ id }: { id: string }) {
   /** A provider's first model on a host, for a project's skills (`host|provider`; "" when it has none). */
   const [firstModels, setFirstModels] = useState<Record<string, string>>({});
   const [sent, setSent] = useState<{ title: string; agent: string }>();
+  const [copied, setCopied] = useState(false);
   /** Whether the timed transcript goes with it (on until the tidied one is in the message). */
   const [withSpeech, setWithSpeech] = useState(() => !readStore(`capture-tidied:${id}`, false));
   /** The tidied transcript's progress, and the text put into the composer. */
@@ -97,12 +101,27 @@ export function CapturePanel({ id }: { id: string }) {
     listBox.current?.querySelector(`[data-index="${chosen}"]`)?.scrollIntoView({ block: "nearest" });
   }, [chosen]);
 
-  // Sent: it says so a moment, then goes.
+  // Sent or copied: it says so a moment, then goes.
   useEffect(() => {
-    if (!sent) return;
-    const t = setTimeout(() => post({ type: "close" }), 2500);
+    if (!sent && !copied) return;
+    const t = setTimeout(() => post({ type: "close" }), sent ? 2500 : 1200);
     return () => clearTimeout(t);
-  }, [sent]);
+  }, [sent, copied]);
+
+  /** The whole message, as an agent on this Mac would read it, to the clipboard (the app's, else the browser's). */
+  async function copy() {
+    if (!manifest || sending) return;
+    setFailure("");
+    try {
+      const query = new URLSearchParams({ message: readStore<string>(`draft:${owner}`, ""), copy: "1", ...(speaks && !withSpeech ? { transcript: "0" } : {}) });
+      const { prompt } = await api<{ prompt: string }>(`captures/${encodeURIComponent(id)}/draft?${query}`);
+      if ((window as unknown as Handlers).webkit?.messageHandlers?.paseoCapture) post({ type: "copy", text: prompt });
+      else await navigator.clipboard.writeText(prompt);
+      setCopied(true);
+    } catch (e) {
+      setFailure(errorMessage(e) || "Couldn't copy it.");
+    }
+  }
 
   /** The composer's message (its Enter), else what its draft holds now (Send, ⌘↩: an empty one too). */
   const speech = manifest?.transcript ?? [];
@@ -191,6 +210,9 @@ export function CapturePanel({ id }: { id: string }) {
     if (e.key === "Escape") {
       e.preventDefault();
       post({ type: "close" });
+    } else if (e.key.toLowerCase() === "c" && e.metaKey && e.shiftKey) {
+      e.preventDefault();
+      void copy();
     } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !inComposer) {
       e.preventDefault();
       void send();
@@ -218,100 +240,41 @@ export function CapturePanel({ id }: { id: string }) {
   const label =
     !target ? "Send" : target.kind === "project" ? `Start an agent in ${target.project.name}` : `Send to ${target.title}`;
 
+  const agents = shown.filter((t) => t.kind === "agent");
+  const projects = shown.filter((t) => t.kind === "project");
+  const row = (t: CaptureTarget) => {
+    const i = shown.indexOf(t);
+    const sub = t.kind === "agent" ? [t.running ? "Working" : "", t.place].filter(Boolean).join(" · ") : t.place;
+    return (
+      <div
+        key={t.key}
+        role="option"
+        data-index={i}
+        aria-selected={t === target}
+        className={`cap-target${t === target ? " chosen" : ""}${t.kind === "project" ? " new" : ""}`}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setChosen(i)}
+        onDoubleClick={() => void send(undefined, t)}
+        title={t.title}
+      >
+        <span className={`cap-dot${t.kind === "agent" && t.running ? " running" : ""}${t.kind === "project" ? " plus" : ""}`} aria-hidden>
+          {t.kind === "project" ? "+" : ""}
+        </span>
+        <span className="cap-target-text">
+          <span className="cap-target-title">{t.kind === "project" ? t.project.name : t.title}</span>
+          {sub && <span className="cap-target-place">{sub}</span>}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className="cap" ref={root} onKeyDown={onKey}>
-      <header className="cap-head">
-        <div className="cap-title">
-          <strong>Send this capture</strong>
-          {manifest && (
-            <span className="cap-meta">
-              {clock(manifest.duration)}
-              {manifest.app ? ` · ${manifest.app}` : ""} · {manifest.frames.length} {manifest.frames.length === 1 ? "frame" : "frames"}
-              {manifest.strokes ? ` · ${manifest.strokes} ${manifest.strokes === 1 ? "mark" : "marks"}` : ""}
-              {manifest.voice ? " · with your voice" : ""}
-            </span>
-          )}
-        </div>
-        <button type="button" className="cap-quiet" onClick={() => post({ type: "reveal" })} title="Show the capture's files in Finder">
-          Show in Finder
-        </button>
-        <button type="button" className="cap-close" onClick={() => post({ type: "close" })} aria-label="Close" title="Close (Esc)">
-          ×
-        </button>
-      </header>
-      {sent ? (
-        <div className="cap-sent" role="status">
-          <span>Sent to {sent.title}.</span>
-          <button type="button" className="cap-quiet" onClick={() => post({ type: "app", open: sent.agent })}>
-            Open the conversation
-          </button>
-        </div>
-      ) : (
-        <>
-          <img className="cap-sheet" src={`/api/captures/${encodeURIComponent(id)}/sheet`} alt="The capture's keyframes" />
-          {speaks ? (
-            <section className={`cap-speech${withSpeech ? "" : " left-out"}`} aria-label="What you said">
-              <div className="cap-speech-head">
-                <span>What you said</span>
-                <span className="cap-speech-tidy" role="status">
-                  {tidy?.state === "working"
-                    ? "Tidying it into your message…"
-                    : tidy?.state === "done"
-                      ? "Tidied into your message"
-                      : tidy?.state === "empty"
-                        ? "Nothing in it was for the agent"
-                        : null}
-                  {tidy?.state === "failed" && (
-                    <>
-                      Couldn’t tidy it: {tidy.error}.{" "}
-                      <button type="button" className="cap-link" onClick={() => tidyUp()}>
-                        Try again
-                      </button>
-                    </>
-                  )}
-                </span>
-                <label className="cap-speech-toggle" title="Whether the agent also reads what you said word for word, with the time of each sentence">
-                  <input type="checkbox" checked={withSpeech} onChange={(e) => setWithSpeech(e.target.checked)} />
-                  Send the timed transcript too
-                </label>
-              </div>
-              <ol className="cap-speech-lines">
-                {speech.map((s, i) => (
-                  <li key={i}>
-                    <span className="cap-speech-time">{clock(s.t)}</span>
-                    <span>{s.text}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : manifest?.voice && manifest.transcriptNote ? (
-            <div className="cap-speech-note">Your voice is in the video, without a transcript: {manifest.transcriptNote}.</div>
-          ) : null}
-          <div className="cap-composer">
-            <Composer
-              draft={{ ...(source ? { source } : {}), ...(host ? { host } : {}), controls: null }}
-              draftOwner={owner}
-              inputId={INPUT}
-              label="Message for the agent"
-              placeholder="What should the agent do? (optional: / for skills, @ for files)"
-              running={false}
-              disabled={!manifest || sending || !!sent}
-              started={false}
-              modes={[]}
-              onSetMode={() => {}}
-              onSend={(m) => send(m)}
-              onCancel={async () => {}}
-              onNotice={setFailure}
-              onArchive={() => {}}
-              onFreshDraft={() => {}}
-              promptHistory={[]}
-              dropFiles={null}
-              insertText={insert}
-            />
-          </div>
+      <aside className="cap-side" aria-label="Who gets it">
+        <div className="cap-side-inner">
           <input
             className="cap-search"
-            placeholder="Send to… (search agents and projects)"
+            placeholder="Search sessions and projects"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -326,51 +289,135 @@ export function CapturePanel({ id }: { id: string }) {
             aria-label="Search agents and projects"
             aria-controls="cap-targets"
           />
-          <div className="cap-targets" id="cap-targets" role="listbox" ref={listBox} aria-label="Who gets it">
+          <div className="cap-targets" id="cap-targets" role="listbox" ref={listBox} aria-label="Sessions and projects">
             {!targets && !failure && <div className="cap-empty">Reading your agents…</div>}
             {targets && !shown.length && <div className="cap-empty">Nothing matches “{query}”.</div>}
-            {shown.map((t, i) => (
-              <div
-                key={t.key}
-                role="option"
-                data-index={i}
-                aria-selected={t === target}
-                className={`cap-target${t === target ? " chosen" : ""}${t.kind === "project" ? " new" : ""}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setChosen(i)}
-                onDoubleClick={() => void send(undefined, t)}
-              >
-                <span className={`cap-dot${t.kind === "agent" && t.running ? " running" : ""}${t.kind === "project" ? " plus" : ""}`} aria-hidden>
-                  {t.kind === "project" ? "+" : ""}
-                </span>
-                <span className="cap-target-title">{t.title}</span>
-                <span className="cap-target-place">
-                  {t.kind === "agent" && t.running ? "Working" : ""}
-                  {t.kind === "agent" && t.running && t.place ? " · " : ""}
-                  {t.place}
-                </span>
-              </div>
-            ))}
+            {agents.length > 0 && <div className="cap-group">Sessions</div>}
+            {agents.map(row)}
+            {projects.length > 0 && <div className="cap-group">New agent in</div>}
+            {projects.map(row)}
           </div>
-          {failure && (
-            <div className="cap-failure" role="alert">
-              {failure}
+        </div>
+      </aside>
+      <main className="cap-main">
+        <header className="cap-head">
+          <div className="cap-title">
+            <strong>Send this capture</strong>
+            {manifest && (
+              <span className="cap-meta">
+                {clock(manifest.duration)}
+                {manifest.app ? ` · ${manifest.app}` : ""} · {manifest.frames.length} {manifest.frames.length === 1 ? "frame" : "frames"}
+                {manifest.strokes ? ` · ${manifest.strokes} ${manifest.strokes === 1 ? "mark" : "marks"}` : ""}
+                {manifest.voice ? " · voice" : ""}
+              </span>
+            )}
+          </div>
+          <button type="button" className="cap-quiet" onClick={() => post({ type: "reveal" })} title="Show the capture's files in Finder">
+            Show in Finder
+          </button>
+          <button type="button" className="cap-close" onClick={() => post({ type: "close" })} aria-label="Close" title="Close (Esc)">
+            ×
+          </button>
+        </header>
+        {sent || copied ? (
+          <div className="cap-sent" role="status">
+            {copied ? (
+              <span>Copied to the clipboard.</span>
+            ) : (
+              <>
+                <span>Sent to {sent!.title}.</span>
+                <button type="button" className="cap-quiet" onClick={() => post({ type: "app", open: sent!.agent })}>
+                  Open the conversation
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            <img className="cap-sheet" src={`/api/captures/${encodeURIComponent(id)}/sheet`} alt="The capture's keyframes" />
+            {speaks ? (
+              <section className={`cap-speech${withSpeech ? "" : " left-out"}`} aria-label="What you said">
+                <div className="cap-speech-head">
+                  <span>What you said</span>
+                  <span className="cap-speech-tidy" role="status">
+                    {tidy?.state === "working"
+                      ? "Tidying it into your message…"
+                      : tidy?.state === "done"
+                        ? "Tidied into your message"
+                        : tidy?.state === "empty"
+                          ? "Nothing in it was for the agent"
+                          : null}
+                    {tidy?.state === "failed" && (
+                      <>
+                        Couldn’t tidy it: {tidy.error}.{" "}
+                        <button type="button" className="cap-link" onClick={() => tidyUp()}>
+                          Try again
+                        </button>
+                      </>
+                    )}
+                  </span>
+                  <label className="cap-speech-toggle" title="Whether the agent also reads what you said word for word, with the time of each sentence">
+                    <input type="checkbox" checked={withSpeech} onChange={(e) => setWithSpeech(e.target.checked)} />
+                    Send the timed transcript too
+                  </label>
+                </div>
+                <ol className="cap-speech-lines">
+                  {speech.map((s, i) => (
+                    <li key={i}>
+                      <span className="cap-speech-time">{clock(s.t)}</span>
+                      <span>{s.text}</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ) : manifest?.voice && manifest.transcriptNote ? (
+              <div className="cap-speech-note">Your voice is in the video, without a transcript: {manifest.transcriptNote}.</div>
+            ) : null}
+            <div className="cap-composer">
+              <Composer
+                draft={{ ...(source ? { source } : {}), ...(host ? { host } : {}), controls: null }}
+                draftOwner={owner}
+                inputId={INPUT}
+                label="Message for the agent"
+                placeholder="What should the agent do? (optional: / for skills, @ for files)"
+                running={false}
+                disabled={!manifest || sending || !!sent}
+                started={false}
+                modes={[]}
+                onSetMode={() => {}}
+                onSend={(m) => send(m)}
+                onCancel={async () => {}}
+                onNotice={setFailure}
+                onArchive={() => {}}
+                onFreshDraft={() => {}}
+                promptHistory={[]}
+                dropFiles={null}
+                insertText={insert}
+              />
             </div>
-          )}
-          <footer className="cap-foot">
-            <span className="cap-hint">
-              {target?.kind === "agent" && target.running
-                ? "It's working: your message joins its current turn."
-                : target?.kind === "project"
-                  ? "Opens New agent in Paseo Command with this as its first message."
-                  : "The contact sheet goes as an image; agents on this Mac also get the video and frames."}
-            </span>
-            <button type="button" className="cap-send" disabled={!target || sending || !manifest} onClick={() => void send()}>
-              {sending ? "Sending…" : label} <kbd>⌘↩</kbd>
-            </button>
-          </footer>
-        </>
-      )}
+            {failure && (
+              <div className="cap-failure" role="alert">
+                {failure}
+              </div>
+            )}
+            <footer className="cap-foot">
+              <span className="cap-hint">
+                {target?.kind === "agent" && target.running
+                  ? "It's working: your message joins its current turn."
+                  : target?.kind === "project"
+                    ? "Opens New agent with this as its first message."
+                    : "Copy gives the message, with the files' paths, to paste anywhere."}
+              </span>
+              <button type="button" className="cap-copy" disabled={!manifest || sending} onClick={() => void copy()} title="Copy the message, with the capture's files named (⇧⌘C)">
+                Copy <kbd>⇧⌘C</kbd>
+              </button>
+              <button type="button" className="cap-send" disabled={!target || sending || !manifest} onClick={() => void send()} title={label}>
+                {sending ? "Sending…" : label} <kbd>⌘↩</kbd>
+              </button>
+            </footer>
+          </>
+        )}
+      </main>
     </div>
   );
 }

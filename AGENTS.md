@@ -287,12 +287,14 @@ and GitHub publication; report the published version and release link.
   from the video (click rings drawn), draws the numbered `contact-sheet.png` and writes `capture.json`, then `capture.gif` in the
   background, all in the data folder's `captures/<cap-yyyymmdd-hhmmss>/`. Then the send panel (`CaptureSend.swift`, a key but
   non-activating panel at the top of the screen, over the app you were in) shows `capture.html?id=` (`web/src/capture/`:
-  `CapturePanel.tsx`, `targets.ts`): the sheet, your message in the app's own `Composer` (draft mode, its draft the panel's,
+  `CapturePanel.tsx`, `targets.ts`; 920 px wide, two columns, the user's ask): on the left the search over your sessions
+  ("Sessions", two-line rows) then "New agent in" each project, as tall as the right column; on the right the sheet, your message in the app's own `Composer` (draft mode, its draft the panel's,
   `capture:<id>`, so it stays as the target changes; its /skills and @files the chosen target's folder's, as New agent's, asked with a model, without which the daemon
   lists none: an agent's own, a project's provider's first; images pasted or
   dropped go with the sheet, `images`/`attachments` in the send, and into New agent), and a searchable list of agents (most recently active first; not
   archived or subagents) then "New agent in <project>"; Enter in the composer sends, Send or ⌘↩ elsewhere sends what it holds (an empty message
-  too), Esc closes. What you said shows under the sheet with its times, and is tidied into the message you meant (the user's ask:
+  too), Copy (⇧⌘C) puts the whole message on the clipboard instead (the draft's `copy=1`, as an agent on this Mac reads it, the
+  contact sheet named by its file; the panel's `copy` message, `NSPasteboard`), Esc closes. What you said shows under the sheet with its times, and is tidied into the message you meant (the user's ask:
   `POST /api/captures/:id/tidy {agent}`, `tidyCapture` in `captures.ts`: a `runHelper` helper on the host's metadata model, as automatic
   titles are, in the chosen agent's workspace, else the first agent's, the transcript quoted as JSON data; it drops fillers, false starts
   and "hello?", keeping your words and "this"/"here"; once per capture, a failure tried again with Try again), which goes into the

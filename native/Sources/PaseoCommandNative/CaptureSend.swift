@@ -3,8 +3,9 @@ import WebKit
 
 /// Where a finished capture goes: a panel dropping from the top of the display, over the app you were in (it takes
 /// the keyboard without bringing Paseo Command forward), showing the page's `capture.html` (`web/src/capture/`):
-/// the contact sheet, your message and a searchable list of agents and projects. The page sends to an agent
-/// itself (`POST /api/captures/:id/send`); a new agent, or opening the conversation, goes to the app's window.
+/// your sessions and projects on the left, the contact sheet and your message beside them. The page sends to an agent
+/// itself (`POST /api/captures/:id/send`); a new agent, or opening the conversation, goes to the app's window, and
+/// Copy's text (`copy`) to the clipboard.
 final class CaptureSendPanel: NSObject, WKScriptMessageHandler, WKNavigationDelegate, NSWindowDelegate {
     let panel: CapturePanel
     private let web: WKWebView
@@ -15,20 +16,21 @@ final class CaptureSendPanel: NSObject, WKScriptMessageHandler, WKNavigationDele
     var onApp: (([String: Any]) -> Void)?
     var onReveal: (() -> Void)?
 
-    static let width: CGFloat = 620
+    static let width: CGFloat = 920
 
     init(id: String, server: URL, screen: NSScreen, persistent: Bool) {
         self.id = id
         self.server = server
         let height: CGFloat = 460
         let top = screen.visibleFrame.maxY
-        panel = CapturePanel(frame: CGRect(x: screen.frame.midX - Self.width / 2, y: top - height - 8, width: Self.width, height: height), key: true)
+        let width = min(Self.width, screen.visibleFrame.width - 40)
+        panel = CapturePanel(frame: CGRect(x: screen.frame.midX - width / 2, y: top - height - 8, width: width, height: height), key: true)
         panel.level = .floating
         panel.hasShadow = true
         let configuration = WKWebViewConfiguration()
         // The page's own storage (its theme, how you send), as the window's; a check run keeps its own.
         configuration.websiteDataStore = persistent ? .default() : .nonPersistent()
-        web = WKWebView(frame: CGRect(x: 0, y: 0, width: Self.width, height: height), configuration: configuration)
+        web = WKWebView(frame: CGRect(x: 0, y: 0, width: width, height: height), configuration: configuration)
         web.setValue(false, forKey: "drawsBackground")
         web.isInspectable = true
         super.init()
@@ -79,6 +81,10 @@ final class CaptureSendPanel: NSObject, WKScriptMessageHandler, WKNavigationDele
             panel.setFrame(frame, display: true, animate: false)
         case "close": close()
         case "reveal": onReveal?()
+        case "copy":
+            guard let text = body["text"] as? String, text.count <= 200_000 else { return }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
         case "app":
             onApp?(body)
             close()
