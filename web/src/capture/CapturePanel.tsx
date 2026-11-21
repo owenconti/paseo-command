@@ -41,6 +41,8 @@ type Manifest = {
   transcriptNote?: string;
   /** Tidied on the Mac by its on-device model (Apple Intelligence): used as it is, no helper asked. */
   tidied?: string;
+  /** The Mac is tidying it now: the panel reads the manifest again until it has `tidied` (or doesn't). */
+  tidying?: boolean;
 };
 
 type Post = { type: string; [key: string]: unknown };
@@ -192,14 +194,18 @@ export function CapturePanel({ id }: { id: string }) {
   const tidySource = target?.kind === "agent" ? target.agent.id : targets?.find((t) => t.kind === "agent")?.agent.id;
   useEffect(() => {
     if (!speaks || !targets || tidyAsked.current || readStore(`capture-tidied:${id}`, false)) return;
+    // The Mac tidies it (its on-device model, about a second), the panel open meanwhile: wait for that, not a helper.
+    if (manifest?.tidying) return setGenerating(true);
     tidyAsked.current = true;
     const heard = speech.map((s) => s.text).join(" ");
     const put = (text: string) => {
       writeStore(`capture-tidied:${id}`, true);
       if (text.trim()) setInsert({ text, at: Date.now() });
     };
-    // The Mac tidied it already (its on-device model, about half a second): that, without asking a helper.
-    if (manifest?.tidied !== undefined) return put(manifest.tidied);
+    if (manifest?.tidied !== undefined) {
+      setGenerating(false);
+      return put(manifest.tidied);
+    }
     if (!tidySource) return put(heard);
     setGenerating(true);
     api<{ text: string }>(`captures/${encodeURIComponent(id)}/tidy`, { agent: tidySource })
@@ -212,7 +218,19 @@ export function CapturePanel({ id }: { id: string }) {
       )
       .finally(() => setGenerating(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speaks, !!targets, tidySource]);
+  }, [speaks, !!targets, tidySource, manifest?.tidying, manifest?.tidied]);
+  // While the Mac tidies: its manifest again, a few times a second, for at most 20 s (then a helper, as if it failed).
+  useEffect(() => {
+    if (!manifest?.tidying) return;
+    const started = Date.now();
+    const timer = setInterval(() => {
+      api<Manifest>(`captures/${encodeURIComponent(id)}`).then((m) => {
+        if (!m.tidying) setManifest(m);
+        else if (Date.now() - started > 20_000) setManifest({ ...m, tidying: false });
+      }, () => {});
+    }, 300);
+    return () => clearInterval(timer);
+  }, [id, manifest?.tidying]);
 
   async function send(message?: Outgoing, to = target): Promise<boolean> {
     if (sending || sent || !manifest) return false;

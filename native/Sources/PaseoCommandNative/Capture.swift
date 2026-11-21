@@ -312,21 +312,17 @@ final class CaptureController: NSObject, NSMenuDelegate {
             var events = s.events.map { CaptureEvent(kind: $0.kind, t: max(0, $0.host - first), x: $0.x, y: $0.y) }.filter { $0.t <= duration }
             // What you said: its sentences for the agent, and a keyframe for each.
             let voiced = s.recorder.voiced
-            var speech: [CaptureSpeech] = [], note: String?, tidied: String?
+            var speech: [CaptureSpeech] = [], note: String?
             if voiced {
                 s.hud.say("Hearing what you said…")
                 s.hud.mic.state(.muted)
                 do {
+                    let hearing = Date()
                     let words = try await CaptureVoice.words(in: s.recorder.url)
+                    Log.line("capture \(s.id): heard \(words.count) words in \(String(format: "%.1f", Date().timeIntervalSince(hearing))) s")
                     speech = CaptureTranscript.sentences(words)
                     events += CaptureTranscript.moments(words).filter { $0 <= duration }.map { CaptureEvent(kind: .said, t: $0) }
                     if speech.isEmpty { note = s.recorder.quiet(duration: duration) ?? "Nothing was said" }
-                    else if CaptureVoice.tidiesHere {
-                        s.hud.say("Tidying what you said…")
-                        let started = Date()
-                        tidied = await CaptureVoice.tidy(speech)
-                        Log.line("capture \(s.id): tidied on this Mac in \(String(format: "%.1f", Date().timeIntervalSince(started))) s\(tidied == nil ? " (failed)" : "")")
-                    }
                 } catch {
                     note = s.recorder.quiet(duration: duration) ?? error.localizedDescription
                     Log.line("capture \(s.id): no transcript: \(error.localizedDescription)")
@@ -342,15 +338,27 @@ final class CaptureController: NSObject, NSMenuDelegate {
             bundle.voice = voiced
             bundle.speech = speech
             bundle.transcriptNote = note
-            bundle.tidied = tidied
+            // Tidied on this Mac after the panel opens (it says so and waits): the panel needn't wait for it.
+            bundle.tidying = !speech.isEmpty && CaptureVoice.tidiesHere
+            let frames: [CaptureKeyframe]
             do {
-                let frames = try await bundle.build()
+                frames = try await bundle.build()
                 Log.line("capture \(s.id): \(String(format: "%.1f", duration)) s, \(frames.count) keyframes, \(events.count) marks, clicks and sayings, \(speech.count) sentences")
             } catch {
                 Log.line("capture \(s.id): couldn't make its frames: \(error.localizedDescription)")
                 return self.notice("Couldn't save the capture", error.localizedDescription)
             }
             self.openPanel(s.id)
+            if bundle.tidying {
+                Task {
+                    let started = Date()
+                    var tidiedBundle = bundle
+                    tidiedBundle.tidied = await CaptureVoice.tidy(speech)
+                    tidiedBundle.tidying = false
+                    try? tidiedBundle.writeManifest(frames)
+                    Log.line("capture \(s.id): tidied on this Mac in \(String(format: "%.1f", Date().timeIntervalSince(started))) s\(tidiedBundle.tidied == nil ? " (failed: the panel asks a helper)" : "")")
+                }
+            }
             // The GIF after: the panel needn't wait for it.
             Task.detached(priority: .utility) { _ = await bundle.writeGIF() }
         }

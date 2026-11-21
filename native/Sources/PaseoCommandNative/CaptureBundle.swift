@@ -245,6 +245,8 @@ struct CaptureBundle {
     /// What you said as the message you meant, by the on-device model ("" when nothing was for the agent); nil when it
     /// didn't tidy it (the panel asks the host's metadata model).
     var tidied: String?
+    /// The on-device model is tidying it now: the panel waits for `tidied` (the manifest is written again then).
+    var tidying = false
 
     var video: URL { folder.appendingPathComponent("recording.mp4") }
     var sheet: URL { folder.appendingPathComponent("contact-sheet.png") }
@@ -281,8 +283,13 @@ struct CaptureBundle {
         guard let sheetImage = CaptureImages.contactSheet(images), CaptureImages.writePNG(sheetImage, to: sheet) else {
             throw CaptureError("Couldn't draw the contact sheet")
         }
-        try manifest(keyframes).write(to: folder.appendingPathComponent("capture.json"))
+        try writeManifest(keyframes)
         return keyframes
+    }
+
+    /// `capture.json`, replaced whole (the server never reads half of it).
+    func writeManifest(_ keyframes: [CaptureKeyframe]) throws {
+        try manifest(keyframes).write(to: folder.appendingPathComponent("capture.json"), options: .atomic)
     }
 
     func manifest(_ keyframes: [CaptureKeyframe]) throws -> Data {
@@ -299,6 +306,7 @@ struct CaptureBundle {
         if let app { body["app"] = app }
         if let transcriptNote { body["transcriptNote"] = transcriptNote }
         if let tidied { body["tidied"] = tidied }
+        if tidying { body["tidying"] = true }
         return try JSONSerialization.data(withJSONObject: body, options: [.prettyPrinted, .sortedKeys])
     }
 

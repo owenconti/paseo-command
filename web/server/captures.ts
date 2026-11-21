@@ -63,6 +63,8 @@ export type CaptureManifest = {
   /** What you said as the message you meant, tidied on the Mac by its on-device model ("" when nothing was for the
    * agent); absent when it wasn't (the panel then asks the host's metadata model, `tidyCapture`). */
   tidied?: string;
+  /** The Mac's model is tidying it now (the manifest is written again with `tidied`, or without it when it failed). */
+  tidying?: true;
 };
 export type CaptureSpeech = { t: number; end: number; text: string };
 
@@ -131,6 +133,7 @@ export function readManifest(id: string): CaptureManifest | undefined {
     transcript,
     ...(note ? { transcriptNote: note } : {}),
     ...(tidied !== undefined && transcript.length ? { tidied } : {}),
+    ...(m.tidying === true && tidied === undefined && transcript.length ? { tidying: true as const } : {}),
   };
 }
 

@@ -252,6 +252,28 @@ test("what the Mac tidied on its own goes in at once, without asking a helper", 
   }
 });
 
+test("while the Mac tidies, the panel is open saying so, and puts its message in once it's done", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const voiced = { ...manifest, voice: true, transcript: [{ t: 1, end: 4, text: "So, uh, this button, um, blue." }] };
+  await panel(page, { ...voiced, tidying: true }, "SHOULD NOT BE ASKED");
+  // The panel's own reads again: tidying for a few, then done (this route, added last, answers first).
+  let reads = 0;
+  await page.route(`**/api/captures/${ID}`, (route) => {
+    reads++;
+    return route.fulfill({ json: reads < 3 ? { ...voiced, tidying: true } : { ...voiced, tidied: "Make this button blue." } });
+  });
+  try {
+    await page.locator(".cap-status", { hasText: "Generating transcript…" }).waitFor();
+    const composer = page.locator("#capture-composer");
+    await waitFor(() => composer.inputValue(), (v) => v === "Make this button blue.", "the Mac's tidied message, once done");
+    assert.deepEqual(tidyAsks, [], "no helper asked");
+    assert.equal(await page.locator(".cap-status").count(), 0);
+  } finally {
+    await context.close();
+  }
+});
+
 test("a voice without a transcript says why", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();

@@ -49,6 +49,9 @@ if #available(macOS 26, *), let locale = await CaptureVoice.locale(),
 assert(CaptureVoice.cleanTidy("  “Make  this blue.”  ") == "Make this blue.")
 assert(CaptureVoice.cleanTidy("\"A\n\n\n\nB\"") == "A\n\nB")
 assert(CaptureVoice.cleanTidy(String(repeating: "x", count: 9000)) == nil)
+// "Nothing" (nothing was for the agent) is an empty message; a "Message:" lead-in goes.
+assert(CaptureVoice.cleanTidy("Nothing.") == "" && CaptureVoice.cleanTidy("nothing") == "")
+assert(CaptureVoice.cleanTidy("Message: Make it blue.") == "Make it blue.")
 if CaptureVoice.tidiesHere {
     let started = Date()
     let tidied = await CaptureVoice.tidy([CaptureSpeech(t: 0, end: 4, text: "So, uh, this button here, like, it should be, um, blue."),
