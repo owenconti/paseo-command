@@ -213,7 +213,7 @@ test("the Files tab: first of the three tools, the branch's changes with a file'
     await page.getByRole("radio", { name: "All files" }).click();
     await page.locator(".files-tree").getByText("src").click();
     await page.locator(".files-tree").getByText("util.ts").click();
-    await page.locator(".files-tab[aria-selected=true]").getByText("util.ts").waitFor();
+    await page.locator(".files-bar .files-name").getByText("util.ts", { exact: true }).waitFor();
     // ⌘B, in the editor too: the sidebar hides and shows again.
     await editor(page).click();
     await page.keyboard.press("Meta+b");
@@ -234,8 +234,8 @@ test("the Files tab: first of the three tools, the branch's changes with a file'
     });
     assert.ok(gaps.every((g) => g <= 1), `the name's letters sit together: ${gaps}`);
     await page.keyboard.press("Enter");
-    await page.locator(".files-tab[aria-selected=true]").getByText("long.ts").waitFor();
-    assert.equal(await page.locator(".files-tab").count(), 3);
+    await page.locator(".files-bar .files-name").getByText("long.ts", { exact: true }).waitFor();
+    assert.equal(await page.locator(".files-tabs").count(), 0, "one file at a time: no tabs");
     // Wrapping long lines: off at first; ⌥Z in the editor turns it on for every file, :set nowrap off, ⌘K on again,
     // kept across a reload. A side-by-side diff keeps its lines whole.
     const wraps = () => page.locator(".files-editor .cm-content.cm-lineWrapping").count();
@@ -252,7 +252,8 @@ test("the Files tab: first of the three tools, the branch's changes with a file'
     await page.getByRole("option", { name: /^Wrap long lines in Files/ }).click();
     await waitFor(wraps, (n) => n === 1, "⌘K wraps");
     assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:files:wrap")), "true");
-    await page.locator(".files-tab").getByText("app.ts").click();
+    await page.getByRole("radio", { name: "Branch" }).click();
+    await page.locator(".files-row[data-kind=M]").click();
     await page.getByRole("radio", { name: "Split" }).click();
     await page.locator(".files-split").waitFor();
     assert.equal(await page.locator(".files-split .cm-content.cm-lineWrapping").count(), 0, "a split diff keeps lines whole");
@@ -277,12 +278,12 @@ test("vim keys edit, :w saves over the version read, and an agent's edit on disk
     await page.keyboard.type("2GA");
     await page.keyboard.type(" // edited");
     await page.keyboard.press("Escape");
-    await page.locator(".files-tab .files-dirty").waitFor();
+    await page.locator(".files-bar .files-dirty").waitFor();
     await page.keyboard.type(":w");
     await page.keyboard.press("Enter");
     await waitFor(() => Promise.resolve(writes.length), (n) => n === 1, "saved");
     assert.deepEqual(writes[0], { workspace: "wks_a", path: "src/app.ts", text: 'import { helper } from "./util";\nexport const a = helper(2); // edited\n', modifiedAt: T0 });
-    await page.locator(".files-tab .files-dirty").waitFor({ state: "detached" });
+    await page.locator(".files-bar .files-dirty").waitFor({ state: "detached" });
     // An agent writes it: the clean buffer follows.
     files["src/app.ts"] = { text: "export const a = 3;\n", at: "2026-01-02T00:00:00.000Z" };
     await waitFor(() => docText(page), (t) => t === "export const a = 3;\n", "reloaded from disk");
@@ -320,9 +321,9 @@ test("the language server: gd goes to a definition in another file, ⌃O comes b
     // On "helper" in line 1.
     await page.keyboard.type("gg0ww");
     await page.keyboard.type("gd");
-    await page.locator(".files-tab[aria-selected=true]").getByText("util.ts").waitFor();
+    await page.locator(".files-bar .files-name").getByText("util.ts", { exact: true }).waitFor();
     await page.keyboard.press("Control+o");
-    await page.locator(".files-tab[aria-selected=true]").getByText("app.ts").waitFor();
+    await page.locator(".files-bar .files-name").getByText("app.ts", { exact: true }).waitFor();
     // gr: the usages in a picker over the editor, with the keyboard (Esc is its, not vim's).
     await page.keyboard.type("gr");
     const usages = page.getByRole("dialog", { name: "Usages of helper" });
@@ -333,7 +334,7 @@ test("the language server: gd goes to a definition in another file, ⌃O comes b
     await usages.locator(".files-usage-preview .current").getByText("helper", { exact: true }).waitFor();
     await page.keyboard.press("Escape");
     await usages.waitFor({ state: "detached" });
-    await page.locator(".files-tab[aria-selected=true]").getByText("app.ts").waitFor();
+    await page.locator(".files-bar .files-name").getByText("app.ts", { exact: true }).waitFor();
     // Typing narrows them; Enter opens the one picked and closes the picker.
     await page.keyboard.type("gr");
     await usages.getByText("2 usages of helper in 2 files").waitFor();
@@ -341,16 +342,24 @@ test("the language server: gd goes to a definition in another file, ⌃O comes b
     await waitFor(() => usages.getByRole("option").count(), (n) => n === 1, "narrowed to util.ts");
     await page.keyboard.press("Enter");
     await usages.waitFor({ state: "detached" });
-    await page.locator(".files-tab[aria-selected=true]").getByText("util.ts").waitFor();
+    await page.locator(".files-bar .files-name").getByText("util.ts", { exact: true }).waitFor();
     await page.waitForFunction(() => !!document.activeElement?.closest(".files-editor"));
     await page.keyboard.type("K");
     await page.locator(".cm-lsp-hover-tooltip").getByText("the fake's hover").waitFor();
     // Its server stays while a TypeScript file is open, goes with the last, and comes back with the next one opened.
     const sockets = () => page.evaluate(() => (window as unknown as { lspSockets: { opened: number; closed: number } }).lspSockets);
     assert.deepEqual(await sockets(), { opened: 1, closed: 0 });
-    await page.getByRole("button", { name: "Close util.ts" }).click();
+    // :q closes the file shown (one at a time: util.ts, then app.ts, shown after it).
+    const quit = async (name: string) => {
+      await page.locator(".files-bar .files-name").getByText(name, { exact: true }).waitFor();
+      await editor(page).click();
+      await page.keyboard.press("Escape");
+      await page.keyboard.type(":q");
+      await page.keyboard.press("Enter");
+    };
+    await quit("util.ts");
     assert.deepEqual(await sockets(), { opened: 1, closed: 0 }, "app.ts is still open");
-    await page.getByRole("button", { name: "Close app.ts" }).click();
+    await quit("app.ts");
     await waitFor(sockets, (s) => s.closed === 1, "stopped with the last TypeScript file");
     await page.locator(".files-tree").getByText("long.ts").click();
     await page.locator(".files-lsp[data-state=ready]").waitFor();
@@ -454,14 +463,14 @@ test("an agent's show_in_files opens the Files tab at its place as it arrives, i
     // A new call, as the agent makes it: its changes, lines 1 to 2 of src/app.ts.
     items.push(call(2, { relative: "src/app.ts", line: 1, endLine: 2, view: "changes" }));
     await page.locator(".files-view").waitFor({ timeout: 15000 });
-    await page.locator(".files-tab[aria-selected=true]").getByText("app.ts").waitFor();
+    await page.locator(".files-bar .files-name").getByText("app.ts", { exact: true }).waitFor();
     assert.equal(await page.getByRole("radio", { name: "Branch" }).getAttribute("aria-checked"), "true");
     await page.locator(".cm-deletedChunk").getByText("helper(1)").waitFor();
     await waitFor(() => page.locator(".files-editor .cm-shownLine").count(), (n) => n === 2, "its two lines marked");
     assert.equal(await chips.nth(1).innerText(), "src/app.ts:1–2 · changes");
     // The earlier chip opens its place again.
     await chips.first().click();
-    await page.locator(".files-tab[aria-selected=true]").getByText("util.ts").waitFor();
+    await page.locator(".files-bar .files-name").getByText("util.ts", { exact: true }).waitFor();
   } finally {
     await context.close();
   }
@@ -506,6 +515,93 @@ test("Settings → Files sizes the editor's text and line height; the cursor's r
     await appEvent(page, "paseo:mode", { mode: "command" });
     await waitFor(style, (s) => s.size === "15px" && s.line === "23.25px", "the default size again");
     assert.deepEqual(await page.evaluate(() => [localStorage.getItem("paseo-command:files:fontSize"), localStorage.getItem("paseo-command:files:lineHeight")]), [null, null]);
+  } finally {
+    await context.close();
+  }
+});
+
+test("one file at a time; ⌃O and ⌃I walk vim's jumps and every file opened, reopening closed ones; ⌃^ is the alternate", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 950 });
+  const shown = (name: string) => page.locator(".files-bar .files-name").getByText(name, { exact: true }).waitFor();
+  const line = () => page.locator(".files-editor .cm-activeLineGutter").first().innerText();
+  try {
+    await openFilesTab(page);
+    await page.getByRole("radio", { name: "All files" }).click();
+    await page.locator(".files-tree").getByText("src").click();
+    await page.locator(".files-tree").getByText("app.ts").click();
+    await shown("app.ts");
+    await editor(page).click();
+    await page.keyboard.press("Escape");
+    // A jump inside the file (G, from line 1) joins the list.
+    await page.keyboard.type("gg");
+    await waitFor(line, (n) => n === "1", "at the top");
+    await page.keyboard.type("G");
+    await waitFor(line, (n) => n === "3", "at the end");
+    // Another file: one shows, no tabs.
+    await page.locator(".files-tree").getByText("util.ts").click();
+    await shown("util.ts");
+    assert.equal(await page.locator(".files-tabs, .files-tab").count(), 0);
+    await editor(page).click();
+    await page.keyboard.press("Escape");
+    // ⌃^: the alternate file, and back.
+    await page.keyboard.press("Control+^");
+    await shown("app.ts");
+    await page.keyboard.press("Control+^");
+    await shown("util.ts");
+    // Edit it and leave it unsaved: named in the bar from elsewhere.
+    await page.keyboard.type("A // mine");
+    await page.keyboard.press("Escape");
+    // Close util.ts (:q asks first when unsaved; :q! isn't ours, so save it first), then ⌃O reopens closed files.
+    await page.keyboard.type(":w");
+    await page.keyboard.press("Enter");
+    await page.locator(".files-bar .files-dirty").waitFor({ state: "detached" });
+    await page.keyboard.type(":q");
+    await page.keyboard.press("Enter");
+    await shown("app.ts");
+    // :q's Enter stays :q's: the file shown next isn't touched.
+    await page.waitForTimeout(100);
+    assert.equal(await page.locator(".files-bar .files-dirty").count(), 0, "app.ts unchanged");
+    // ⌃O walks back: util.ts, reopened though closed; app.ts's line 3 (where it left for util.ts); its line 1 (before G).
+    // (The spot it's on now is skipped, as vim does.) ⌃I goes forward again.
+    await editor(page).click();
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Control+o");
+    await shown("util.ts");
+    await page.keyboard.press("Control+o");
+    await shown("app.ts");
+    await waitFor(line, (n) => n === "3", "app.ts where it left");
+    await page.keyboard.press("Control+o");
+    await waitFor(line, (n) => n === "1", "back to before G");
+    await page.keyboard.press("Control+i");
+    await waitFor(line, (n) => n === "3", "forward to after G");
+  } finally {
+    await context.close();
+  }
+});
+
+test("a file left with unsaved edits is named in the bar; a click shows it", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 950 });
+  try {
+    await openFilesTab(page);
+    await page.getByRole("radio", { name: "All files" }).click();
+    await page.locator(".files-tree").getByText("src").click();
+    await page.locator(".files-tree").getByText("util.ts").click();
+    await editor(page).click();
+    await page.keyboard.press("Escape");
+    await page.keyboard.type("A // mine");
+    await page.keyboard.press("Escape");
+    await page.locator(".files-tree").getByText("long.ts").click();
+    await page.locator(".files-bar .files-name").getByText("long.ts", { exact: true }).waitFor();
+    const note = page.locator(".files-unsaved");
+    assert.equal(await note.innerText(), "1 unsaved elsewhere");
+    await note.click();
+    await page.locator(".files-bar .files-name").getByText("util.ts", { exact: true }).waitFor();
+    await note.waitFor({ state: "detached" });
+    await page.locator(".files-bar .files-dirty").waitFor();
   } finally {
     await context.close();
   }

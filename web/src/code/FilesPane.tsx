@@ -213,7 +213,6 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
         </aside>
       )}
       <div className="files-main">
-        <Tabs f={f} />
         {b && (
           <div className="files-bar">
             <button className="files-icon-btn" aria-label={sideHidden ? "Show the sidebar" : "Hide the sidebar"} aria-pressed={!sideHidden} data-tip={`${sideHidden ? "Show" : "Hide"} the sidebar (⌘B)`} onClick={toggleSide}>
@@ -225,6 +224,7 @@ export function FilesPane({ workspace }: { workspace: FilesWorkspace }) {
               <span className="files-name">{name(b.path)}</span>
               {b.dirty && <span className="files-dirty" aria-label="Unsaved changes" data-tip="Unsaved changes (⌘S or :w saves)" />}
             </span>
+            <UnsavedElsewhere f={f} />
             <span className="files-bar-tools">
               {lang && <LspChip f={f} b={b} state={lsp} />}
               {b.diff && (
@@ -306,23 +306,20 @@ function LspChip({ f, b, state }: { f: Files; b: Buffer; state: ReturnType<typeo
   );
 }
 
-function Tabs({ f }: { f: Files }) {
-  if (!f.buffers.length) return null;
+/** One file shows at a time (the user's call: no tabs); the files you left stay open behind it, their edits and undo kept,
+ *  and ⌃O / ⌃I, ⌃^ or ⌘P bring them back. Those with unsaved edits are named here; a click shows the first. */
+function UnsavedElsewhere({ f }: { f: Files }) {
+  const others = f.buffers.filter((x) => x.dirty && x.key !== f.active);
+  if (!others.length) return null;
+  const names = others.map((x) => name(x.path)).join(", ");
   return (
-    <div className="files-tabs" role="tablist" aria-label="Open files">
-      {f.buffers.map((x) => (
-        <div key={x.key} className="files-tab" role="tab" aria-selected={x.key === f.active} title={x.path} onMouseDown={(e) => e.button === 1 && (e.preventDefault(), closeBuffer(f, x.key))}>
-          <button className="files-tab-name" onClick={() => activate(f, x.key)}>
-            {x.diff && <FileDiff size={12} aria-hidden="true" />}
-            {name(x.path)}
-            {x.dirty && <span className="files-dirty" aria-label="unsaved" />}
-          </button>
-          <button className="files-tab-close" aria-label={`Close ${name(x.path)}`} onClick={() => closeBuffer(f, x.key)}>
-            <X size={11} aria-hidden="true" />
-          </button>
-        </div>
-      ))}
-    </div>
+    <button
+      className="files-unsaved"
+      data-tip={`Unsaved: ${names}. Click to show ${others.length > 1 ? "the first" : "it"}; :wa saves them all.`}
+      onClick={() => activate(f, others[0].key)}
+    >
+      {others.length} unsaved elsewhere
+    </button>
   );
 }
 

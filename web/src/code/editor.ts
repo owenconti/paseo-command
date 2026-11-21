@@ -66,6 +66,8 @@ export type BufferActions = {
   hover: () => void;
   back: () => void;
   forward: () => void;
+  /** ⌃^, `:e#`: the alternate file. */
+  alternate: () => void;
   quickOpen: () => void;
   toggleDiff: () => void;
 };
@@ -144,9 +146,36 @@ export const themeOf = () => [look, syntaxHighlighting(dark() ? oneDarkHighlight
 
 /** Vim: once, its own commands for the Files tab (each finds its buffer by view). */
 let vimReady = false;
+/** Vim's own jumps inside a file (the motions it puts on its jump list: G, gg, n, N, *, #, %, {, }, H, M, L, marks,
+ *  searches), each with the offset it left: the Files tab's history takes them (`store.ts`), so ⌃O and ⌃I go back and
+ *  forward across files, not only within one. */
+type VimJump = (view: EditorView, from: number) => void;
+const vimJumps = new Set<VimJump>();
+export function onVimJump(listener: VimJump) {
+  vimJumps.add(listener);
+  return () => vimJumps.delete(listener);
+}
+type JumpCm = { cm6: EditorView; indexFromPos(pos: { line: number; ch: number }): number };
+function hearVimJumps() {
+  const state = (Vim as unknown as { getVimGlobalState_?: () => { jumpList?: { add?: (cm: JumpCm, from: unknown, to: unknown) => void } } }).getVimGlobalState_?.();
+  const list = state?.jumpList;
+  if (!list?.add) return;
+  const add = list.add.bind(list);
+  list.add = (cm, from, to) => {
+    add(cm, from, to);
+    try {
+      const offset = cm.indexFromPos(from as { line: number; ch: number });
+      vimJumps.forEach((l) => l(cm.cm6, offset));
+    } catch {
+      // A jump vim recorded that we can't place: its own list still has it.
+    }
+  };
+}
+
 function setUpVim() {
   if (vimReady) return;
   vimReady = true;
+  hearVimJumps();
   const on = (name: Exclude<keyof BufferActions, "open">) => (cm: { cm6: EditorView }) => actionsOf(cm.cm6)?.[name]();
   Vim.defineEx("write", "w", (cm) => on("save")(cm as never));
   Vim.defineEx("wall", "wa", (cm) => on("saveAll")(cm as never));
@@ -165,7 +194,9 @@ function setUpVim() {
     const path = params.argString?.trim();
     const a = actionsOf((cm as unknown as { cm6: EditorView }).cm6);
     if (!a) return;
-    if (path) a.open(path);
+    // :e# (and :e #): the alternate file, as ⌃^.
+    if (path === "#") a.alternate();
+    else if (path) a.open(path);
     else a.quickOpen();
   });
   Vim.defineEx("diff", "diff", (cm) => on("toggleDiff")(cm as never));
@@ -177,6 +208,7 @@ function setUpVim() {
   act("paseoRename", (view) => actionsOf(view)?.rename());
   act("paseoBack", (view) => actionsOf(view)?.back());
   act("paseoForward", (view) => actionsOf(view)?.forward());
+  act("paseoAlternate", (view) => actionsOf(view)?.alternate());
   act("paseoNextDiagnostic", (view) => void nextDiagnostic(view));
   act("paseoPrevDiagnostic", (view) => void previousDiagnostic(view));
   act("paseoQuickOpen", (view) => actionsOf(view)?.quickOpen());
@@ -188,6 +220,8 @@ function setUpVim() {
   map("<C-o>", "paseoBack");
   map("<C-i>", "paseoForward");
   map("<Tab>", "paseoForward");
+  map("<C-^>", "paseoAlternate");
+  map("<C-6>", "paseoAlternate");
   map("]d", "paseoNextDiagnostic");
   map("[d", "paseoPrevDiagnostic");
   map("<C-p>", "paseoQuickOpen");

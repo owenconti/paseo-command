@@ -29,6 +29,7 @@ import {
   reconfigureTheme,
   reconfigureVim,
   reconfigureWrap,
+  onVimJump,
   setActions,
   setHover,
   themeOf,
@@ -86,7 +87,9 @@ export type Usage = {
   after?: string[];
 };
 export type Usages = { symbol: string; loading: boolean; error?: string; items: Usage[]; at: number };
-type Place = { key: string; pos: number };
+/** Where you were: the buffer (a workspace path, or `outside:` a library file), its offset, and its line and column, which
+ *  find the place again in a file reopened after it was dropped. */
+type Place = { key: string; pos: number; line: number; col: number };
 
 export type Files = {
   ws: FilesWorkspace;
@@ -178,36 +181,71 @@ function place(f: Files, focus = false) {
     if (focus) b.view.focus();
   });
 }
-function remember(f: Files) {
-  const b = activeBuffer(f);
+const spotOf = (b: Buffer, pos = b.view.state.selection.main.head): Place => {
+  const line = b.view.state.doc.lineAt(pos);
+  return { key: b.key, pos, line: line.number, col: pos - line.from + 1 };
+};
+/** Where the active buffer is (or was: `at`, a jump's start), onto the back list; forward is forgotten, as in vim. */
+function remember(f: Files, b = activeBuffer(f), at?: number) {
   if (!b) return;
-  const pos = b.view.state.selection.main.head;
+  const spot = spotOf(b, at);
   const last = f.back[f.back.length - 1];
-  if (last && last.key === b.key && Math.abs(last.pos - pos) < 1) return;
-  f.back.push({ key: b.key, pos });
+  if (last && last.key === spot.key && last.line === spot.line) return;
+  f.back.push(spot);
   if (f.back.length > MAX_HISTORY) f.back.shift();
   f.forward = [];
 }
+/** The buffer each editor is, for vim's own jumps (`onVimJump`). */
+const owners = new WeakMap<EditorView, { f: Files; b: Buffer }>();
+// Vim's jumps inside a file (G, gg, n, *, %, {, marks, searches…) join the Files tab's list, so ⌃O and ⌃I walk one
+// history through every file.
+onVimJump((view, from) => {
+  const own = owners.get(view);
+  if (own && own.f.active === own.b.key) remember(own.f, own.b, from);
+});
 export function activate(f: Files, key: string, options: { focus?: boolean; remember?: boolean } = {}) {
   if (options.remember !== false && f.active && f.active !== key) remember(f);
   f.active = key;
   place(f, options.focus ?? true);
   changed();
 }
-/** Back (⌃O) and forward (⌃I) through where you've been. */
-export function step(f: Files, dir: -1 | 1) {
+/** Back (⌃O) and forward (⌃I) through where you've been, in this file and others: a file no longer open is opened again
+ *  at its line (a library file outside the workspace, once closed, is skipped). */
+export async function step(f: Files, dir: -1 | 1) {
   const from = dir < 0 ? f.back : f.forward;
   const to = dir < 0 ? f.forward : f.back;
   const cur = activeBuffer(f);
   let next: Place | undefined;
-  while ((next = from.pop()) && !bufferOf(f, next.key));
+  const here = cur ? spotOf(cur) : undefined;
+  // Skipped: a closed library file (it can't be reopened by path), and the spot you're on (vim's way: a step always moves).
+  while (
+    (next = from.pop()) &&
+    ((!bufferOf(f, next.key) && next.key.startsWith("outside:")) || (here && next.key === here.key && next.line === here.line))
+  );
   if (!next) return;
-  if (cur) to.push({ key: cur.key, pos: cur.view.state.selection.main.head });
-  f.active = next.key;
-  const b = bufferOf(f, next.key)!;
-  b.view.dispatch({ selection: { anchor: Math.min(next.pos, b.view.state.doc.length) }, scrollIntoView: true });
-  place(f, true);
+  if (here) to.push(here);
+  let b = bufferOf(f, next.key);
+  if (b) {
+    f.active = next.key;
+    b.view.dispatch({ selection: { anchor: Math.min(next.pos, b.view.state.doc.length) }, scrollIntoView: true });
+    place(f, true);
+  } else {
+    await openFile(f, next.key, { line: next.line, col: next.col, remember: false });
+    b = bufferOf(f, next.key);
+    if (!b) return;
+  }
   changed();
+}
+
+/** ⌃^ and `:e#`: the alternate file, the last other file you were in. */
+export async function alternate(f: Files) {
+  const other = [...f.back].reverse().find((p) => p.key !== f.active && !(p.key.startsWith("outside:") && !bufferOf(f, p.key)));
+  if (!other) return say(f, "No alternate file yet.");
+  if (bufferOf(f, other.key)) {
+    activate(f, other.key);
+    const b = bufferOf(f, other.key)!;
+    b.view.dispatch({ selection: { anchor: Math.min(other.pos, b.view.state.doc.length) }, scrollIntoView: true });
+  } else await openFile(f, other.key, { line: other.line, col: other.col });
 }
 const goTo = (b: Buffer, line?: number, col = 1) => {
   if (!line) return;
@@ -265,12 +303,14 @@ function makeBuffer(f: Files, key: string, path: string, text: string, saved: Sa
     usages: () => void findUsages(f, b),
     rename: () => startRename(f, b),
     hover: () => void hoverAtCursor(b),
-    back: () => step(f, -1),
-    forward: () => step(f, 1),
+    back: () => void step(f, -1),
+    forward: () => void step(f, 1),
+    alternate: () => void alternate(f),
     quickOpen: () => window.dispatchEvent(new CustomEvent(QUICK_OPEN_EVENT)),
     toggleDiff: () => void toggleDiff(f, b),
   });
   void loadLanguage(view, parts, path);
+  owners.set(view, { f, b });
   f.buffers.push(b);
   // Past the most kept, the oldest unchanged buffer goes.
   if (f.buffers.length > MAX_BUFFERS) {
@@ -338,8 +378,7 @@ async function openOutside(f: Files, uri: string, abs: string, group: ServerGrou
 
 function dropBuffer(f: Files, b: Buffer) {
   f.buffers = f.buffers.filter((x) => x !== b);
-  f.back = f.back.filter((p) => p.key !== b.key);
-  f.forward = f.forward.filter((p) => p.key !== b.key);
+  // Where you were in it stays: back and forward open it again.
   b.split?.destroy();
   b.view.destroy();
   // Its language server goes with the workspace's last open file of its group (the relay stops it on the host);
@@ -366,7 +405,10 @@ export function closeBuffer(f: Files, key: string, force = false) {
   if (f.active === key) {
     const prev = [...f.back].reverse().find((p) => bufferOf(f, p.key));
     f.active = prev?.key ?? f.buffers[Math.min(at, f.buffers.length - 1)]?.key ?? null;
-    place(f, true);
+    // The file shown next takes the keyboard once the key that closed this one is done: focused at once, :q's Enter
+    // went on into it as a new line.
+    place(f, false);
+    setTimeout(() => activeBuffer(f)?.view.focus(), 0);
   }
   changed();
 }

@@ -196,63 +196,6 @@
   min-height: 0;
   background: var(--surface, var(--panel));
 }
-.files-tabs {
-  display: flex;
-  flex: none;
-  overflow-x: auto;
-  scrollbar-width: none;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel-2, var(--panel));
-}
-.files-tab {
-  display: flex;
-  align-items: center;
-  flex: none;
-  max-width: 220px;
-  border-right: 1px solid var(--line-soft, var(--line));
-  color: var(--text-3);
-}
-.files-tab[aria-selected="true"] {
-  background: var(--surface, var(--panel));
-  color: var(--text-strong);
-  box-shadow: inset 0 2px 0 var(--accent);
-}
-.files-tab-name {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  padding: 6px 2px 6px 10px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: var(--fs-xs);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-.files-tab-close {
-  display: inline-flex;
-  padding: 3px;
-  margin-right: 4px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-4);
-  opacity: 0;
-  cursor: pointer;
-}
-.files-tab:hover .files-tab-close,
-.files-tab[aria-selected="true"] .files-tab-close,
-.files-tab-close:focus-visible {
-  opacity: 1;
-}
-.files-tab-close:hover {
-  background: var(--fill);
-  color: var(--text);
-}
 .files-dirty {
   display: inline-block;
   flex: none;
@@ -262,8 +205,22 @@
   border-radius: 50%;
   background: var(--amber, #d9a23a);
 }
-.files-tab-name .files-dirty {
-  margin-left: 2px;
+/* One file shows at a time: others with unsaved edits are named in the file bar. */
+.files-unsaved {
+  flex: none;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--amber, #d9a23a) 45%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--amber, #d9a23a) 12%, transparent);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.files-unsaved:hover {
+  color: var(--text-strong);
 }
 .files-bar {
   display: flex;

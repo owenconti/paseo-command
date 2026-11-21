@@ -178,13 +178,13 @@ test("file paths in the conversation link, and open in the Files tab at their li
     await reply.getByRole("link", { name: "/work/atlas/a/src/long.ts:2700" }).click();
     await page.locator(".files-view").waitFor();
     assert.equal(await page.locator(".crew-tool-tabs [role=tab][aria-selected=true]").textContent(), "Files");
-    await page.locator(".files-tab[aria-selected=true]").getByText("long.ts").waitFor();
+    await page.locator(".files-bar .files-name").getByText("long.ts", { exact: true }).waitFor();
     await page.locator(".files-editor .cm-line").getByText("const needle = true;").waitFor();
     assert.equal(new URL(page.url()).hash, "", "the page stays where it is");
-    // The other link opens beside it, as another tab.
+    // The other link opens in its place (one file at a time).
     await reply.getByRole("link", { name: REPORT }).click();
-    await page.locator(".files-tab[aria-selected=true]").getByText("resource-reference-approaches.md").waitFor();
-    assert.equal(await page.locator(".files-tab").count(), 2);
+    await page.locator(".files-bar .files-name").getByText("resource-reference-approaches.md", { exact: true }).waitFor();
+    assert.equal(await page.locator(".files-tabs").count(), 0, "one file at a time: no tabs");
     assert.equal(listAsks(), 1, "the file list is asked once");
     assert.deepEqual(errors, []);
   } finally {

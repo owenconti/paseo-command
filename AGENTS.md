@@ -915,8 +915,10 @@ and `files:lineHeight` in localStorage, set on the page as `--files-font-size` a
 look reads; unset, the size follows the pages' text, 12 px and 1.5× their step, and lines are 1.55; every open view measures
 again as they change; sliders, a preview and Restore defaults; ⌘K "Files tab settings…", `openSettings("files")`), and the
 cursor's row is a band in the accent with its number bright (`.cm-activeLine`, `.cm-activeLineGutter`).
-Open files are tabs (`store.ts`, per workspace for the page's life: stepping away keeps unsaved edits; at most 24, the
-oldest unchanged one going first), each a CodeMirror 6 view (`editor.ts`: the app's tokens, `oneDarkHighlightStyle` in
+One file shows at a time (the user's call: no tabs; `store.ts`, per workspace for the page's life): those left stay open
+behind it, their edits and undo kept (at most 24, the oldest unchanged one going first), the file bar naming those with
+unsaved edits ("N unsaved elsewhere", a click shows the first; `UnsavedElsewhere`); `:q` closes the one shown (the next
+takes the keyboard only once `:q`'s Enter is done, which had gone on into it as a new line), each a CodeMirror 6 view (`editor.ts`: the app's tokens, `oneDarkHighlightStyle` in
 dark, the file's language from `@codemirror/language-data` by name, search, folding, brackets, lint gutter). ⌘P (⌃P and
 `:e` in vim) goes to any file, fuzzy over `files/all`, best fits first (`rankFiles` in `github/diffSearch.ts`: the fuzzy score,
 then a match starting the file's name and covering more of it, then the shorter path; 200 shown), each row the name as one
@@ -955,7 +957,11 @@ Telescope's way, the user's ask: no panel to close from vim): the field narrows 
 ↑/↓ ⌃N/⌃P ⌃J/⌃K and PageUp/PageDown step, three lines either side of the one picked show beneath (`before`/`after` on each
 `Usage`), Enter or a click opens it and closes the picker (`pickUsage`), Esc or a click outside closes it where you were; it
 holds the keyboard while open. Go to file and it are as tall as what they list (`align-self: flex-start`). Hover on the pointer is the
-client's; `K` asks for the cursor's. ⌘-click and F12 go to a definition, ⌃O/⌃I (⌥←/⌥→) through where you've been. A
+client's; `K` asks for the cursor's. ⌘-click and F12 go to a definition. ⌃O/⌃I (⌥←/⌥→) walk one history across files (`step`): files opened, definitions
+and usages, and vim's own jumps inside a file (G, gg, n, N, *, #, %, {, }, H, M, L, marks, searches: `onVimJump` in
+`editor.ts` hears the vim core's `jumpList.add`); each place keeps its line and column, so a closed file opens again there
+(a closed library file outside the workspace is skipped), and the spot you're on is skipped, as vim does. ⌃^ and `:e#` are
+the alternate file (`alternate`). A
 chat's file link opens there, and ⇧⌘G (View → Show Branch Changes, ⌘K "Show …’s branch changes in Files", a workspace's Show changes) its Branch view with the sidebar shown, the tab shown for either (`code/filesAsks.ts`: `askFilesTab`, main's `FILES_ASK_EVENT` handler, `takeFilesAsk` in `FilesPane`); in a browser it says the tab is the macOS app's. Tests: `server/lsp.test.ts` (a fake plugin), `server/api/files.test.ts`
 (write, conflict, version), `src/code/code.test.ts`, `e2e/files-tab.e2e.ts` (a fake `/api/lsp` socket).
 
