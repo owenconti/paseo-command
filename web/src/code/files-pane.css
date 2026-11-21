@@ -618,7 +618,16 @@
   color: var(--accent-text, var(--accent));
   font-weight: var(--fw-semibold);
 }
+/* The file's name: one item (its marked runs inside it), cut short with an ellipsis before its folder is. */
+.files-quick-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .files-quick-dir {
+  flex: 1 100 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-4);

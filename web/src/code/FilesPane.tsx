@@ -14,7 +14,7 @@ import { onAppCommand } from "../appCommands";
 import { readStore, writeStore } from "../api";
 import { allPath, ensure, treePath, useFilesData } from "../files/api";
 import type { FileList, FileTree } from "../files/types";
-import { filterFiles } from "../github/diffSearch";
+import { rankFiles } from "../github/diffSearch";
 import type { DiffFile, GithubUnavailable, WorkspaceChanges } from "../github/types";
 import { ResizeEdge } from "../ResizeEdge";
 import { languageOf } from "./paths";
@@ -595,7 +595,8 @@ function QuickOpen({ f, onClose }: { f: Files; onClose: () => void }) {
     }
     // "path:12" goes to line 12.
     const bare = q.replace(/:\d+$/, "");
-    return filterFiles(files, bare).files.slice(0, 200);
+    // Best fits first (contiguous, at word starts, in the file's name; then shorter paths), as editors' ⌘P does.
+    return rankFiles(files, bare).slice(0, 200);
   }, [list, q, f.buffers]);
   useEffect(() => {
     setAt(0);
@@ -629,7 +630,9 @@ function QuickOpen({ f, onClose }: { f: Files; onClose: () => void }) {
         <ul ref={box} role="listbox" aria-label="Files">
           {shown.map((x, i) => (
             <li key={x.path} data-i={i} role="option" aria-selected={i === at} onMouseEnter={() => setAt(i)} onMouseDown={(e) => (e.preventDefault(), go(x.path))}>
-              <Marked text={name(x.path)} marks={x.marks} offset={x.path.length - name(x.path).length} />
+              <span className="files-quick-name">
+                <Marked text={name(x.path)} marks={x.marks} offset={x.path.length - name(x.path).length} />
+              </span>
               <span className="files-quick-dir">
                 <Marked text={dir(x.path)} marks={x.marks} offset={0} />
               </span>
@@ -641,8 +644,16 @@ function QuickOpen({ f, onClose }: { f: Files; onClose: () => void }) {
     </div>
   );
 }
+/** The text with its matched characters marked, in runs (one element per run, not per character). */
 function Marked({ text, marks, offset }: { text: string; marks: number[]; offset: number }) {
   if (!marks.length) return <>{text}</>;
   const set = new Set(marks.map((m) => m - offset));
-  return <>{[...text].map((ch, i) => (set.has(i) ? <mark key={i}>{ch}</mark> : <span key={i}>{ch}</span>))}</>;
+  const runs: { marked: boolean; text: string }[] = [];
+  [...text].forEach((ch, i) => {
+    const marked = set.has(i);
+    const last = runs.at(-1);
+    if (last && last.marked === marked) last.text += ch;
+    else runs.push({ marked, text: ch });
+  });
+  return <>{runs.map((r, i) => (r.marked ? <mark key={i}>{r.text}</mark> : <span key={i}>{r.text}</span>))}</>;
 }

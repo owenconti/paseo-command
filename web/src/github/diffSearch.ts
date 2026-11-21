@@ -64,6 +64,24 @@ export function fuzzyPath(query: string, path: string): PathMatch | null {
 }
 
 /** The files whose paths fit the query, in their order, and the path that fits best. */
+/** The files that fit, best first (by score, then the shorter path, then the path), each with its marked characters. */
+export function rankFiles<T extends { path: string }>(files: T[], query: string): (T & { marks: number[] })[] {
+  const hits: { file: T & { marks: number[] }; score: number }[] = [];
+  const q = query.replace(/\s+/g, "").length;
+  for (const f of files) {
+    const hit = fuzzyPath(query, f.path);
+    if (!hit) continue;
+    // A name it starts, and one it covers more of (Dashboard.tsx over AiEvalDashboardReaderTest.php), fit better.
+    const nameStart = f.path.lastIndexOf("/") + 1;
+    const name = f.path.length - nameStart;
+    const inName = hit.marks.filter((m) => m >= nameStart).length;
+    const score = hit.score + (hit.marks[0] === nameStart ? SCORE.boundary : 0) + (name ? (SCORE.consecutive * Math.min(inName, q)) / name : 0);
+    hits.push({ file: { ...f, marks: hit.marks }, score });
+  }
+  hits.sort((a, b) => b.score - a.score || a.file.path.length - b.file.path.length || a.file.path.localeCompare(b.file.path));
+  return hits.map((h) => h.file);
+}
+
 export function filterFiles<T extends { path: string }>(files: T[], query: string): { files: (T & { marks: number[] })[]; best?: string } {
   let best: { path: string; score: number } | undefined;
   const out: (T & { marks: number[] })[] = [];

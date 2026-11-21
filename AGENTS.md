@@ -878,7 +878,9 @@ hide the Files sidebar" too, `files-sidebar`, kept as `files:sidebarHidden`; ⌃
 Open files are tabs (`store.ts`, per workspace for the page's life: stepping away keeps unsaved edits; at most 24, the
 oldest unchanged one going first), each a CodeMirror 6 view (`editor.ts`: the app's tokens, `oneDarkHighlightStyle` in
 dark, the file's language from `@codemirror/language-data` by name, search, folding, brackets, lint gutter). ⌘P (⌃P and
-`:e` in vim) goes to any file, fuzzy over `files/all` (`filterFiles`), `name:line` to a line. Vim keys
+`:e` in vim) goes to any file, fuzzy over `files/all`, best fits first (`rankFiles` in `github/diffSearch.ts`: the fuzzy score,
+then a match starting the file's name and covering more of it, then the shorter path; 200 shown), each row the name as one
+piece with its matched letters marked in runs, then its folder, `name:line` to a line. Vim keys
 (`@replit/codemirror-vim`; Settings → Files "Vim keys in the Files tab", `files:vim`, on by default, `vimSetting.ts`):
 `:w` `:wa` `:x` `:q` `:e` `:diff` and `gd` `gy` `gr` `K` ⌃O ⌃I `]d` `[d` `<space>rn` are the tab's (`setUpVim`); the
 editor's keydowns without ⌘ stop at it, so Esc is vim's, never the page's. Saving (⌘S, `:w`) is `POST /api/files/write`

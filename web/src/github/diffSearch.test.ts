@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filterFiles, findInDiff, FIND_LIMIT, fuzzyPath, sameMatch, shownLines } from "./diffSearch";
+import { filterFiles, findInDiff, rankFiles, FIND_LIMIT, fuzzyPath, sameMatch, shownLines } from "./diffSearch";
 import type { DiffFile } from "./types";
 
 const file = (path: string, hunks: DiffFile["hunks"]): DiffFile => ({ path, isNew: false, isDeleted: false, additions: 0, deletions: 0, hunks, status: "ok" });
@@ -126,4 +126,21 @@ test("findInDiff stops at its limit and says so", () => {
   assert.equal(many.matches.length, FIND_LIMIT);
   assert.ok(many.capped);
   assert.ok(sameMatch(many.matches[0]!, { ...many.matches[0]!, file: 9 }));
+});
+
+test("Go to file ranks the best fits first: a whole word in the name, then scattered letters, the shorter path first", () => {
+  const files = [
+    "app/data/SnapshotMembersBelowPaymentThresholdCase.php",
+    "app/ai/tests/Support/Evals/AiEvalDashboardReaderTest.php",
+    "app/control-panel/resources/js/pages/Dashboard.tsx",
+    "app/dashboards/readme.md",
+    "app/control-panel/resources/js/pages/Dashboard.test.tsx",
+  ].map((path) => ({ path }));
+  const ranked = rankFiles(files, "dashboard").map((f) => f.path);
+  assert.equal(ranked[0], "app/control-panel/resources/js/pages/Dashboard.tsx");
+  const scattered = ranked.indexOf("app/data/SnapshotMembersBelowPaymentThresholdCase.php");
+  assert.ok(scattered >= 0, "the scattered match is still found");
+  for (const named of ranked.filter((p) => /dashboard/i.test(p.slice(p.lastIndexOf("/") + 1))))
+    assert.ok(ranked.indexOf(named) < scattered, `${named} before the scattered match`);
+  assert.equal(ranked.length, 5);
 });

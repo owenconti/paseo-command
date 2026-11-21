@@ -223,6 +223,16 @@ test("the Files tab: first of the four tools, the branch's changes with a file's
     await page.keyboard.press("Meta+p");
     await page.getByRole("dialog", { name: "Go to file" }).waitFor();
     await page.keyboard.type("lng");
+    // Each row: the file's name as one piece (its matched letters marked in runs), then its folder; the best fit first.
+    const first = page.locator(".files-quick li").first();
+    assert.equal(await first.locator(".files-quick-name").innerText(), "long.ts");
+    assert.equal(await first.locator(".files-quick-name mark").count(), 2, "l and ng: runs, not letters");
+    const gaps = await first.locator(".files-quick-name").evaluate((el) => {
+      const boxes = [...el.children].map((c) => c.getBoundingClientRect());
+      return boxes.slice(1).map((b, i) => Math.round(b.left - boxes[i]!.right));
+    });
+    assert.ok(gaps.every((g) => g <= 1), `the name's letters sit together: ${gaps}`);
+    if (process.env.QUICK_SHOT) await page.screenshot({ path: process.env.QUICK_SHOT });
     await page.keyboard.press("Enter");
     await page.locator(".files-tab[aria-selected=true]").getByText("long.ts").waitFor();
     assert.equal(await page.locator(".files-tab").count(), 3);
