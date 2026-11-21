@@ -946,7 +946,9 @@ while no page does: no tab yet (and how agents' tools stand), or a page that did
 keep their pages in `parking`, a transparent view under everything in the window, so they draw and can be read and
 photographed; the shown one is in `stage`, in the window's `content`. While a web page has the keyboard the app keeps the
 window's keys and takes ⌘R, ⌘[, ⌘], ⌘W (the tab) and ⌘L, ⌘T (told to the page, which owns the address field) in
-`BrowserStage.performKeyEquivalent`; ⌘K opens the page's palette (`AppWindow`, as for the terminals). Tabs (addresses and
+`BrowserStage.performKeyEquivalent`; ⌘K opens the page's palette (`AppWindow`, as for the terminals). ⌘R reloads the shown tab from the app's page
+too (its tab strip, address or the conversation; `BoardBrowser.tsx`'s window key handler, `browserDo` `reload`; ⌘K's Reload
+entry says ⌘R). Tabs (addresses and
 titles, at most 12 an agent, the 40 most recently used agents') come back on launch, unloaded, in the app's preferences
 (`boardBrowserState`; check runs keep none). Its pages have a cookie store of their own, apart from the app's and your
 default browser's: an agent never acts with your logins. Nothing is downloaded.

@@ -1778,7 +1778,7 @@ function App() {
               { id: "board-browser-fill", group: "Actions", page: "Command" as const, label: "Make the browser fill the view, or show the conversation again", keywords: "crew browser expand maximize bigger full size restore", run: () => runAppCommand("board-browser-fill") },
               ...(browserTab
                 ? [
-                    { id: "board-browser-reload", group: "Actions", page: "Command" as const, label: `Reload ${tabLabel(browserTab)} in ${browserOf}`, keywords: "crew browser refresh page", run: () => runAppCommand("board-browser-reload") },
+                    { id: "board-browser-reload", group: "Actions", page: "Command" as const, label: `Reload ${tabLabel(browserTab)} in ${browserOf}`, keys: [["⌘", "R"]], keywords: "crew browser refresh page", run: () => runAppCommand("board-browser-reload") },
                     ...(browserTab.back ? [{ id: "board-browser-back", group: "Actions", page: "Command" as const, label: `Go back in ${browserOf}`, keywords: "crew browser previous page history", run: () => runAppCommand("board-browser-back") }] : []),
                     ...(browserTab.forward ? [{ id: "board-browser-forward", group: "Actions", page: "Command" as const, label: `Go forward in ${browserOf}`, keywords: "crew browser next page history", run: () => runAppCommand("board-browser-forward") }] : []),
                     { id: "board-browser-close-tab", group: "Actions", page: "Command" as const, label: `Close ${tabLabel(browserTab)} in ${browserOf}`, keywords: "crew browser tab remove", run: () => runAppCommand("board-browser-close-tab") },

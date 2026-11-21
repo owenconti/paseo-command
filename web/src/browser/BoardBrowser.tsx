@@ -157,9 +157,20 @@ export function BoardBrowser(props: {
   );
   // ⇧⌘W hides the browser from anywhere in the page, a field included (the app sends it as `key` while a web
   // page has the keyboard; B does it too, outside fields).
+  // ⌘R reloads the page on show from anywhere in the app's page too (its tab strip, address, the conversation): the app
+  // takes it itself while a web page has the keyboard (`BoardBrowser.swift`).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!e.metaKey || !e.shiftKey || e.ctrlKey || e.altKey || e.key.toLowerCase() !== "w" || e.defaultPrevented || modalOpen()) return;
+      if (e.defaultPrevented || modalOpen() || e.ctrlKey || e.altKey || !e.metaKey) return;
+      if (!e.shiftKey && e.key.toLowerCase() === "r") {
+        const shown = live.current.current;
+        if (!shown) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!e.repeat) browserDo("reload", { tab: shown.id });
+        return;
+      }
+      if (!e.shiftKey || e.key.toLowerCase() !== "w") return;
       e.preventDefault();
       e.stopImmediatePropagation();
       live.current.close();

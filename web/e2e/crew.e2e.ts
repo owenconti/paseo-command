@@ -900,3 +900,30 @@ test("⌥⌘B (the app's View menu asks the page) hides the tools beside the con
   await page.locator(".board-browser.crew").waitFor({ state: "detached" });
   await page.context().close();
 });
+
+test("⌘R reloads the browser's page on show from the app's page too: its address and the conversation", async () => {
+  const page = await open({ mac: true });
+  await map(page).locator(".crew-node").first().waitFor();
+  await page.locator('.crew-node[data-state="idle"]').first().click();
+  await page.locator(".crew-detail .session").waitFor();
+  await appEvent(page, "paseo:command", "tools-browser");
+  await page.locator(".board-browser.crew").waitFor();
+  const placed = await waitFor(() => sent(page, "browser"), (m) => m.some((x) => !!x.agent), "the browser placed for its agent");
+  const who = placed.filter((x) => !!x.agent).at(-1)!;
+  const key = `${who.host || "local"}|${who.agent}`;
+  await appEvent(page, "paseo:browser", {
+    type: "state",
+    browsers: { [key]: { host: who.host || "local", agent: who.agent, current: "t1", tabs: [{ id: "t1", url: "https://example.com/", title: "Example", loading: false, back: false, forward: false }] } },
+    hosting: {},
+  });
+  await page.locator(".board-browser.crew").getByText("Example").first().waitFor();
+  const reloads = () => sent(page, "browserDo").then((m) => m.filter((x) => x.action === "reload"));
+  // From the conversation (outside its fields), then from the browser's address field.
+  await page.locator(".crew-stage-state").click();
+  await page.keyboard.press("Meta+r");
+  await waitFor(reloads, (r) => r.length === 1 && r[0]!.tab === "t1", "reloaded from the conversation");
+  await page.locator(".board-browser.crew input").first().focus();
+  await page.keyboard.press("Meta+r");
+  await waitFor(reloads, (r) => r.length === 2, "reloaded from its address");
+  await page.context().close();
+});
