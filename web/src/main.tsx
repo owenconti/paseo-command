@@ -130,7 +130,7 @@ import { FloatingPanel } from "./FloatingPanel";
 import { AppPanel } from "./AppPanel";
 import { CrewDetail } from "./crew/CrewDetail";
 import { useGlanceData } from "./crew/Glance";
-import { useCrewSideHidden } from "./crew/sideStore";
+import { SIDE_GROUPS, SIDE_SORTS, setCrewSideGroup, setCrewSideSort, useCrewSide } from "./crew/sideStore";
 import { ASK_EVENT, askWorkspaceEditor, takeEditorAsk, type EditorAsk } from "./crew/workspaceEditorAsks";
 import { useOpenAgentMode } from "./agentModeStore";
 import { CrewMap } from "./crew/CrewMap";
@@ -699,7 +699,8 @@ function App() {
   // Crew: in the macOS app its Crew tab (the map) and Command tab (the open conversation); in a browser both at once.
   const crewShown = (appMode === "crew" || appMode === "command") && !settingsShown;
   const crewPlace: "map" | "conversation" | "both" = !macApp() ? "both" : appMode === "crew" ? "map" : "conversation";
-  const crewSideHidden = useCrewSideHidden();
+  const crewSide = useCrewSide();
+  const crewSideHidden = crewSide.hidden;
   // Boxes are claimed and released outside the app too: read them now and then while the crew shows.
   usePoolPolling(integrations.pool && crewShown);
   // Reading an agent's conversation views it: Crew's drawer, or the session panel while it isn't hidden.
@@ -1271,12 +1272,15 @@ function App() {
         !modalOpen() &&
         !layerOpen()
       ) {
+        // The macOS app's Command tab never goes back to the Crew tab (the user's call; its tab and ⌘1 do): Esc only leaves a
+        // subagent for its agent, and New agent or Add project unstarted, back to what was open.
+        if (crewPlace === "conversation" && !selection?.subagent && !dispatchTarget && !addingProject) return;
         e.preventDefault();
         if (selection?.subagent) return select({ ...selection, subagent: undefined });
-        // The macOS app's Command tab: back to the Crew tab, an agent's conversation kept for the Command tab.
         if (crewPlace === "conversation") {
-          postAppMenu("crew");
-          if (selection?.type === "agent") return;
+          setDispatchTarget(null);
+          setAddingProject(false);
+          return;
         }
         setDispatchTarget(null);
         setAddingProject(false);
@@ -2034,6 +2038,23 @@ function App() {
                   keywords: "crew sidebar list agents left panel toggle",
                   run: () => runAppCommand("crew-sidebar"),
                 },
+                // Its Display menu's choices: group by, sort by.
+                ...SIDE_GROUPS.filter((o) => o.value !== crewSide.group).map((o) => ({
+                  id: `crew-sidebar-group-${o.value}`,
+                  group: "App",
+                  page: "Command" as const,
+                  label: o.value === "none" ? "Don't group the crew list" : `Group the crew list by ${o.label.toLowerCase()}`,
+                  keywords: "crew sidebar list group display preferences",
+                  run: () => setCrewSideGroup(o.value),
+                })),
+                ...SIDE_SORTS.filter((o) => o.value !== crewSide.sort).map((o) => ({
+                  id: `crew-sidebar-sort-${o.value}`,
+                  group: "App",
+                  page: "Command" as const,
+                  label: `Sort the crew list by ${o.label.toLowerCase()}`,
+                  keywords: "crew sidebar list sort order display preferences recent",
+                  run: () => setCrewSideSort(o.value),
+                })),
               ]
             : []),
           ...(appMode !== "crew"

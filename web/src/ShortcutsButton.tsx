@@ -100,7 +100,7 @@ const CREW: Group = {
     { keys: [["Home"], ["End"]], label: "On the map: the first or last" },
     { keys: [["⌥", "↑"], ["⌥", "↓"]], label: "On a host's head: move the host earlier or later (or drag its head)" },
     { keys: [["Enter"]], label: "Open the robot, workspace or project" },
-    { keys: [["Esc"]], label: "Back to the crew from the conversation, once out of its message box (the robot you left keeps the keyboard)" },
+    { keys: [["Esc"]], label: "In a browser: back to the crew from the conversation, once out of its message box (the macOS app's Command tab stays: ⌘1 shows the Crew tab)" },
     { keys: [["←"], ["→"]], label: "On the conversation's left edge: make it wider or narrower (⇧ for bigger steps; drag it, double-click for the default)" },
     { keys: [["B"]], label: "Show or hide the open robot's browser beside its conversation (the macOS app's)" },
     { keys: [["F"]], label: "Show or hide its workspace in your editor (Settings → Files), beside the conversation (the macOS app's)" },

@@ -705,7 +705,8 @@ ask, in place of focus's strip of the other robots). What is open (an agent, a w
 project) is the Command tab's only, the user's call: the Crew, GitHub and Activity tabs take the full width, with no drawer or
 session panel beside them (main's `panelAbsent` includes `macApp()`; CrewMap's `open` is false on `map`, and no card or head is marked there, `marked`). Opening anything
 from another tab (a node or head, J/K, ⌘K, a notification, ⌘N, GitHub's Open Paseo agent) moves to Command (main's
-`openKey`); Esc on Command goes back to Crew, an agent's conversation kept there, anything else closed; and the Command tab
+`openKey`); Esc on Command never goes back to Crew (the user's call: its tab and ⌘1 do), only taking a subagent back to its
+agent and leaving New agent or Add project unstarted; and the Command tab
 with nothing open says so (`.crew-command-empty`, Show the crew). A browser has both at once (`both`): an agent opens over the
 map with a strip whose ← Crew goes back. ⌘K "Show the crew" (`crew-show`) and "Show the conversation with …"
 (`command-show`). The app opens on Crew (`Mode.crew`, the page's first `useAppMode`) unless the saved mode says otherwise. It began as the user's ask for a simpler, more traditional
@@ -795,18 +796,28 @@ the component Crew's drawer is.
   on the map's frame, which the tools read; at least 380 px, the tools 360). In focus the panes' own close, fill and title
   rows and the conversation's "← Fleet" are hidden (the tab bar and the strip have them). Under 900 px the tools lie over
   the conversation. Tests: `e2e/crew.e2e.ts`, `e2e/files-editor.e2e.ts`.
-- The crew list (the user's ask: the crew as a persistent left sidebar on the Command tab; the Crew tab keeps the map):
+- The crew list (the user's ask: the crew as a persistent left sidebar on the Command tab; the Crew tab keeps the map; then,
+  after Paseo's app and T3 Code, no host level, bigger cards in the look of the strip above the message box, and more colour):
   `web/src/crew/CrewSide.tsx`, only on the macOS app's Command tab (CrewMap's `sideHere`, `place === "conversation"`; a browser
-  keeps the map and ← Crew). The map's hosts (in the user's order) › projects › workspaces (their medallions, 16 px; Probe's
-  review a blue rule) › agents, each a row with its robot (22 px), name, unread dot and state, or what it is doing while it runs;
-  those that need you tinted; what is open marked and kept in view; a click opens it as the map's does; ↑/↓, Home and End move
-  through its rows. Its own folds (`crew:sideCollapsed`), apart from the map's. Its right edge resizes it (200–440 px,
-  `crew:sideWidth`); its width is `--crew-side` on the map's frame (0 hidden), which `.crew-map[data-focus]`'s padding and the
-  tools' and their tabs' `left` add, the default chat width 42% of what's left. ⌘S hides or shows it anywhere on the Command
-  tab but the Files tab (where ⌘S saves: FilesPane takes it only with the keyboard in the pane now) and dialogs; its head's
-  button hides it; ⌘K "Show / Hide the crew list beside the conversation" (`crew-sidebar`); kept as `crew:sideHidden`
-  (`sideStore.ts`). While your editor's terminal or the agent's browser has the keyboard the app keeps ⌘ keys, so ⌘S doesn't
-  reach it there. Tests: `e2e/crew.e2e.ts`.
+  keeps the map and ← Crew). Its agents (CrewMap's `sideItems`: each with its project, workspace, host, `created`, `prompted`
+  (`lastUserMessageAt`) and `active` (the later of `updatedAt` and that)) are grouped and sorted by `web/src/crew/sideList.ts`
+  (pure, `sideList.test.ts`): by project (the default: one group per project name across hosts, by name, "Without a project"
+  last), by status (Needs you, Replied, Working, Idle, Offline), by host (the map's order) or not at all; by last prompt (the
+  default, Paseo's: your last message, so working agents don't reshuffle) or as created (the map's order). Its head's Display
+  preferences menu (Group by, Sort by) and ⌘K ("Group the crew list by …", "Don't group the crew list", "Sort the crew list by
+  …") set them, kept as `crew:sideGroup` and `crew:sideSort` (`sideStore.ts`). A group's head folds it (`crew:sideCollapsed`),
+  counting its agents and those needing you. Each agent is a card (`.crew-side-card`): its `Portrait` (40 px: robot, glow,
+  mark, drones), name (two lines) with its unread dot and its workspace's medallions (18 px), a dot and its state in its colour
+  and its model, what it is doing with the sliding bar while it runs, then its workspace (only when not the agent's own name),
+  project (when not grouped by it) and host (when not grouped by it, there are several and it isn't this Mac), and how long
+  ago it was active; on a wash of its state's colour (stronger, with a coloured edge, for those needing you), the open one
+  edged in the accent and kept in view. A click opens it as the map's does; ↑/↓, Home and End move through cards and heads.
+  Its right edge resizes it (240–480 px, 300 by default, `crew:sideWidth`); its width is `--crew-side` on the map's frame
+  (0 hidden), which `.crew-map[data-focus]`'s padding and the tools' and their tabs' `left` add, the default chat width 42%
+  of what's left. ⌘S hides or shows it anywhere on the Command tab but the Files tab (where ⌘S saves: FilesPane takes it only
+  with the keyboard in the pane) and dialogs; its head's button hides it; ⌘K "Show / Hide the crew list beside the
+  conversation" (`crew-sidebar`); kept as `crew:sideHidden`. While your editor's terminal or the agent's browser has the
+  keyboard the app keeps ⌘ keys, so ⌘S doesn't reach it there. Tests: `e2e/crew.e2e.ts`, `src/crew/sideList.test.ts`.
 - The session panel (`FloatingPanel`, one column; what is open as the same `CrewDetail`) no longer shows anywhere: in the
   macOS app what is open is the Command tab's (above), and a browser's page is always Crew (main's `panelAbsent` =
   `crewShown || detailEmpty || macApp()`: the panel takes no width, the bar's panel buttons go, and ⌘B does nothing). It keeps its side, width and ⌘B; choosing something (J/K, ⌘K, a

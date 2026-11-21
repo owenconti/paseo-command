@@ -41,7 +41,7 @@ async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeo
           paseoWorld: {
             postMessage(m: any) {
               if (m.type === "art") setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
-              if (["pageMap", "mapStyle", "loaded", "workspace", "viewport", "barState", "art", "detach", "browser", "browserDo", "openLink", "glanceClick"].includes(m.type)) sent.push(m);
+              if (["pageMap", "mapStyle", "loaded", "workspace", "viewport", "barState", "art", "detach", "browser", "browserDo", "openLink", "glanceClick", "menu"].includes(m.type)) sent.push(m);
             },
           },
         },
@@ -716,10 +716,16 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   await page.locator(".crew-tool-tabs").getByRole("button", { name: "Hide the tools" }).click();
   await page.locator(".crew-files").waitFor({ state: "detached" });
   assert.equal(await page.locator(".crew-tool-tabs").count(), 0);
-  // The Crew tab: the map, the open agent marked and its conversation kept for the Command tab; Esc from the
-  // conversation goes there too.
+  // Esc on the Command tab stays there (the user's call): the conversation stays open.
   await page.locator(".crew-detail textarea").first().evaluate((el) => (el as HTMLElement).blur());
+  const asked = (await sent(page, "menu")).filter((m) => (m as { action?: string }).action === "crew").length;
   await page.keyboard.press("Escape");
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator(".crew-map").getAttribute("data-place"), "conversation", "Esc stays on the Command tab");
+  assert.equal((await sent(page, "menu")).filter((m) => (m as { action?: string }).action === "crew").length, asked, "Esc doesn't ask for the Crew tab");
+  await page.locator(".crew-detail .session").waitFor();
+  // The Crew tab (its tab, ⌘1): the map, the open agent's conversation kept for the Command tab.
+  await appEvent(page, "paseo:mode", { mode: "crew" });
   await waitFor(() => page.locator(".crew-map").getAttribute("data-place"), (p) => p === "map", "on the Crew tab");
   assert.equal(await page.locator(".crew-drawer").count(), 0, "the conversation waits for the Command tab");
   assert.equal(await page.locator(".crew-node[aria-current], .crew-head[aria-current]").count(), 0, "no card stays marked on the Crew tab");
@@ -806,8 +812,8 @@ test("in the macOS app the Command tab has the crew as a list on its left; ⌘S 
   const side = page.getByRole("navigation", { name: "Crew list" });
   await side.waitFor();
   // Every agent is a row; the open one is marked; the conversation stands right of the list.
-  assert.equal(await side.locator(".crew-side-row.agent").count(), dungeon.agents.filter((a) => !(a as { child?: unknown }).child).length);
-  const open1 = await side.locator('.crew-side-row.agent[aria-current="true"]').getAttribute("data-key");
+  assert.equal(await side.locator(".crew-side-card").count(), dungeon.agents.filter((a) => !(a as { child?: unknown }).child).length);
+  const open1 = await side.locator('.crew-side-card[aria-current="true"]').getAttribute("data-key");
   assert.ok(open1);
   const sideBox = (await side.boundingBox())!;
   const drawerBox = (await page.locator(".crew-drawer").boundingBox())!;
@@ -825,10 +831,27 @@ test("in the macOS app the Command tab has the crew as a list on its left; ⌘S 
   await page.locator(".crew-tool-tabs-close").click();
   await page.locator(".board-browser.crew").waitFor({ state: "detached" });
   // A row opens its agent.
-  const other = side.locator('.crew-side-row.agent[data-state="running"]').first();
+  const other = side.locator('.crew-side-card[data-state="running"]').first();
   const otherKey = await other.getAttribute("data-key");
   await other.click();
-  await waitFor(() => side.locator('.crew-side-row.agent[aria-current="true"]').getAttribute("data-key"), (k) => k === otherKey, "the row's agent open");
+  await waitFor(() => side.locator('.crew-side-card[aria-current="true"]').getAttribute("data-key"), (k) => k === otherKey, "the card's agent open");
+  // No host level by default: projects, each across hosts. The Display menu groups by status, then host, then none.
+  const heads = () => side.locator(".crew-side-group-head .crew-side-group-name").allInnerTexts();
+  const byProject = await heads();
+  assert.ok(byProject.length > 0 && !byProject.some((h) => /^(local|staging)$/i.test(h)), `project heads: ${byProject}`);
+  assert.equal(new Set(byProject.map((h) => h.toLowerCase())).size, byProject.length, "each project once, across hosts");
+  await side.getByRole("button", { name: "Display preferences" }).click();
+  await side.getByRole("menuitemradio", { name: "Status" }).click();
+  await waitFor(heads, (h) => h[0] === "Needs you", "status groups, needing you first");
+  await side.getByRole("menuitemradio", { name: "Host" }).click();
+  await waitFor(heads, (h) => h.some((x) => /local/i.test(x)), "host groups");
+  await side.getByRole("menuitemradio", { name: "None" }).click();
+  await waitFor(heads, (h) => h.length === 0, "no groups");
+  await page.keyboard.press("Escape");
+  await side.getByRole("menu").waitFor({ state: "detached" });
+  await side.getByRole("button", { name: "Display preferences" }).click();
+  await side.getByRole("menuitemradio", { name: "Project" }).click();
+  await page.keyboard.press("Escape");
   // ⌘S (outside the Files tab) hides it, and the conversation takes the width; ⌘S shows it again, kept across a reload.
   await page.locator(".crew-stage-state").click();
   await page.keyboard.press("Meta+s");

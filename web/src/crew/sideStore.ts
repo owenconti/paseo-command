@@ -1,34 +1,61 @@
-/** The crew list beside the Command tab's conversation (CrewSide.tsx): shown or hidden (⌘S, ⌘K), and its width, kept in
- *  localStorage and shared across the page (main's palette entry says which it would do). */
+/** The crew list beside the Command tab's conversation (CrewSide.tsx): shown or hidden (⌘S, ⌘K), how it groups and sorts
+ *  its agents (its Display menu, ⌘K), and its width, kept in localStorage and shared across the page. */
 import { useSyncExternalStore } from "react";
 import { readStore, writeStore } from "../api";
 
 const HIDDEN = "crew:sideHidden";
 const WIDTH = "crew:sideWidth";
-export const SIDE = { width: 260, min: 200, max: 440 };
+const GROUP = "crew:sideGroup";
+const SORT = "crew:sideSort";
+export const SIDE = { width: 300, min: 240, max: 480 };
 
-let hidden = readStore<boolean>(HIDDEN, false) === true;
+/** By project (across hosts, by name: the default), by state (those needing you first), by host, or not at all. */
+export type SideGroup = "project" | "status" | "host" | "none";
+/** Your most recent message first (the default), or as the map has them (oldest first). */
+export type SideSort = "recent" | "created";
+export const SIDE_GROUPS: { value: SideGroup; label: string }[] = [
+  { value: "project", label: "Project" },
+  { value: "status", label: "Status" },
+  { value: "host", label: "Host" },
+  { value: "none", label: "None" },
+];
+export const SIDE_SORTS: { value: SideSort; label: string }[] = [
+  { value: "recent", label: "Last prompt" },
+  { value: "created", label: "Created" },
+];
+
+type State = { hidden: boolean; group: SideGroup; sort: SideSort };
+const pick = <T extends string>(v: unknown, of: { value: T }[], fallback: T): T => (of.some((o) => o.value === v) ? (v as T) : fallback);
+let state: State = {
+  hidden: readStore<boolean>(HIDDEN, false) === true,
+  group: pick(readStore<unknown>(GROUP, "project"), SIDE_GROUPS, "project"),
+  sort: pick(readStore<unknown>(SORT, "recent"), SIDE_SORTS, "recent"),
+};
 const listeners = new Set<() => void>();
-const changed = () => listeners.forEach((l) => l());
-
-export const crewSideHidden = () => hidden;
-export function setCrewSideHidden(next: boolean): void {
-  if (next === hidden) return;
-  hidden = next;
-  writeStore(HIDDEN, next);
-  changed();
+function set(next: Partial<State>): void {
+  state = { ...state, ...next };
+  if ("hidden" in next) writeStore(HIDDEN, state.hidden);
+  if ("group" in next) writeStore(GROUP, state.group);
+  if ("sort" in next) writeStore(SORT, state.sort);
+  listeners.forEach((l) => l());
 }
-export const toggleCrewSide = () => setCrewSideHidden(!hidden);
 
-export function useCrewSideHidden(): boolean {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => hidden,
-  );
+export const crewSideHidden = () => state.hidden;
+export const setCrewSideHidden = (hidden: boolean) => hidden !== state.hidden && set({ hidden });
+export const toggleCrewSide = () => set({ hidden: !state.hidden });
+export const setCrewSideGroup = (group: SideGroup) => set({ group });
+export const setCrewSideSort = (sort: SideSort) => set({ sort });
+
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+};
+export function useCrewSide(): State {
+  return useSyncExternalStore(subscribe, () => state);
 }
+export const useCrewSideHidden = () => useCrewSide().hidden;
 
 /** Its width once resized (clamped), else the default. */
 export function readCrewSideWidth(): number {

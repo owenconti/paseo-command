@@ -18,11 +18,11 @@ import { placeText } from "../names";
 import { workspaceKey } from "../workspaces";
 import type { Selection, Workspace } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
-import { buildRoster, hostAgents, hostSpans, projectAgents, stateTally, type RosterAgent } from "./roster";
+import { buildRoster, hostAgents, hostSpans, projectAgents, stateTally, type RosterAgent, type RosterWorkspace } from "./roster";
 import { CrewDetail } from "./CrewDetail";
 import { orderHosts, placeHost, showHosts, stepHost, useHostOrder } from "./hostOrder";
 import { Medals, Portrait, useCrewData, type CrewFleet } from "./parts";
-import { CrewSide } from "./CrewSide";
+import { CrewSide, type SideCard } from "./CrewSide";
 import { readCrewSideWidth, setCrewSideHidden, toggleCrewSide, useCrewSideHidden, writeCrewSideWidth } from "./sideStore";
 import { onAppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
@@ -277,6 +277,39 @@ export function CrewMap(props: Props) {
     const row = rowOf(a.key);
     return (row && props.workingOn?.[row.clientId ?? row.id]?.sentence) || undefined;
   };
+  // The crew list's cards: every agent with its project, workspace, host and times, in the map's order.
+  const sideItems = useMemo(() => {
+    if (!sideHere) return [];
+    const rows = new Map(props.agents.map((r) => [`${r.host || "local"}|${r.id}`, r]));
+    const out: SideCard[] = [];
+    for (const h of hosts) {
+      const host = { key: h.key, name: h.name, local: h.key === "local" };
+      const add = (a: RosterAgent, project?: { key: string; name: string }, workspace?: RosterWorkspace) => {
+        const snap = snapshot.agents.find((x) => x.key === a.key);
+        const row = snap && rows.get(`${snap.hostId}|${snap.clientId ?? snap.id}`);
+        const active = [row?.updatedAt, row?.lastUserMessageAt].filter((t): t is string => !!t).sort().at(-1);
+        out.push({
+          key: a.key,
+          state: a.state,
+          ...(a.created ? { created: a.created } : {}),
+          ...(row?.lastUserMessageAt ? { prompted: row.lastUserMessageAt } : {}),
+          ...(active ? { active } : {}),
+          ...(project ? { project } : {}),
+          host,
+          order: out.length,
+          agent: a,
+          ...(workspace ? { workspace } : {}),
+        });
+      };
+      for (const p of h.projects) {
+        const project = { key: p.key, name: p.name };
+        for (const w of p.workspaces) for (const a of w.agents) add(a, project, w);
+        for (const a of p.loose) add(a, project);
+      }
+      for (const a of h.loose) add(a);
+    }
+    return out;
+  }, [sideHere, hosts, props.agents, snapshot]);
   const workspaceRow = (w: { key: string } | undefined) => {
     const s = w && snapshot.workspaces.find((x) => x.key === w.key);
     return s && props.workspaces.find((x) => x.workspaceId === s.id && (x.host || "local") === s.hostId);
@@ -354,9 +387,9 @@ export function CrewMap(props: Props) {
       {strip && <FocusStrip back={() => props.select(null)} />}
       {sideShown && (
         <CrewSide
-          hosts={hosts}
+          items={sideItems}
           selected={selected}
-          pick={pick}
+          open={(key) => pick("agent", key)}
           medals={medals}
           summaryOf={summaryOf}
           width={sideWidth}

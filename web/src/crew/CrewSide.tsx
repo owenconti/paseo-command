@@ -1,26 +1,32 @@
 /** The crew as a list down the Command tab's left (the user's ask: a persistent sidebar beside the conversation; the Crew
- *  tab keeps the map). Hosts › projects › workspaces › agents in the map's order, each agent with its robot, name and
- *  state; what is open is marked and kept in view. A click opens it, as the map's does. ⌘S (and ⌘K) hides or shows it
- *  (`sideStore.ts`); its right edge resizes it. Folds are its own (`crew:sideCollapsed`), apart from the map's. */
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ChevronDown, PanelLeftClose } from "lucide-react";
-import { STATE_NAMES, type State } from "../model/fleet";
+ *  tab keeps the map). After Paseo's app and T3 Code: no host level; its agents grouped by project (across hosts, by
+ *  name), status, host or not at all, most recently active first or as created (its Display menu, ⌘K; `sideStore.ts`).
+ *  Each agent is a card in the look of the strip above the message box: its robot with its glow, mark and drones, its
+ *  name, its state in its colour and its model, what it is doing with a bar while it runs, its workspace (when not its
+ *  own name), host (when not this Mac) and how long ago it was active, on a wash of its state's colour, its workspace's
+ *  medallions in its corner. What is open is marked and kept in view; a click opens it, as the map's does. ⌘S (and ⌘K)
+ *  hides or shows the list; its right edge resizes it. */
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Check, ChevronDown, PanelLeftClose, SlidersHorizontal } from "lucide-react";
+import { STATE_NAMES, modelName } from "../model/fleet";
 import { readStore, writeStore } from "../api";
 import { ResizeEdge } from "../ResizeEdge";
-import { Medals, Robot } from "./parts";
-import { robotColorOf } from "./sheets";
-import type { RosterAgent, RosterHost, RosterWorkspace } from "./roster";
-import { SIDE } from "./sideStore";
+import { shortAgo } from "../activity/rows";
+import { Portrait } from "./parts";
+import type { RosterAgent, RosterWorkspace } from "./roster";
+import { groupItems, type SideItem } from "./sideList";
+import { SIDE, SIDE_GROUPS, SIDE_SORTS, setCrewSideGroup, setCrewSideSort, useCrewSide } from "./sideStore";
 
 const COLLAPSED = "crew:sideCollapsed";
-const NEEDS: State[] = ["failed", "approval", "question", "asking"];
+
+export type SideCard = SideItem & { agent: RosterAgent; workspace?: RosterWorkspace };
 
 type Props = {
-  hosts: RosterHost[];
-  /** The open thing's key (an agent's, a workspace's, a project's), marked. */
+  items: SideCard[];
+  /** The open agent's key, marked. */
   selected: string | null;
-  pick: (kind: "agent" | "workspace" | "project", key: string) => void;
-  medals: (w: RosterWorkspace, size: number) => React.ReactNode;
+  open: (key: string) => void;
+  medals: (w: RosterWorkspace, size: number) => ReactNode;
   /** What a running agent is doing, in a sentence. */
   summaryOf: (a: RosterAgent) => string | undefined;
   width: number;
@@ -28,7 +34,10 @@ type Props = {
   hide: () => void;
 };
 
+const words = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
 export function CrewSide(props: Props) {
+  const { group, sort } = useCrewSide();
   const [collapsed, setCollapsed] = useState<string[]>(() => readStore<string[]>(COLLAPSED, []));
   const toggle = (key: string) =>
     setCollapsed((now) => {
@@ -36,112 +45,161 @@ export function CrewSide(props: Props) {
       writeStore(COLLAPSED, next);
       return next;
     });
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const away = (e: MouseEvent) => !menuRef.current?.contains(e.target as Node) && setMenu(false);
+    const esc = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMenu(false);
+    };
+    window.addEventListener("mousedown", away);
+    window.addEventListener("keydown", esc, true);
+    return () => {
+      window.removeEventListener("mousedown", away);
+      window.removeEventListener("keydown", esc, true);
+    };
+  }, [menu]);
   const list = useRef<HTMLDivElement>(null);
   // What is open stays in view (chosen here, on the map, with J/K, ⌘K or a notification).
   useEffect(() => {
     if (props.selected) list.current?.querySelector(`[data-key="${CSS.escape(props.selected)}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [props.selected]);
-  /** ↑/↓ (Home/End) move through its rows. */
+  }, [props.selected, group]);
+  /** ↑/↓ (Home/End) move through its cards and group heads. */
   const keys = (e: KeyboardEvent<HTMLElement>) => {
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key) || e.metaKey || e.altKey) return;
-    const rows = [...(list.current?.querySelectorAll<HTMLButtonElement>("button.crew-side-row") ?? [])];
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key) || e.metaKey || e.altKey || menu) return;
+    const rows = [...(list.current?.querySelectorAll<HTMLButtonElement>(".crew-side-card, .crew-side-group-head") ?? [])];
     if (!rows.length) return;
     e.preventDefault();
     const at = rows.indexOf(document.activeElement as HTMLButtonElement);
     const next = e.key === "Home" ? 0 : e.key === "End" ? rows.length - 1 : Math.max(0, Math.min(rows.length - 1, at < 0 ? 0 : at + (e.key === "ArrowDown" ? 1 : -1)));
     rows[next]?.focus();
   };
-  const current = (key: string) => (props.selected === key ? "true" : undefined);
+  const hosts = new Set(props.items.map((i) => i.host.key));
+  const groups = groupItems(props.items, group, sort);
+  const now = Date.now();
 
-  const agent = (a: RosterAgent) => {
-    const summary = a.state === "running" ? props.summaryOf(a) : undefined;
+  const card = (item: SideCard) => {
+    const a = item.agent;
+    const running = a.state === "running";
+    const summary = props.summaryOf(a);
+    const ws = item.workspace;
+    // Its workspace when that isn't the agent's own name (a lone agent's worktree is often named for it), its host
+    // when grouping doesn't say it and it isn't this Mac, and when it was last active.
+    const meta = [
+      ws && words(ws.name) !== words(a.name) ? ws.name : "",
+      group !== "project" && item.project ? item.project.name : "",
+      group !== "host" && hosts.size > 1 && !item.host.local ? item.host.name : "",
+    ].filter(Boolean);
+    const ago = item.active || item.created ? shortAgo((item.active ?? item.created)!, now) : "";
     return (
       <button
         key={a.key}
-        className="crew-side-row agent"
+        className="crew-side-card"
         data-key={a.key}
         data-state={a.state}
-        data-needs={NEEDS.includes(a.state) || undefined}
-        aria-current={current(a.key)}
-        onClick={() => props.pick("agent", a.key)}
+        aria-current={props.selected === a.key ? "true" : undefined}
+        onClick={() => props.open(a.key)}
       >
-        <Robot color={robotColorOf(a.model)} state={a.state} size={22} />
-        <span className="crew-side-text">
-          <span className="crew-side-name">
+        <Portrait agent={a} size={40} />
+        <span className="crew-side-card-text">
+          <span className="crew-side-card-name">
             {a.state === "done" && <span className="crew-unread" aria-label="Unread reply" role="img" />}
-            {a.name}
+            <span className="crew-side-card-title">{a.name}</span>
+            {ws && <span className="crew-side-card-medals">{props.medals(ws, 18)}</span>}
           </span>
-          <span className={`crew-side-state${summary ? " crew-shimmer" : ""}`}>
+          <span className="crew-side-card-state">
             <i aria-hidden="true" />
-            {summary || STATE_NAMES[a.state]}
+            <b>{STATE_NAMES[a.state]}</b>
+            {a.model && <span>{modelName(a.model)}</span>}
           </span>
+          {running && (
+            <>
+              <span className="crew-side-card-work crew-shimmer">{summary || "Working…"}</span>
+              <span className="crew-progress" aria-hidden="true">
+                <i />
+              </span>
+            </>
+          )}
+          {(meta.length > 0 || ago) && (
+            <span className="crew-side-card-meta">
+              {meta.length > 0 && <span className="crew-side-card-where">{meta.join(" · ")}</span>}
+              {ago && (
+                <time dateTime={item.active ?? item.created} title={new Date((item.active ?? item.created)!).toLocaleString()}>
+                  {ago}
+                </time>
+              )}
+            </span>
+          )}
         </span>
       </button>
     );
   };
-  const loose = (agents: RosterAgent[]) =>
-    agents.length > 0 && (
-      <div className="crew-side-ws loose">
-        <span className="crew-side-loose">Without a workspace</span>
-        {agents.map(agent)}
-      </div>
-    );
 
   return (
     <nav className="crew-side" id="crew-side" aria-label="Crew list" style={{ width: props.width }} onKeyDown={keys}>
       <div className="crew-side-head">
         <h2>Crew</h2>
+        <div className="crew-side-menu-wrap" ref={menuRef}>
+          <button
+            className="crew-side-hide"
+            aria-label="Display preferences"
+            aria-haspopup="menu"
+            aria-expanded={menu}
+            data-tip="Group and sort"
+            onClick={() => setMenu((m) => !m)}
+          >
+            <SlidersHorizontal size={14} aria-hidden="true" />
+          </button>
+          {menu && (
+            <div className="crew-side-menu" role="menu" aria-label="Display preferences">
+              <p>Group by</p>
+              {SIDE_GROUPS.map((o) => (
+                <button key={o.value} role="menuitemradio" aria-checked={group === o.value} onClick={() => setCrewSideGroup(o.value)}>
+                  {group === o.value ? <Check size={13} aria-hidden="true" /> : <span className="crew-side-menu-gap" />}
+                  {o.label}
+                </button>
+              ))}
+              <p>Sort by</p>
+              {SIDE_SORTS.map((o) => (
+                <button key={o.value} role="menuitemradio" aria-checked={sort === o.value} onClick={() => setCrewSideSort(o.value)}>
+                  {sort === o.value ? <Check size={13} aria-hidden="true" /> : <span className="crew-side-menu-gap" />}
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button className="crew-side-hide" aria-label="Hide the crew list" aria-keyshortcuts="Meta+S" data-tip="Hide the crew list (⌘S)" onClick={props.hide}>
           <PanelLeftClose size={14} aria-hidden="true" />
         </button>
       </div>
       <div className="crew-side-list" ref={list}>
-        {props.hosts.map((h) => {
-          const hostShut = collapsed.includes(h.key);
+        {groups.map((g) => {
+          const shut = !!g.label && collapsed.includes(g.key);
+          const needs = g.items.filter((i) => ["failed", "approval", "question", "asking"].includes(i.state)).length;
           return (
-            <section key={h.key} className="crew-side-host" data-offline={!h.online || undefined} aria-label={h.name}>
-              <button className="crew-side-fold host" aria-expanded={!hostShut} onClick={() => toggle(h.key)}>
-                <ChevronDown size={12} aria-hidden="true" />
-                <span>{h.name}</span>
-                {!h.online && <small>offline</small>}
-              </button>
-              {!hostShut && (
-                <>
-                  {h.projects.map((p) => {
-                    const shut = collapsed.includes(p.key);
-                    return (
-                      <section key={p.key} className="crew-side-project" aria-label={p.name}>
-                        <div className="crew-side-project-head">
-                          <button className="crew-side-fold small" aria-expanded={!shut} aria-label={`${shut ? "Show" : "Hide"} ${p.name}`} onClick={() => toggle(p.key)}>
-                            <ChevronDown size={12} aria-hidden="true" />
-                          </button>
-                          <button className="crew-side-row project" data-key={p.key} aria-current={current(p.key)} onClick={() => props.pick("project", p.key)}>
-                            {p.name}
-                          </button>
-                        </div>
-                        {!shut && (
-                          <>
-                            {p.workspaces.map((w) => (
-                              <div key={w.key} className={`crew-side-ws${w.probe?.state === "reviewing" ? " probe-reviewing" : ""}`}>
-                                <button className="crew-side-row workspace" data-key={w.key} aria-current={current(w.key)} onClick={() => props.pick("workspace", w.key)}>
-                                  <span className="crew-side-ws-name">{w.name}</span>
-                                  {props.medals(w, 16)}
-                                </button>
-                                {w.agents.map(agent)}
-                              </div>
-                            ))}
-                            {loose(p.loose)}
-                          </>
-                        )}
-                      </section>
-                    );
-                  })}
-                  {loose(h.loose)}
-                </>
+            <section key={g.key} className="crew-side-group" aria-label={g.label || "Agents"}>
+              {g.label && (
+                <button className="crew-side-group-head" aria-expanded={!shut} onClick={() => toggle(g.key)}>
+                  <ChevronDown size={13} aria-hidden="true" />
+                  <span className="crew-side-group-name">{g.label}</span>
+                  {needs > 0 && group !== "status" && (
+                    <span className="crew-side-group-needs" data-tip={`${needs} need${needs === 1 ? "s" : ""} you`}>
+                      {needs}
+                    </span>
+                  )}
+                  <span className="crew-side-group-count">{g.items.length}</span>
+                </button>
               )}
+              {!shut && <div className="crew-side-cards">{g.items.map(card)}</div>}
             </section>
           );
         })}
+        {!props.items.length && <p className="crew-side-empty">No agents yet.</p>}
       </div>
       <ResizeEdge
         label="Resize the crew list"
