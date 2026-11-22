@@ -230,6 +230,10 @@
   background: transparent;
   color: var(--text-3);
 }
+.icon-btn[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 .icon-btn:hover:not(:disabled) {
   background: var(--fill-strong);
   color: var(--text);

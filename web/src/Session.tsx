@@ -13,6 +13,7 @@ import { robotColorOf } from "./crew/sheets";
 import { MODEL_COLORS, modelColor } from "./model/fleet";
 import { ChatDecorContext, ChatFooterContext } from "./chatDecor";
 import { ContextMeter } from "./ContextMeter";
+import { toggleConversationOnly, useConversationOnly } from "./chatView";
 import {
   memo,
   useContext,
@@ -42,6 +43,7 @@ import {
   GitFork,
   ImagePlus,
   LoaderCircle,
+  MessageSquareText,
   Plug,
   Plus,
   Server,
@@ -79,6 +81,7 @@ import {
   fromTimeline,
   parseTranscript,
   toBlocks,
+  conversationBlocks,
   toolSummary,
   type Block,
   type Entry,
@@ -556,6 +559,7 @@ export function SessionView({
             )}
           </span>
           <span className="session-tools">
+            <ConversationOnlyButton />
             <button
               className="icon-btn"
               data-tip="New agent in this workspace (D)"
@@ -896,7 +900,10 @@ export const Timeline = memo(function Timeline({
    */
   const anchor = useRef<{ node: Element; offset: number } | null>(null);
   const [showJump, setShowJump] = useState(false);
-  const blocks = useMemo(() => toBlocks(entries), [entries]);
+  const allBlocks = useMemo(() => toBlocks(entries), [entries]);
+  // Conversation only (chatView.ts): the agent's thinking and tool calls left out.
+  const only = useConversationOnly();
+  const blocks = useMemo(() => (only ? conversationBlocks(allBlocks) : allBlocks), [allBlocks, only]);
   /** Hold the anchored row in place, or keep a pinned view at the bottom. */
   const settle = useCallback((el: HTMLDivElement) => {
     const held = anchor.current;
@@ -1021,7 +1028,9 @@ export const Timeline = memo(function Timeline({
           !blocks.length &&
           !unavailable &&
           !pending.length && (
-            <p className="timeline-note">No activity reported yet.</p>
+            <p className="timeline-note">
+              {allBlocks.length ? "Only thinking and tool calls so far, which are hidden." : "No activity reported yet."}
+            </p>
           )
         )}
 <Autolinks.Provider value={links}>
@@ -1318,6 +1327,22 @@ const TimelineBlock = memo(function TimelineBlock({
     <Activity steps={block.steps} live={live} />
   ) : null;
 });
+
+/** Conversation only: hides the agent's thinking and tool calls in every conversation, or shows them again. */
+function ConversationOnlyButton() {
+  const only = useConversationOnly();
+  return (
+    <button
+      className="icon-btn conversation-only"
+      data-tip={only ? "Show thinking and tool calls" : "Show only the conversation (hide thinking and tool calls)"}
+      aria-label="Show only the conversation"
+      aria-pressed={only}
+      onClick={toggleConversationOnly}
+    >
+      <MessageSquareText size={14} />
+    </button>
+  );
+}
 
 /** Another agent's report: its robot, and what it said in a quote. */
 function AgentReportCard({

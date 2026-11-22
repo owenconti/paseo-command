@@ -289,6 +289,10 @@ export function toBlocks(entries: Entry[]): Block[] {
   return blocks;
 }
 
+/** The conversation alone: the blocks without the agent's thinking and tool calls (`activity`), for the
+ *  conversation-only view (`chatView.ts`). Its replies, your messages, reports, pages, todos and notices stay. */
+export const conversationBlocks = (blocks: Block[]) => blocks.filter((b) => b.kind !== "activity");
+
 export function toolSummary(tool: string, _text: string) {
   const mcp = /^mcp__([^_]+(?:_[^_]+)*)__(.+)$/.exec(tool);
   if (mcp) return { name: mcp[2].replaceAll("_", " "), source: mcp[1] };

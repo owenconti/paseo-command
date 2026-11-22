@@ -751,6 +751,12 @@ and GitHub publication; report the published version and release link.
   a deliberate choice), but the permission mode stays a picker (the user's ask), `POST /api/agents/:id/mode` (`setAgentMode`).
   ⌘K (the open agent's, page Command): "Set the permission mode: <mode>" for each mode but the one it's in (`agent-mode`, from
   what the open `Session` publishes in `web/src/agentModeStore.ts`), while it's online and not archived. Tests: `e2e/crew.e2e.ts`.
+- Conversation only (the user's ask: just the conversation, not the agent's thinking and tool calls): the conversation
+  header's button (`ConversationOnlyButton` in `web/src/Session.tsx`, lit while on) and ⌘K ("Show only the conversation (hide
+  thinking and tool calls)" / "Show thinking and tool calls in conversations", page Command, the open agent's) switch one setting
+  for every conversation (`web/src/chatView.ts`, `chat:conversationOnly` in localStorage, off by default). On, the timeline leaves
+  out its activity blocks (`conversationBlocks` in `transcript.ts`); your messages, replies, agents' reports, visual replies,
+  Files links, todos and notices stay, as does "Working…". Tests: `e2e/conversation-only.e2e.ts`.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   open in your default browser, unless the agent's browser shows beside the conversation (it takes them) or they're a pull
   request's or a Linear issue's (below).

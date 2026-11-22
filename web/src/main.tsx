@@ -87,6 +87,7 @@ import { setSoundSettings, useSoundSettings } from "./sounds";
 import { setMusicSettings, useMusic } from "./music";
 import { setIntegration, useIntegrations } from "./integrationSettings";
 import { openPresetEditor, usePresets } from "./presetsStore";
+import { toggleConversationOnly, useConversationOnly } from "./chatView";
 import { presetNeedsPr } from "./presets";
 import { copyText } from "./nativePlatform";
 import { CommandPalette } from "./CommandPalette";
@@ -1551,6 +1552,7 @@ function App() {
   /** The open agent's own buttons and row actions, for the palette. */
   const openMode = useOpenAgentMode();
   const { presets } = usePresets();
+  const conversationOnlyOn = useConversationOnly();
   const agentCommands = (a: Agent): Command[] => {
     const name = agentName(a, workspaceOf(a)?.branch);
     const running = isRunning(a.status);
@@ -1591,6 +1593,15 @@ function App() {
             },
           ]
         : []),
+      // Conversation only (chatView.ts): the header's button, for every conversation.
+      {
+        id: "conversation-only",
+        group: "Actions",
+        page: "Command" as const,
+        label: conversationOnlyOn ? "Show thinking and tool calls in conversations" : "Show only the conversation (hide thinking and tool calls)",
+        keywords: "conversation only chat messages replies hide show thinking reasoning tool calls steps activity quiet focus",
+        run: toggleConversationOnly,
+      },
       // The permission mode, changeable for the rest of the conversation: each mode but the one it's in.
       ...(live && openMode?.agentId === a.id
         ? openMode.modes
