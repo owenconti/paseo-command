@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { UsageReport } from "./types";
+import type { UsageProblem, UsageReport } from "./types";
 import { placeText } from "./names";
 import { onAppBar, postAppBarState, type BarRect } from "./worldBridge";
 
@@ -21,6 +21,25 @@ const number = (value: number, unit?: string) =>
       }).format(value)
     : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)}${unit ? ` ${unit}` : ""}`;
 
+const HARNESS: Record<string, string> = { codex: "Codex", opencode: "OpenCode", pi: "Pi", omp: "OMP" };
+
+/** Why Paseo couldn't read an account's usage: the saved login it found, and what went wrong with it. */
+export function unavailableWhy(source: UsageReport): string {
+  const problem: UsageProblem | undefined = source.report?.problem ?? source.loginErrors?.[0]?.report?.problem;
+  const harness =
+    source.loginErrors?.[0]?.harness ?? (problem?.refreshedBy ? HARNESS[problem.refreshedBy] ?? problem.refreshedBy : undefined);
+  const login = harness ? `The login saved by ${harness}` : "Its saved login";
+  if (problem?.kind === "expired") {
+    const when = problem.expiresAt && Number.isFinite(Date.parse(problem.expiresAt))
+      ? ` on ${new Date(problem.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
+      : "";
+    return `Usage unavailable: ${login.charAt(0).toLowerCase()}${login.slice(1)} expired${when}. Sign in again there to see it.`;
+  }
+  if (problem?.kind === "rejected")
+    return `Usage unavailable: ${source.sourceLabel} refused ${login.charAt(0).toLowerCase()}${login.slice(1)}${problem.status ? ` (${problem.status})` : ""}. Sign in again there to see it.`;
+  return "Usage unavailable";
+}
+
 /**
  * The providers' usage: up to four meters, and the breakdown beside them on
  * hover or click. `hosted`: the macOS app's top bar draws the meters (from
@@ -40,7 +59,9 @@ export function UsageCard({ reports, hosted = false }: { reports: UsageReport[];
     undefined,
   );
   const panelId = useId();
-  const groups = reports.map((source) => {
+  // Accounts are named by the address's first part, unless two share it ("owen" at two companies).
+  const localParts = reports.map((r) => r.account?.label?.split("@")[0]);
+  const groups = reports.map((source, index) => {
     const report = source.report;
     const limits: Limit[] =
       report?.status === "available"
@@ -73,10 +94,15 @@ export function UsageCard({ reports, hosted = false }: { reports: UsageReport[];
     return {
       key: source.id,
       label: placeText(source.sourceLabel, "Provider"),
-      account: placeText(source.account?.label?.split("@")[0]),
+      account: placeText(
+        localParts.filter((p) => p && p === localParts[index]).length > 1 ? source.account?.label : localParts[index],
+      ),
       limits,
+      why: limits.length ? "" : unavailableWhy(source),
     };
   });
+  // Accounts with usage first; those that couldn't be read after them.
+  groups.sort((a, b) => Number(!a.limits.length) - Number(!b.limits.length));
   const meters = groups
     .flatMap((g) =>
       g.limits.map((limit) => ({ ...limit, key: `${g.key}:${limit.key}` })),
@@ -295,7 +321,7 @@ export function UsageCard({ reports, hosted = false }: { reports: UsageReport[];
                     </div>
                   ))
                 ) : (
-                  <p className="usage-unavailable">Usage unavailable</p>
+                  <p className="usage-unavailable">{group.why}</p>
                 )}
               </section>
             ))}

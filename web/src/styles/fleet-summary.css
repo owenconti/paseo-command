@@ -65,7 +65,8 @@
 }
 .usage-popover {
   position: fixed;
-  z-index: 100;
+  /* Over the toasts (150): opened on purpose, it shouldn't sit under a notice. */
+  z-index: 160;
   width: min(320px, calc(100vw - 24px));
   max-height: min(480px, calc(100dvh - 24px));
   overflow-y: auto;

@@ -5,7 +5,7 @@
  */
 import type { Rect } from "./browser/browserBridge";
 
-export const OVERLAYS = ".tooltip.shown, .popover-menu, .usage-card, .releases-popover, .games-window";
+export const OVERLAYS = ".tooltip.shown, .popover-menu, .usage-card, .usage-popover, .releases-popover, .games-window";
 
 /** The overlays on screen that meet `box` (a client rect), a little wider than each for its shadow's nearest edge. */
 export function overlayHoles(box: DOMRect, selector = OVERLAYS): Rect[] {

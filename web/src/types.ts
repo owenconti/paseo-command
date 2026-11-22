@@ -197,13 +197,23 @@ export type PendingPermission = Permission & {
   agentId: string;
   host?: string;
 };
+export type UsageProblem = {
+  kind: string;
+  status?: number;
+  expiresAt?: string;
+  refreshedBy?: string;
+};
 export type UsageReport = {
   id: string;
   sourceId: string;
   sourceLabel: string;
   account?: { label?: string };
+  /** Each harness whose saved login for this account failed, and how. */
+  loginErrors?: { harness?: string; report?: { problem?: UsageProblem } }[];
   report?: {
     status: string;
+    /** Why it's unavailable: the saved login expired, or the provider refused it. */
+    problem?: UsageProblem;
     planLabel?: string;
     windows?: {
       id: string;
