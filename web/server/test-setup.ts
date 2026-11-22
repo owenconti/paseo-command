@@ -18,6 +18,8 @@ process.env.PASEO_COMMAND_SETTINGS = join(root, "data", "settings.json");
 // Naming tests exercise their own injected service; unrelated fake-daemon tests
 // keep their agents and workspace titles as the fixture defined them.
 process.env.PASEO_COMMAND_AUTOMATIC_NAMES = "off";
+// Skill usage's one-time import reads Claude Code's transcripts from here (none), never this Mac's.
+process.env.CLAUDE_CONFIG_DIR = join(root, "claude");
 process.on("exit", () => rmSync(root, { recursive: true, force: true }));
 // Tests never reach Linear's API, whatever the shell exports.
 delete process.env.LINEAR_API_KEY;

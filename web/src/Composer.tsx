@@ -1,3 +1,4 @@
+import { noteSkillRun } from "./skillUsage";
 import { soundEvent } from "./soundCues";
 import {
   useCallback,
@@ -311,6 +312,15 @@ export function Composer({
   );
   const hasContent =
     Boolean(answersMessage(answers, text)) || attachments.length > 0;
+  /** A /skill you sent, for the app's skill usage record (src/skillUsage.ts). */
+  const noteSkill = (value: string) =>
+    noteSkillRun(value, {
+      commands: suggestions.commands,
+      agent: agent?.id,
+      host,
+      provider: agent?.provider ?? draft?.source?.provider,
+      cwd: agent?.cwd ?? draft?.source?.cwd,
+    });
   /** Send the draft; `only`, in place of its answers, for a quick reply. */
   const submit = async (how: Behavior = defaultBehavior, only?: Answer[]) => {
     const asked = only ?? answers;
@@ -323,6 +333,7 @@ export function Composer({
       setSending(true);
       try {
         await enqueue(agent.id, value, items);
+        noteSkill(value);
         // Cleared in storage now, as well as below: a composer that closes as it queues (the dialogue box's) can be
         // gone before its own effects would.
         removeStore(draftKey);
@@ -355,6 +366,7 @@ export function Composer({
         running ? (how === "queue" ? "steer" : how) : undefined,
       ),
     );
+    if (ok) noteSkill(value);
     if (!ok) {
       setText(draftText);
       setAnswers(asked);

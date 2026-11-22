@@ -35,6 +35,7 @@ import {
   markFork,
 } from "../forks";
 import { finishGame, gamesRecord, nextGame, saveGameState } from "../games";
+import { importClaudeCodeOnce, recordSkillRun, skillUsage } from "../skillUsage";
 import { draftGet } from "./drafts";
 import { presets, savePresets } from "../presets";
 import { appSettings, saveAppSettings } from "../settings";
@@ -184,6 +185,9 @@ export async function handleApi(
   // The mini games' record: this app's own file, never the daemon.
   if (url.pathname === "/api/games" || url.pathname.startsWith("/api/games/"))
     return gamesRoute(req, url.pathname, reply);
+  // Skill usage: this app's own file (server/skillUsage.ts); your past runs imported once, in the background.
+  void importClaudeCodeOnce();
+  if (url.pathname === "/api/skill-usage") return skillUsageRoute(req, reply);
   startLive();
   try {
     const parts = url.pathname.split("/").filter(Boolean).slice(1);
@@ -568,6 +572,29 @@ export async function handleApi(
     reply(200, result);
   } catch (error) {
     // Daemon errors can quote what they were given: never pass a secret on.
+    reply(400, { error: errorText(error) });
+  }
+}
+
+/** A skill sent from the message box (checked against the agent's own list when the page didn't know it), or the record. */
+async function skillUsageRoute(req: IncomingMessage, reply: ReturnType<typeof replier>) {
+  try {
+    if (req.method === "GET") return reply(200, skillUsage());
+    if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
+    if (!req.headers["content-type"]?.startsWith("application/json"))
+      return reply(415, { error: "JSON required" });
+    const body = await bodyOf(req, 16 * 1024);
+    return reply(
+      200,
+      await recordSkillRun(body, async (agent, host, skill) => {
+        const listed = (await agentGet("commands", id(agent), await resolveHost(host ?? null), new URL("http://x/"))) as {
+          commands?: { name: string; kind: string }[];
+        };
+        const kind = listed.commands?.find((c) => c.name === skill)?.kind;
+        return kind === "skill" || kind === "command" ? kind : undefined;
+      }),
+    );
+  } catch (error) {
     reply(400, { error: errorText(error) });
   }
 }

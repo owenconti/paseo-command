@@ -751,6 +751,15 @@ and GitHub publication; report the published version and release link.
   a deliberate choice), but the permission mode stays a picker (the user's ask), `POST /api/agents/:id/mode` (`setAgentMode`).
   ⌘K (the open agent's, page Command): "Set the permission mode: <mode>" for each mode but the one it's in (`agent-mode`, from
   what the open `Session` publishes in `web/src/agentModeStore.ts`), while it's online and not archived. Tests: `e2e/crew.e2e.ts`.
+- Skill usage (the user's ask: insight into skills invoked by hand; recorded only, nothing shown yet, the user's call):
+  the data folder's `skill-usage.json` (`web/server/skillUsage.ts`; `GET`/`POST /api/skill-usage`). Only skills sent from
+  this app's message box (the user's call), as `Composer` sends or queues a message starting `/name` (`noteSkillRun` in
+  `web/src/skillUsage.ts`): recorded when the agent lists the name as a skill or command (the / menu's list, else the server
+  asks the agent's `commands`), never Claude Code's own commands (`BUILTIN`), with when, kind, agent, host, provider and
+  folder. Your past runs were imported once from this Mac's Claude Code transcripts (`~/.claude/projects` or
+  `CLAUDE_CONFIG_DIR`, each session's `.jsonl`, not subagents', your `<command-name>` tags, a copied message once by its
+  uuid; about 30 s in the background on the first API request; `imports["claude-code"]` marks it done). Tests point
+  `CLAUDE_CONFIG_DIR` at an empty folder. Tests: `server/skillUsage.test.ts`.
 - Conversation only (the user's ask: just the conversation, not the agent's thinking and tool calls): the conversation
   header's button (`ConversationOnlyButton` in `web/src/Session.tsx`, lit while on) and ⌘K ("Show only the conversation (hide
   thinking and tool calls)" / "Show thinking and tool calls in conversations", page Command, the open agent's) switch one setting
