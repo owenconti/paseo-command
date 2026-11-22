@@ -86,7 +86,8 @@ import { usePageTextKeys } from "./pageText";
 import { setSoundSettings, useSoundSettings } from "./sounds";
 import { setMusicSettings, useMusic } from "./music";
 import { setIntegration, useIntegrations } from "./integrationSettings";
-import { openPresetEditor, usePresets } from "./presetsStore";
+import { openPresetEditor, setPresetTray, usePresets, usePresetTray } from "./presetsStore";
+import { presetNeedsPr } from "./presets";
 import { copyText } from "./nativePlatform";
 import { CommandPalette } from "./CommandPalette";
 import { PresetsEditorHost } from "./PresetsEditor";
@@ -1550,6 +1551,7 @@ function App() {
   /** The open agent's own buttons and row actions, for the palette. */
   const openMode = useOpenAgentMode();
   const { presets } = usePresets();
+  const presetTray = usePresetTray();
   const agentCommands = (a: Agent): Command[] => {
     const name = agentName(a, workspaceOf(a)?.branch);
     const running = isRunning(a.status);
@@ -1604,18 +1606,45 @@ function App() {
             }))
         : []),
       // Preset prompts (settings.json) into the open conversation's message box, as its / menu does.
+      // Sent at once, as the tray's buttons do (only when its {{pr}} has a pull request to name).
       ...(live && !isArchived(a) && !selection?.subagent
-        ? presets.map((p, i) => ({
-            id: `agent-preset-${i}`,
-            group: "Actions",
-            page: "Command" as const,
-            label: `Use the preset “${p.name}”`,
-            keywords: `preset prompt template message ${p.prompt.slice(0, 120)}`,
-            run: () => {
-              runAppCommand("agent-preset", p.prompt);
-              runAppCommand("focus-composer");
+        ? [
+            ...presets.flatMap((p, i) => [
+              {
+                id: `agent-preset-${i}`,
+                group: "Actions",
+                page: "Command" as const,
+                label: `Use the preset “${p.name}”`,
+                keywords: `preset prompt template message fill ${p.prompt.slice(0, 120)}`,
+                run: () => {
+                  runAppCommand("agent-preset", p.prompt);
+                  runAppCommand("focus-composer");
+                },
+              },
+              ...(!presetNeedsPr(p) || workspaceOf(a)?.pr
+                ? [
+                    {
+                      id: `agent-preset-send-${i}`,
+                      group: "Actions",
+                      page: "Command" as const,
+                      label: `Send the preset “${p.name}”`,
+                      keywords: `preset prompt template message now ${p.prompt.slice(0, 120)}`,
+                      run: () => runAppCommand("agent-preset", { prompt: p.prompt, send: true }),
+                    },
+                  ]
+                : []),
+            ]),
+            {
+              id: "agent-preset-tray",
+              group: "Actions",
+              page: "Command" as const,
+              label: presetTray
+                ? "Hide the preset prompts above the message box"
+                : "Show the preset prompts above the message box",
+              keywords: "presets tray buttons prompts tab",
+              run: () => setPresetTray(!presetTray),
             },
-          }))
+          ]
         : []),
       ...(live && running
         ? [

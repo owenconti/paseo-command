@@ -2024,3 +2024,104 @@
 .pending-comments-foot .ghost-btn.danger {
   color: var(--red-text);
 }
+
+/* A conversation's preset prompts (composer/PresetTray.tsx): a tab on the message box's top edge, and
+   the tray it slides out, joined to the box. The dock's negative margin takes back the shell's gap (and,
+   tucked away, the box's top border, which the tab covers so it reads as one piece). */
+.preset-dock {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: -9px;
+}
+.preset-dock[data-open] {
+  margin-bottom: -8px;
+}
+.preset-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  margin: 0 0 -1px 14px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-bottom: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--panel-raised);
+  color: var(--text-3);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.preset-tab:hover {
+  color: var(--text);
+}
+.preset-dock[data-open] .preset-tab {
+  background: color-mix(in srgb, var(--fill) 60%, var(--panel-raised));
+  color: var(--text-2);
+}
+.preset-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-self: stretch;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-bottom: 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: color-mix(in srgb, var(--fill) 60%, var(--panel-raised));
+  animation: preset-tray-in var(--dur-2) var(--ease-out);
+}
+.preset-dock[data-open] + .composer2 {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.preset-btn svg {
+  color: var(--accent-text);
+}
+.preset-btn:hover:not(:disabled) {
+  background: var(--fill-strong);
+}
+.preset-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.preset-btn.edit {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-3);
+}
+.preset-btn.edit svg {
+  color: inherit;
+}
+@keyframes preset-tray-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preset-tray {
+    animation: none;
+  }
+}

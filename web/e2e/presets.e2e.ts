@@ -1,7 +1,8 @@
 /**
  * Preset prompts in a conversation already started: offered in the message
  * box's / menu and in ⌘K, each putting its prompt (with `{{pr}}` as the
- * workspace's pull request) in the message box to edit and send.
+ * workspace's pull request) in the message box to edit and send, and as
+ * buttons in the tray the Presets tab slides out, each sending at once.
  * Every /api request is answered in the browser.
  */
 import { after, before, test } from "node:test";
@@ -23,7 +24,7 @@ after(async () => {
 
 const PR_URL = "https://github.com/acme/atlas/pull/13";
 
-async function open() {
+async function open(agent = "a-done") {
   const context = await newContext(browser);
   const page = await context.newPage();
   const errors: string[] = [];
@@ -51,12 +52,12 @@ async function open() {
     },
     detail: (id: string) => detailOf(id, "idle"),
     accept: (path, body) => {
-      if (path !== "/api/agents/a-done/send") return false;
+      if (path !== `/api/agents/${agent}/send`) return false;
       sent.push(body);
       return true;
     },
   } as never);
-  await page.goto(`${app.url}?agent=a-done`);
+  await page.goto(`${app.url}?agent=${agent}`);
   const composer = page.locator("#composer");
   await composer.waitFor();
   return { page, composer, errors, sent, close: () => context.close() };
@@ -93,5 +94,34 @@ test("⌘K's preset goes after what's drafted, and the message box takes the key
   await waitFor(() => composer.inputValue(), (v) => v === "First this.\n\nTidy the README.", "the preset in the box");
   await waitFor(() => composer.evaluate((el) => el === document.activeElement), (f) => f, "the box focused");
   assert.deepEqual(errors, []);
+  await close();
+});
+
+test("the Presets tab slides out a tray whose buttons send at once, leaving the draft; it stays out", async () => {
+  const { page, composer, errors, sent, close } = await open();
+  await composer.fill("My own draft");
+  const tab = page.getByRole("button", { name: "Presets" });
+  assert.equal(await tab.getAttribute("aria-expanded"), "false");
+  await tab.click();
+  const tray = page.getByRole("group", { name: "Preset prompts" });
+  if (process.env.SHOT) await page.waitForTimeout(400), await page.locator(".session-footer").screenshot({ path: process.env.SHOT });
+  await tray.getByRole("button", { name: "Review PR" }).click();
+  const body = await waitFor(() => Promise.resolve(sent[0]), (b) => !!b, "the send");
+  assert.equal(body.prompt, `Review #13 (${PR_URL}) for regressions.`);
+  assert.equal(await composer.inputValue(), "My own draft");
+  // Out after a reload, for every conversation.
+  await page.reload();
+  await page.getByRole("group", { name: "Preset prompts" }).getByRole("button", { name: "Tidy" }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Presets" }).getAttribute("aria-expanded"), "true");
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test("a preset naming {{pr}} waits where the workspace has no pull request", async () => {
+  const { page, close } = await open("a-idle");
+  await page.getByRole("button", { name: "Presets" }).click();
+  const tray = page.getByRole("group", { name: "Preset prompts" });
+  assert.equal(await tray.getByRole("button", { name: "Review PR" }).isDisabled(), true);
+  assert.equal(await tray.getByRole("button", { name: "Tidy" }).isDisabled(), false);
   await close();
 });

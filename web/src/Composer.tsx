@@ -28,6 +28,7 @@ import { AttachmentTray } from "./composer/AttachmentTray";
 import { Autocomplete } from "./composer/Autocomplete";
 import { GitHubPicker } from "./composer/GitHubPicker";
 import { Menu } from "./composer/Menu";
+import { PresetTray } from "./composer/PresetTray";
 import { QueueList } from "./composer/QueueList";
 import { SendControls } from "./composer/SendControls";
 import type {
@@ -383,6 +384,29 @@ export function Composer({
     else setAnswers((all) => [...all, { id: uid(), question, answer: value, options }]);
   };
 
+  /** A preset button sends its prompt now, as the send button would (queued while the agent works, by
+   *  default); the draft stays. One whose `{{pr}}` has no pull request to name isn't sent. */
+  const sendPreset = async (prompt: string) => {
+    const value = presetText(prompt).trim();
+    if (!value || sending || disabled || (presetNeedsPr({ name: "", prompt }) && !pullRequest)) return;
+    setSending(true);
+    try {
+      if (running && defaultBehavior === "queue" && agent) {
+        await enqueue(agent.id, value, []);
+        soundEvent("sent");
+        onQueued?.();
+      } else
+        await onSend(
+          toOutgoing(value, [], running ? (defaultBehavior === "queue" ? "steer" : defaultBehavior) : undefined),
+        );
+    } catch (e) {
+      soundEvent("actionFailed");
+      onNotice(errorMessage(e) || "Couldn't send the preset.");
+    } finally {
+      setSending(false);
+    }
+  };
+
   /** Send the suggested reply as it is; the draft stays. */
   const sendSuggestion = async (value: string) => {
     if (sending || disabled) return;
@@ -404,13 +428,18 @@ export function Composer({
   };
 
   // ── ⌘K's presets: the prompt goes in the message box, the whole of an empty one, else after what's there ──
-  const presetRef = useRef({ text, presetText });
-  presetRef.current = { text, presetText };
+  const presetRef = useRef({ text, presetText, sendPreset });
+  presetRef.current = { text, presetText, sendPreset };
   useEffect(() => {
     if (!agent || draftScope) return;
     return onOwnedAppCommand("agent-preset", (arg) => {
-      if (typeof arg !== "string" || disabled) return;
-      const { text: now, presetText: fill } = presetRef.current;
+      if (disabled) return;
+      const { text: now, presetText: fill, sendPreset: send } = presetRef.current;
+      if (arg && typeof arg === "object" && "send" in arg && "prompt" in arg && typeof arg.prompt === "string") {
+        void send(arg.prompt);
+        return;
+      }
+      if (typeof arg !== "string") return;
       const inserted = fill(arg).trim();
       if (!inserted) return;
       const next = now.trim() ? `${now.trimEnd()}\n\n${inserted}` : inserted;
@@ -547,6 +576,13 @@ export function Composer({
           disabled={disabled || sending}
           onSend={() => void sendSuggestion(suggestion)}
           onDismiss={settleSuggestion}
+        />
+      )}
+      {agent && !draftScope && (
+        <PresetTray
+          disabled={disabled || sending}
+          hasPr={!!pullRequest}
+          onSend={(p) => void sendPreset(p.prompt)}
         />
       )}
       <div
