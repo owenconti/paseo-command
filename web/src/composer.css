@@ -456,6 +456,9 @@
 .autocomplete > button em.client {
   color: var(--amber-text);
 }
+.autocomplete > button em.preset {
+  color: var(--green-text);
+}
 
 /* Popover menus */
 .menu-anchor {

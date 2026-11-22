@@ -37,12 +37,19 @@ export function Autocomplete({
     )
   )
     return null;
+  const withPresets = matches.some((m) => m.command?.kind === "preset");
   return (
     <div
       ref={placePopover}
       className="autocomplete"
       role="listbox"
-      aria-label={trigger?.type === "file" ? "Files" : "Commands and skills"}
+      aria-label={
+        trigger?.type === "file"
+          ? "Files"
+          : withPresets
+            ? "Commands, skills and presets"
+            : "Commands and skills"
+      }
     >
       <div className="autocomplete-head">
         {trigger?.type === "file" ? (
@@ -55,7 +62,7 @@ export function Autocomplete({
           </>
         ) : (
           <>
-            <Slash size={11} /> Commands &amp; skills
+            <Slash size={11} /> Commands &amp; skills{withPresets && <> &amp; presets</>}
           </>
         )}
         {(filesLoading ||
@@ -69,7 +76,9 @@ export function Autocomplete({
       {matches.map((m, i) => (
         <button
           aria-description={
-            "command" in m && m.command
+            "command" in m && m.command?.kind === "preset"
+              ? `Puts this preset prompt in the message box: ${(m.command.prompt ?? "").slice(0, 200)}`
+              : "command" in m && m.command
               ? `/${m.command.name}${m.command.description ? ` — ${m.command.description}` : ""}`
               : "file" in m && m.file
                 ? `Insert @${m.file.path}`
@@ -90,7 +99,7 @@ export function Autocomplete({
         >
           {"command" in m && m.command ? (
             <>
-              <b>/{m.command.name}</b>
+              <b>{m.command.kind === "preset" ? "" : "/"}{m.command.name}</b>
               {m.command.argumentHint && <code>{m.command.argumentHint}</code>}
               <span>{m.command.description}</span>
               <em className={m.command.kind}>

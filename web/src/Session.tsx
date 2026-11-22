@@ -833,6 +833,7 @@ export function SessionView({
           draftScope={surface?.draftScope}
           label={surface?.label}
           placeholder={surface?.placeholder}
+          pullRequest={workspace?.pr ?? undefined}
         />
       </footer>
     </div>

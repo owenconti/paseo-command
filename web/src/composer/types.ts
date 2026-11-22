@@ -48,7 +48,9 @@ export type Command = {
   name: string;
   description: string;
   argumentHint: string;
-  kind: "command" | "skill" | "client";
+  kind: "command" | "skill" | "client" | "preset";
+  /** A preset's prompt, put in the message box in place of its /name. */
+  prompt?: string;
 };
 export type Feature = {
   id: string;

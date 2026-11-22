@@ -172,6 +172,11 @@ and GitHub publication; report the published version and release link.
   Preset prompts from the data directory's `settings.json`, beside `secrets.json`, so the Dev and release apps keep their own
   (`{"presets":[{"name","prompt"}]}`, `GET /api/presets`, `web/server/presets.ts`, `web/server/settings.ts`; `PASEO_COMMAND_SETTINGS`
   overrides the path) show as buttons that launch the agent at once; `{{pr}}` names the chosen pull request.
+  In a conversation already started (the user's ask) they're in the message box's / menu (`useAutocomplete`, kind `preset`,
+  after the commands and skills, labelled "preset") and ⌘K ("Use the preset “…”", the open agent's, page Command, while it's
+  online and not archived; `agent-preset` with the prompt, answered by its `Composer`): either puts the prompt in the message box
+  (in the /name's place, or the whole of an empty box, else after what's there) to edit and send, never sending it at once;
+  `{{pr}}` is the workspace's pull request (`pullRequest` on `Composer`), left as written when it has none. Tests: `e2e/presets.e2e.ts`.
   They are edited in the app (`web/src/PresetsEditor.tsx`, from Settings or New agent; `POST /api/presets` keeps the file's
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
   Optional integrations (`integrations.linear`, `integrations.typesafe`) default off in that file.

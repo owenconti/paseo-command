@@ -16,6 +16,8 @@ import { pastedText } from "./paste";
 import { enqueue, toOutgoing, type Queued } from "./queue";
 import { Lightbox } from "./Images";
 import { modalOpen } from "./focus";
+import { onOwnedAppCommand } from "./appCommands";
+import { fillPreset, presetNeedsPr } from "./presets";
 import { AgentControls } from "./composer/AgentControls";
 import { AnswerList } from "./composer/AnswerList";
 import { AskStrip } from "./composer/AskStrip";
@@ -93,6 +95,7 @@ export function Composer({
   draftOwner = "dispatch",
   draftScope = "",
   onQueued,
+  pullRequest,
 }: {
   /** Current-work summary, kept with the sticky input. */
   activity?: ReactNode;
@@ -134,6 +137,8 @@ export function Composer({
   draftScope?: string;
   /** A message was queued (sent once the agent finishes). */
   onQueued?: () => void;
+  /** The workspace's pull request, which a preset's `{{pr}}` names. */
+  pullRequest?: { number: number; url?: string };
 }) {
   // A new agent's draft is kept as the dispatch draft always was.
   const owner = agent ? `${agent.id}${draftScope}` : draftOwner;
@@ -212,6 +217,14 @@ export function Composer({
     setAnswers((all) => [...all, { id, question, answer: "" }]);
     setFocusAnswer(id);
   }, [answerQuote]);
+  // Where the caret goes once new text is in (a preset), before any further key can land elsewhere.
+  const caretAfter = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const at = caretAfter.current;
+    caretAfter.current = null;
+    if (at !== null) placeCaret(at);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
   useLayoutEffect(() => {
     const el = area.current;
     if (!el) return;
@@ -255,9 +268,19 @@ export function Composer({
     focused,
   });
   const { trigger, open, matches, active, setActive } = suggestions;
+  /** A preset's prompt with `{{pr}}` filled in when the workspace has one; else left for you to fill. */
+  const presetText = (prompt: string) =>
+    pullRequest || !presetNeedsPr({ name: "", prompt }) ? fillPreset(prompt, pullRequest) : prompt;
   const choose = (index: number) => {
     const m = matches[index];
     if (!m || !trigger) return;
+    if ("command" in m && m.command?.kind === "preset") {
+      // The prompt takes the /name's place.
+      const insert = presetText(m.command.prompt ?? "");
+      caretAfter.current = trigger.start + insert.length;
+      setText(text.slice(0, trigger.start) + insert + text.slice(caret));
+      return;
+    }
     if ("command" in m && m.command?.kind === "client") {
       setText("");
       if (m.command.name === "archive") onArchive();
@@ -379,6 +402,23 @@ export function Composer({
     await onCancel();
     setCancelling(false);
   };
+
+  // ── ⌘K's presets: the prompt goes in the message box, the whole of an empty one, else after what's there ──
+  const presetRef = useRef({ text, presetText });
+  presetRef.current = { text, presetText };
+  useEffect(() => {
+    if (!agent || draftScope) return;
+    return onOwnedAppCommand("agent-preset", (arg) => {
+      if (typeof arg !== "string" || disabled) return;
+      const { text: now, presetText: fill } = presetRef.current;
+      const inserted = fill(arg).trim();
+      if (!inserted) return;
+      const next = now.trim() ? `${now.trimEnd()}\n\n${inserted}` : inserted;
+      caretAfter.current = next.length;
+      setText(next);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent?.id, draftScope, disabled]);
 
   // ── Global shortcut: ⌘L focuses the composer ──
   // Not from behind a dialog: it would type into a field the dialog hides

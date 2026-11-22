@@ -86,7 +86,7 @@ import { usePageTextKeys } from "./pageText";
 import { setSoundSettings, useSoundSettings } from "./sounds";
 import { setMusicSettings, useMusic } from "./music";
 import { setIntegration, useIntegrations } from "./integrationSettings";
-import { openPresetEditor } from "./presetsStore";
+import { openPresetEditor, usePresets } from "./presetsStore";
 import { copyText } from "./nativePlatform";
 import { CommandPalette } from "./CommandPalette";
 import { PresetsEditorHost } from "./PresetsEditor";
@@ -175,7 +175,7 @@ import type {
   UsageReport,
   Workspace,
 } from "./types";
-import { isRunning, isWorking, markDegraded, sameHost } from "./types";
+import { isArchived, isRunning, isWorking, markDegraded, sameHost } from "./types";
 import "@fontsource-variable/inter";
 import "./style.css";
 import "./app.css";
@@ -1549,6 +1549,7 @@ function App() {
       : undefined;
   /** The open agent's own buttons and row actions, for the palette. */
   const openMode = useOpenAgentMode();
+  const { presets } = usePresets();
   const agentCommands = (a: Agent): Command[] => {
     const name = agentName(a, workspaceOf(a)?.branch);
     const running = isRunning(a.status);
@@ -1601,6 +1602,20 @@ function App() {
               keywords: "mode permissions plan accept edits bypass always ask approve auto",
               run: () => runAppCommand("agent-mode", m.id),
             }))
+        : []),
+      // Preset prompts (settings.json) into the open conversation's message box, as its / menu does.
+      ...(live && !isArchived(a) && !selection?.subagent
+        ? presets.map((p, i) => ({
+            id: `agent-preset-${i}`,
+            group: "Actions",
+            page: "Command" as const,
+            label: `Use the preset “${p.name}”`,
+            keywords: `preset prompt template message ${p.prompt.slice(0, 120)}`,
+            run: () => {
+              runAppCommand("agent-preset", p.prompt);
+              runAppCommand("focus-composer");
+            },
+          }))
         : []),
       ...(live && running
         ? [

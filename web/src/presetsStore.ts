@@ -1,7 +1,8 @@
 /**
  * The preset prompts as this page knows them (`GET /api/presets`), shared by
- * New agent, the Settings popover and the editor, which saves them
- * (`POST /api/presets`) and opens from either.
+ * New agent, a conversation's message box (its / menu and ⌘K), the Settings
+ * popover and the editor, which saves them (`POST /api/presets`) and opens
+ * from either.
  */
 import { useEffect, useSyncExternalStore } from "react";
 import { api } from "./api";
@@ -57,6 +58,10 @@ export function usePresets() {
   }, []);
   return current;
 }
+
+/** The presets as last read, without reading the file again. */
+export const usePresetList = () =>
+  useSyncExternalStore(subscribe, () => state.presets);
 
 /** Whether the editor is open, without reading the file. */
 export const usePresetEditorOpen = () =>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../api";
 import { composerTrigger } from "../trigger";
 import { hostQuery } from "../types";
+import { refreshPresets, usePresetList } from "../presetsStore";
 import type { Command } from "./types";
 
 export type FileEntry = { path: string; kind: string };
@@ -77,6 +78,21 @@ export function useAutocomplete({
       : `agents/${agentId}/files${hostQuery(host)}${host ? "&" : "?"}q=${encodeURIComponent(q)}`;
   // App commands (/new, /archive) act on an agent, so a draft has none.
   const clientCommands = draft ? [] : CLIENT_COMMANDS;
+  // Preset prompts (settings.json) for a conversation already started; New agent has them as buttons.
+  const presetList = usePresetList();
+  const presets = useMemo(
+    (): Command[] =>
+      draft
+        ? []
+        : presetList.map((p) => ({
+            name: p.name,
+            description: p.prompt.split("\n").find((l) => l.trim())?.trim() ?? "",
+            argumentHint: "",
+            kind: "preset",
+            prompt: p.prompt,
+          })),
+    [draft, presetList],
+  );
   const trigger = useMemo(() => composerTrigger(before), [before]);
   const [dismissed, setDismissed] = useState<string | null>(null);
   const triggerKey = trigger ? `${trigger.type}:${trigger.start}` : null;
@@ -95,6 +111,12 @@ export function useAutocomplete({
     setCommands(null);
     setCommandError("");
   }, [source]);
+  // Read settings.json again as the / menu opens, so presets edited elsewhere show.
+  const commandMenu = open && trigger?.type === "command";
+  useEffect(() => {
+    if (commandMenu && !draft) void refreshPresets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commandMenu]);
   useEffect(() => {
     if (!open || trigger?.type !== "command" || commands) return;
     let live = true;
@@ -150,7 +172,7 @@ export function useAutocomplete({
       return files.map((f) => ({ key: f.path, file: f }));
     const q = trigger.query.toLowerCase();
     // App commands (/new, /archive) replace the whole draft, so only at the start.
-    const scored = (commands || [])
+    const scored = [...(commands || []), ...presets]
       .filter((c) => c.kind !== "client" || trigger.start === 0)
       .map((c) => {
         const n = c.name.toLowerCase();
@@ -172,7 +194,7 @@ export function useAutocomplete({
       .sort((a, b) => a.score - b.score || a.c.name.localeCompare(b.c.name));
     // A skill can share a name with a command (or /new, /archive).
     return scored.map(({ c }, i) => ({ key: `${c.name}:${i}`, command: c }));
-  }, [open, trigger, files, commands]);
+  }, [open, trigger, files, commands, presets]);
   useEffect(() => setActive(0), [triggerKey, trigger?.query]);
   return {
     trigger,
