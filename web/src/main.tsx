@@ -86,7 +86,7 @@ import { usePageTextKeys } from "./pageText";
 import { setSoundSettings, useSoundSettings } from "./sounds";
 import { setMusicSettings, useMusic } from "./music";
 import { setIntegration, useIntegrations } from "./integrationSettings";
-import { openPresetEditor, setPresetTray, usePresets, usePresetTray } from "./presetsStore";
+import { openPresetEditor, usePresets } from "./presetsStore";
 import { presetNeedsPr } from "./presets";
 import { copyText } from "./nativePlatform";
 import { CommandPalette } from "./CommandPalette";
@@ -1551,7 +1551,6 @@ function App() {
   /** The open agent's own buttons and row actions, for the palette. */
   const openMode = useOpenAgentMode();
   const { presets } = usePresets();
-  const presetTray = usePresetTray();
   const agentCommands = (a: Agent): Command[] => {
     const name = agentName(a, workspaceOf(a)?.branch);
     const running = isRunning(a.status);
@@ -1634,16 +1633,6 @@ function App() {
                   ]
                 : []),
             ]),
-            {
-              id: "agent-preset-tray",
-              group: "Actions",
-              page: "Command" as const,
-              label: presetTray
-                ? "Hide the preset prompts above the message box"
-                : "Show the preset prompts above the message box",
-              keywords: "presets tray buttons prompts tab",
-              run: () => setPresetTray(!presetTray),
-            },
           ]
         : []),
       ...(live && running

@@ -5,7 +5,7 @@
  * from either.
  */
 import { useEffect, useSyncExternalStore } from "react";
-import { api, readStore, writeStore } from "./api";
+import { api } from "./api";
 import type { Preset } from "./presets";
 
 type State = {
@@ -15,15 +15,12 @@ type State = {
   loaded: boolean;
   /** Whether the editor is open. */
   editing: boolean;
-  /** Whether a conversation's preset tray (above its message box) is out; kept for every conversation. */
-  tray: boolean;
 };
 let state: State = {
   presets: [],
   error: null,
   loaded: false,
   editing: false,
-  tray: readStore("composer:presetsOpen", false),
 };
 const listeners = new Set<() => void>();
 const set = (next: Partial<State>) => {
@@ -75,9 +72,3 @@ export const usePresetList = () =>
 export const usePresetEditorOpen = () =>
   useSyncExternalStore(subscribe, () => state.editing);
 
-/** A conversation's preset tray: out or tucked away, remembered. */
-export const usePresetTray = () => useSyncExternalStore(subscribe, () => state.tray);
-export function setPresetTray(open: boolean) {
-  writeStore("composer:presetsOpen", open);
-  set({ tray: open });
-}

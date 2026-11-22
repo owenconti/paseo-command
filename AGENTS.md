@@ -177,12 +177,11 @@ and GitHub publication; report the published version and release link.
   online and not archived; `agent-preset` with the prompt, answered by its `Composer`): either puts the prompt in the message box
   (in the /name's place, or the whole of an empty box, else after what's there) to edit and send, never sending it at once;
   `{{pr}}` is the workspace's pull request (`pullRequest` on `Composer`), left as written when it has none.
-  They're also buttons (the user's pick of three mockups): a "Presets" tab on the message box's top edge slides out a tray
-  joined to the box (`composer/PresetTray.tsx`, `.preset-dock`), each button sending its prompt at once (the user's call),
-  as the send button would (queued while the agent works, by default; `sendPreset`), the draft left alone; one naming `{{pr}}`
-  is disabled while the workspace has none; Edit opens the editor. Out or tucked away is kept for every conversation
-  (`composer:presetsOpen`, `usePresetTray`/`setPresetTray` in `presetsStore.ts`). ⌘K: "Send the preset “…”" (`agent-preset`
-  `{prompt, send: true}`) and "Show / Hide the preset prompts above the message box". Tests: `e2e/presets.e2e.ts`.
+  They're also buttons: a bar joined to the top of the message box, always shown (the user's call; it began as a tab that
+  slid it out), `composer/PresetTray.tsx`, `.preset-dock`, each button sending its prompt at once (the user's call), as the
+  send button would (queued while the agent works, by default; `sendPreset`), the draft left alone; one naming `{{pr}}` is
+  disabled while the workspace has none; Edit opens the editor. ⌘K also has "Send the preset “…”" (`agent-preset`
+  `{prompt, send: true}`). The old tab's `composer:presetsOpen` in localStorage is ignored. Tests: `e2e/presets.e2e.ts`.
   They are edited in the app (`web/src/PresetsEditor.tsx`, from Settings or New agent; `POST /api/presets` keeps the file's
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
   Optional integrations (`integrations.linear`, `integrations.typesafe`) default off in that file.

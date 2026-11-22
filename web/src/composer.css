@@ -2025,59 +2025,26 @@
   color: var(--red-text);
 }
 
-/* A conversation's preset prompts (composer/PresetTray.tsx): a tab on the message box's top edge, and
-   the tray it slides out, joined to the box. The dock's negative margin takes back the shell's gap (and,
-   tucked away, the box's top border, which the tab covers so it reads as one piece). */
+/* A conversation's preset prompts (composer/PresetTray.tsx): a bar of buttons joined to the top of the
+   message box, always shown. The dock's negative margin takes back the shell's gap. */
 .preset-dock {
   position: relative;
   z-index: 1;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  margin-bottom: -9px;
-}
-.preset-dock[data-open] {
   margin-bottom: -8px;
-}
-.preset-tab {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  margin: 0 0 -1px 14px;
-  padding: 0 8px 0 10px;
-  border: 1px solid var(--line-strong);
-  border-bottom: 0;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: var(--panel-raised);
-  color: var(--text-3);
-  font: inherit;
-  font-size: var(--fs-2xs);
-  letter-spacing: 0.02em;
-  cursor: pointer;
-}
-.preset-tab:hover {
-  color: var(--text);
-}
-.preset-dock[data-open] .preset-tab {
-  background: color-mix(in srgb, var(--fill) 60%, var(--panel-raised));
-  color: var(--text-2);
 }
 .preset-tray {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  align-self: stretch;
+  flex: 1;
   padding: 8px 10px;
   border: 1px solid var(--line-strong);
   border-bottom: 0;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   background: color-mix(in srgb, var(--fill) 60%, var(--panel-raised));
-  animation: preset-tray-in var(--dur-2) var(--ease-out);
 }
-.preset-dock[data-open] + .composer2 {
+.preset-dock + .composer2 {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
@@ -2113,15 +2080,4 @@
 }
 .preset-btn.edit svg {
   color: inherit;
-}
-@keyframes preset-tray-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .preset-tray {
-    animation: none;
-  }
 }
