@@ -92,3 +92,70 @@ test("the standalone server serves health with its version, the UI, and runs in 
     process.env = saved.env;
   }
 });
+
+test("the app's server lets your own Tailscale login in through Tailscale's proxy only while it's on", async () => {
+  const { TAILNET, resetTailnet, setTailnet } = await import("./tailnet");
+  const app = owner();
+  const root = temp();
+  const ui = join(root, "ui");
+  mkdirSync(ui);
+  writeFileSync(join(ui, "index.html"), "<p>hello</p>");
+  const saved = { cwd: process.cwd(), env: { ...process.env } };
+  const run = TAILNET.run;
+  process.env.PASEO_COMMAND_CLI = "/bin/echo";
+  process.env.PASEO_COMMAND_FLAVOR = "release";
+  const site = "mac.tail1.ts.net:4310";
+  let served = "{}";
+  TAILNET.run = async (args) => {
+    if (args[0] === "status")
+      return JSON.stringify({ BackendState: "Running", Self: { DNSName: "mac.tail1.ts.net.", UserID: 1 }, User: { "1": { LoginName: "me@example.com" } } });
+    if (args[1] === "status") return served;
+    served = args.includes("off") ? "{}" : JSON.stringify({ Web: { [site]: { Handlers: { "/": { Proxy: args.at(-1) } } } } });
+    return "";
+  };
+  const config = validateNativeConfig({
+    ...process.env,
+    PASEO_COMMAND_DATA: join(root, "data"),
+    PASEO_NATIVE_OWNER_PID: String(app.pid),
+    PASEO_NATIVE_UI: ui,
+    PASEO_NATIVE_PORT: "0",
+  });
+  const helper = await startNativeHelper(config, {
+    connect: (async () => {
+      throw new Error("no daemon in this test");
+    }) as never,
+  });
+  const port = new URL(helper.origin).port;
+  const ask = (headers: Record<string, string>) =>
+    new Promise<number>((resolve, reject) => {
+      import("node:http")
+        .then(({ request }) =>
+          request({ host: "127.0.0.1", port, path: "/", headers }, (res) => {
+            res.resume();
+            resolve(res.statusCode ?? 0);
+          })
+            .on("error", reject)
+            .end(),
+        )
+        .catch(reject);
+    });
+  const mine = { Host: site, "X-Forwarded-For": "100.64.0.2", "Tailscale-User-Login": "me@example.com" };
+  try {
+    assert.equal(await ask(mine), 403, "off");
+    await setTailnet(true);
+    assert.equal(await ask(mine), 200);
+    assert.equal(await ask({ ...mine, Origin: `https://${site}` }), 200);
+    assert.equal(await ask({ ...mine, Origin: "https://evil.example" }), 403);
+    assert.equal(await ask({ ...mine, "Tailscale-User-Login": "them@example.com" }), 403);
+    assert.equal(await ask({ ...mine, Host: `127.0.0.1:${port}` }), 403, "forwarded, never local");
+    await setTailnet(false);
+    assert.equal(await ask(mine), 403, "off again");
+  } finally {
+    TAILNET.run = run;
+    resetTailnet();
+    await helper.close();
+    app.stop();
+    process.chdir(saved.cwd);
+    process.env = saved.env;
+  }
+});

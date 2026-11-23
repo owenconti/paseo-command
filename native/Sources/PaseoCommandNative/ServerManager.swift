@@ -218,6 +218,8 @@ final class ServerManager {
         env["PASEO_NATIVE_PORT"] = String(port)
         env["PASEO_NATIVE_OWNER_PID"] = String(getpid())
         env["PASEO_COMMAND_VERSION"] = AppFlavor.version
+        // Access over Tailscale is the release app's only (web/server/tailnet.ts).
+        env["PASEO_COMMAND_FLAVOR"] = AppFlavor.isRelease ? "release" : "dev"
         return env
     }
 

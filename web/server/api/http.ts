@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { encode } from "../wire";
+import { forwarded, tailnetOrigin } from "../tailnet";
 import type { Body } from "./validate";
 
 /** Send a JSON answer (every `error` field redacted by `encode`). */
@@ -16,7 +17,8 @@ export function shuttingDown(res: ServerResponse) {
   res.setHeader("Content-Type", "application/json");
   return res.end(JSON.stringify({ error: "The server is shutting down." }));
 }
-/** Only local clients and loopback hostnames may use the API or its sockets.
+/** Only local clients and loopback hostnames may use the API or its sockets (or your own Tailscale login, through
+ * Tailscale's proxy, while access over Tailscale is on).
  * Restricting Host also prevents a rebinding hostname from reaching the daemon.
  * Origin checks at the call sites additionally prevent cross-origin access. */
 export function allowedOrigin(req: {
@@ -27,6 +29,8 @@ export function allowedOrigin(req: {
   if (peer && !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(peer))
     return null;
   if (req.headers["sec-fetch-site"] === "cross-site") return null;
+  // Passed on by a proxy: only Tailscale's, for your own login, while it's on (server/tailnet.ts).
+  if (forwarded(req.headers)) return tailnetOrigin(req.headers);
   const host = req.headers.host;
   if (typeof host !== "string" || !host || /[\s/\\@?#]/.test(host)) return null;
   try {

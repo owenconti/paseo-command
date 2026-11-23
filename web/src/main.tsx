@@ -88,6 +88,7 @@ import { setMusicSettings, useMusic } from "./music";
 import { setIntegration, useIntegrations } from "./integrationSettings";
 import { openPresetEditor, usePresets } from "./presetsStore";
 import { toggleConversationOnly, useConversationOnly } from "./chatView";
+import { remotePage, setTailnetOn, useTailnet } from "./tailnetStore";
 import { presetNeedsPr } from "./presets";
 import { copyText } from "./nativePlatform";
 import { CommandPalette } from "./CommandPalette";
@@ -1553,6 +1554,7 @@ function App() {
   const openMode = useOpenAgentMode();
   const { presets } = usePresets();
   const conversationOnlyOn = useConversationOnly();
+  const tailnet = useTailnet();
   const agentCommands = (a: Agent): Command[] => {
     const name = agentName(a, workspaceOf(a)?.branch);
     const running = isRunning(a.status);
@@ -2763,6 +2765,45 @@ function App() {
       keywords: "files editor font text size line height spacing vim wrap code settings",
       run: () => openSettings("files"),
     },
+    // Access over Tailscale (Settings → Tailscale): the release app's only, switched on the Mac.
+    ...(tailnet.status?.available
+      ? [
+          {
+            id: "tailscale-settings",
+            group: "App",
+            page: "Settings" as const,
+            label: "Tailscale settings… (open Paseo Command on your tailnet)",
+            keywords: "tailscale tailnet remote phone access serve https network",
+            run: () => openSettings("tailscale"),
+          },
+          ...(remotePage() || tailnet.busy
+            ? []
+            : [
+                {
+                  id: "tailscale-toggle",
+                  group: "App",
+                  page: "Settings" as const,
+                  label: tailnet.status.enabled
+                    ? "Stop serving Paseo Command on your tailnet"
+                    : "Open Paseo Command on your tailnet (Tailscale)",
+                  keywords: "tailscale tailnet remote phone access serve https turn on off",
+                  run: () => void setTailnetOn(!tailnet.status!.enabled),
+                },
+              ]),
+          ...(tailnet.status.enabled && tailnet.status.url
+            ? [
+                {
+                  id: "tailscale-copy",
+                  group: "App",
+                  page: "Settings" as const,
+                  label: "Copy Paseo Command’s Tailscale address",
+                  keywords: "tailscale tailnet url link address phone",
+                  run: () => void copyText(tailnet.status!.url!),
+                },
+              ]
+            : []),
+        ]
+      : []),
     {
       id: "radio",
       group: "App",

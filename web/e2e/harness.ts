@@ -294,6 +294,7 @@ const BASIC: Record<string, unknown> = {
   },
   hosts: [],
   usage: [],
+  tailnet: { available: false, enabled: false },
   profiles: [],
   releases: { installed: "test", releases: [] },
   secrets: { configured: { linearApiKey: false, typesafeApiKey: false }, error: null },

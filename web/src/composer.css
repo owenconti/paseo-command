@@ -2081,3 +2081,9 @@
 .preset-btn.edit svg {
   color: inherit;
 }
+/* Settings → Tailscale: why Tailscale didn't take it. */
+.settings-page .settings-row.settings-tailnet-error {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--red-text, var(--red));
+}

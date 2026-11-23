@@ -35,6 +35,7 @@ import {
   markFork,
 } from "../forks";
 import { finishGame, gamesRecord, nextGame, saveGameState } from "../games";
+import { forwarded, setTailnet, tailnetStatus } from "../tailnet";
 import { importClaudeCodeOnce, recordSkillRun, skillUsage } from "../skillUsage";
 import { draftGet } from "./drafts";
 import { presets, savePresets } from "../presets";
@@ -128,6 +129,21 @@ export async function handleApi(
   if (req.method === "GET" && url.pathname === "/api/releases") {
     if (url.search) return reply(400, { error: "Unexpected parameters" });
     return reply(200, await releasesView());
+  }
+  // Access over Tailscale (server/tailnet.ts): read anywhere, switched only on this Mac.
+  if (url.pathname === "/api/tailnet") {
+    if (url.search) return reply(400, { error: "Unexpected parameters" });
+    if (req.method === "GET") return reply(200, tailnetStatus());
+    if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
+    if (forwarded(req.headers))
+      return reply(403, { error: "Turn access over Tailscale on or off on the Mac itself." });
+    try {
+      const body = await bodyOf(req, 1024);
+      if (typeof body.enabled !== "boolean") return reply(400, { error: "Invalid enabled" });
+      return reply(200, await setTailnet(body.enabled));
+    } catch (error) {
+      return reply(400, { error: errorText(error) });
+    }
   }
   // Settings and preset prompts: this app's own settings file, never the daemon.
   if (url.pathname === "/api/settings") {

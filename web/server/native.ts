@@ -20,6 +20,7 @@ import {
 import { fileURLToPath } from "node:url";
 import { attachApiServer } from "./api";
 import { connector } from "./daemon";
+import { forwarded, startTailnet, tailnetOrigin } from "./tailnet";
 import { errorCode } from "./errors";
 
 const MIME: Record<string, string> = {
@@ -133,9 +134,12 @@ export async function startNativeHelper(
   let closing: Promise<void> | undefined;
   let watchdog: ReturnType<typeof setInterval> | undefined;
   const http = createServer((req, res) => {
-    const origin = `http://${req.headers.host}`;
+    // Through Tailscale's proxy (your own login, while it's on: tailnet.ts), else this Mac's loopback only.
+    const viaTailnet = forwarded(req.headers);
+    const origin = viaTailnet ? tailnetOrigin(req.headers) : `http://${req.headers.host}`;
     if (
-      !/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(req.headers.host ?? "") ||
+      !origin ||
+      (!viaTailnet && !/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(req.headers.host ?? "")) ||
       (req.headers.origin && req.headers.origin !== origin)
     ) {
       res.writeHead(403);
@@ -212,6 +216,7 @@ export async function startNativeHelper(
   };
   const cleanup = attachApiServer(host);
   const origin = `http://127.0.0.1:${(http.address() as AddressInfo).port}`;
+  void startTailnet((http.address() as AddressInfo).port);
   const close = () =>
     (closing ??= (async () => {
       if (watchdog) clearInterval(watchdog);

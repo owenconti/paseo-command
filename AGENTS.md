@@ -84,7 +84,8 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 - `npm run app:install`: installs `web/`'s dependencies.
 - `npm run app:dev`: React UI (Crew and the pages) and SDK API on port 4310, bound to `127.0.0.1`.
 - `npm run app:start`: detached preview of the built app and API, bound to `127.0.0.1`;
-  run from a human terminal. Access it on this machine at port 4310. Do not expose this unauthenticated API through a proxy or tunnel.
+  run from a human terminal. Access it on this machine at port 4310. Do not expose this unauthenticated API through a proxy or tunnel,
+  other than the release app's opt-in access over Tailscale (Settings → Tailscale, your own Tailscale login only; below).
 - Port 4310 is the user's installed app's. Agents' browser checks use another port:
   `npm run app:dev -- --port 4311` or `npm run app:start -- --port 4311`.
 - `npm run app:stop`, `app:restart`, `app:refresh`, `app:status`: manage that detached preview.
@@ -751,6 +752,21 @@ and GitHub publication; report the published version and release link.
   a deliberate choice), but the permission mode stays a picker (the user's ask), `POST /api/agents/:id/mode` (`setAgentMode`).
   ⌘K (the open agent's, page Command): "Set the permission mode: <mode>" for each mode but the one it's in (`agent-mode`, from
   what the open `Session` publishes in `web/src/agentModeStore.ts`), while it's online and not archived. Tests: `e2e/crew.e2e.ts`.
+- Access over Tailscale (the user's ask; the release app only and only the Mac owner's own Tailscale login, the user's calls;
+  `web/server/tailnet.ts`): Settings → Tailscale (`TailscaleSettings` in `SettingsPage.tsx`, shown only where the server offers
+  it: `PASEO_COMMAND_FLAVOR=release`, set by `ServerManager.serverEnvironment`) and ⌘K ("Open Paseo Command on your tailnet
+  (Tailscale)" / "Stop serving…", "Copy Paseo Command’s Tailscale address", "Tailscale settings…", page Settings) switch
+  `tailnet.enabled` in settings.json, off by default (`GET`/`POST /api/tailnet`; switching refused through the tailnet itself).
+  On, the Tailscale CLI serves the app tailnet-only over HTTPS (`tailscale serve --bg --yes --https=4310 http://127.0.0.1:<port>`,
+  `https://<mac>.<tailnet>.ts.net:4310`; a port 4310 someone else serves is left alone and said); off, `… --https=4310 off`;
+  left on, it's served again as the server starts (`startTailnet` in `native.ts`). The server still listens on 127.0.0.1 only.
+  Tailscale's proxy keeps the Host asked for and sets `Tailscale-User-Login` (replacing any a client sent: checked against a real
+  serve); a request carrying it or any `X-Forwarded-*`/`Forwarded` header (`forwarded`) is never taken for a local one, and is let
+  in (`tailnetOrigin`, in `allowedOrigin` and `native.ts`'s front door) only while on, for this Mac's Tailscale name and port, from
+  the login this Mac's Tailscale uses (`tailscale status --self --json`, read again every minute; a tagged Mac or a
+  disconnected Tailscale lets nobody in). In a browser over the tailnet the page works as in any browser (no terminal or agent's
+  browser); `remotePage` disables the switch there. Tests: `server/tailnet.test.ts` (a fake CLI), `server/native.test.ts`,
+  `e2e/settings.e2e.ts`; `ServerManagerTests` (the flavour).
 - Skill usage (the user's ask: insight into skills invoked by hand; recorded only, nothing shown yet, the user's call):
   the data folder's `skill-usage.json` (`web/server/skillUsage.ts`; `GET`/`POST /api/skill-usage`). Only skills sent from
   this app's message box (the user's call), as `Composer` sends or queues a message starting `/name` (`noteSkillRun` in

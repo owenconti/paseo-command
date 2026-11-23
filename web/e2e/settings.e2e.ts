@@ -416,3 +416,43 @@ test("Settings has no refresh: ⌘R stays the browser's there", async () => {
     await context.close();
   }
 });
+
+test("Settings → Tailscale serves the app on your tailnet, for your own login", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const posted: unknown[] = [];
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [],
+    lists: { tailnet: { available: true, enabled: false } },
+    accept: (path: string, body: unknown) => {
+      if (path !== "/api/tailnet") return false;
+      posted.push(body);
+      return { available: true, enabled: true, url: "https://mac.tail1.ts.net:4310", owner: "me@example.com" };
+    },
+  } as never);
+  await page.goto(app.url);
+  await page.locator(".app-bar-tools").getByRole("button", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("region", { name: "Settings", exact: true });
+  await dialog.locator('.settings-nav-item[data-section="tailscale"]').click();
+  const on = dialog.getByRole("switch", { name: /Open Paseo Command on your tailnet/ });
+  assert.equal(await on.isChecked(), false);
+  await on.click();
+  await dialog.getByRole("link", { name: "https://mac.tail1.ts.net:4310" }).waitFor();
+  assert.equal(await on.isChecked(), true);
+  await dialog.getByText("for me@example.com only", { exact: false }).waitFor();
+  assert.deepEqual(posted, [{ enabled: true }]);
+  await context.close();
+});
+
+test("Settings has no Tailscale section where the app doesn't offer it", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, { agents: () => [], projects: () => [] });
+  await page.goto(app.url);
+  await page.locator(".app-bar-tools").getByRole("button", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("region", { name: "Settings", exact: true });
+  await dialog.locator('.settings-nav-item[data-section="sound"]').waitFor();
+  assert.equal(await dialog.locator('.settings-nav-item[data-section="tailscale"]').count(), 0);
+  await context.close();
+});

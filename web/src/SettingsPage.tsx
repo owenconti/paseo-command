@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Bell, Bot, ChevronDown, FileCode2, Globe, Plug, SquareTerminal, Volume2, X } from "lucide-react";
+import { Bell, Bot, ChevronDown, FileCode2, Globe, Network, Plug, SquareTerminal, Volume2, X } from "lucide-react";
+import { remotePage, setTailnetOn, useTailnet } from "./tailnetStore";
+import { copyText } from "./nativePlatform";
 import { setBrowserFollows, setBrowserTools, useBrowserFollows, useBrowserTools } from "./browser/settings";
 import { useBoardBrowsers } from "./browser/browserBridge";
 import { ResizeEdge } from "./ResizeEdge";
@@ -35,6 +37,7 @@ const SECTIONS = [
   { id: "new-agent", label: "New agent", icon: <Bot size={14} aria-hidden="true" /> },
   { id: "files", label: "Files", icon: <FileCode2 size={14} aria-hidden="true" /> },
   { id: "terminal", label: "Terminal", icon: <SquareTerminal size={14} aria-hidden="true" /> },
+  { id: "tailscale", label: "Tailscale", icon: <Network size={14} aria-hidden="true" /> },
 ] as const;
 type Section = (typeof SECTIONS)[number]["id"];
 /** The sidebar's width: as Activity's, it resizes and is kept. */
@@ -68,7 +71,13 @@ export function SettingsPage({
   // In the macOS app Settings is the bar's gear (Esc, ⌘, or the gear goes back); in a browser the page
   // has its own ×, closing back to the map.
   const closable = !macApp();
-  const sections = SECTIONS.filter((s) => s.id !== "notifications" || notifications !== "unsupported");
+  // Access over Tailscale is the release app's only (server/tailnet.ts).
+  const tailnet = useTailnet();
+  const sections = SECTIONS.filter(
+    (s) =>
+      (s.id !== "notifications" || notifications !== "unsupported") &&
+      (s.id !== "tailscale" || !!tailnet.status?.available),
+  );
   const [section, setSectionState] = useState<Section>(() => {
     const kept = readStore<string>("settings:section", "sound");
     return sections.some((s) => s.id === kept) ? (kept as Section) : "sound";
@@ -91,7 +100,10 @@ export function SettingsPage({
   // page: on its section in the sidebar, or on the asked integration's key editor.
   useEffect(() => {
     // A section of its own (not an integration's key).
-    const terminal = request.target === "terminal" || request.target === "browser" || request.target === "files" ? request.target : null;
+    const terminal =
+      request.target === "terminal" || request.target === "browser" || request.target === "files" || request.target === "tailscale"
+        ? request.target
+        : null;
     if (terminal) setSection(terminal);
     else if (request.target) setSectionState("integrations");
     let tries = 0;
@@ -275,6 +287,11 @@ export function SettingsPage({
               }
             >
               {macApp() ? <TerminalSettings /> : null}
+            </SettingsGroup>
+          )}
+          {shown.id === "tailscale" && (
+            <SettingsGroup note="Open Paseo Command from your phone or another computer on your tailnet. The app has no login of its own: only your own Tailscale login is let in, over HTTPS, and only while this Mac's Paseo Command runs. The terminal and the agent's browser stay the Mac app's.">
+              <TailscaleSettings />
             </SettingsGroup>
           )}
           {shown.id === "new-agent" && (
@@ -550,6 +567,62 @@ function BoardBrowserSettings() {
         checked={follows}
         onChange={setBrowserFollows}
       />
+    </>
+  );
+}
+
+/** Settings → Tailscale: Paseo Command served on your tailnet, for your own login only. */
+function TailscaleSettings() {
+  const { status, busy } = useTailnet();
+  const [copied, setCopied] = useState(false);
+  if (!status) return null;
+  const remote = remotePage();
+  const description = remote
+    ? "You're using it over Tailscale now: turn it off on the Mac."
+    : busy
+      ? "Asking Tailscale…"
+      : status.enabled && status.owner
+        ? `Tailscale serves it on your tailnet for ${status.owner} only.`
+        : "Tailscale serves it on your tailnet (tailscale serve, HTTPS, tailnet only), for the login this Mac's Tailscale uses.";
+  return (
+    <>
+      <SwitchRow
+        title="Open Paseo Command on your tailnet"
+        description={description}
+        live
+        checked={status.enabled}
+        disabled={busy || remote}
+        badge={status.enabled ? <Badge tone="ready">Live</Badge> : undefined}
+        onChange={(on) => void setTailnetOn(on)}
+      />
+      {status.error && (
+        <p className="settings-row settings-tailnet-error" role="alert">
+          {status.error}
+        </p>
+      )}
+      {status.enabled && status.url && (
+        <div className="settings-row">
+          <span className="settings-row-text">
+            <b>Address</b>
+            <small>
+              <a href={status.url} target="_blank" rel="noreferrer">
+                {status.url}
+              </a>
+            </small>
+          </span>
+          <button
+            className="secondary"
+            onClick={() =>
+              void copyText(status.url!).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              })
+            }
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+      )}
     </>
   );
 }

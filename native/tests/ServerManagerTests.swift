@@ -29,4 +29,8 @@ assert(env["PATH"] == "/bin" && env["GH_TOKEN"] == "t", "the shell's own setting
 assert(env["NODE_OPTIONS"] == nil && env["NODE_PATH"] == nil && env["PASEO_COMMAND_RESOLVING_ENVIRONMENT"] == nil)
 assert(env["PASEO_COMMAND_DATA"] == "/d" && env["PASEO_NATIVE_UI"] == "/u" && env["PASEO_NATIVE_PORT"] == "4321")
 assert(env["PASEO_NATIVE_OWNER_PID"] == String(me))
+// The test runs outside a release bundle: its server never offers access over Tailscale, whatever the shell set.
+let shellFlavor = ServerManager.serverEnvironment(["PASEO_COMMAND_FLAVOR": "release"], data: URL(fileURLWithPath: "/d"),
+                                                  ui: URL(fileURLWithPath: "/u"), port: 4321)
+assert(shellFlavor["PASEO_COMMAND_FLAVOR"] == (AppFlavor.isRelease ? "release" : "dev"))
 print("Native server manager checks passed.")
