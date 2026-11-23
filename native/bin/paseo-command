@@ -1,0 +1,7 @@
+#!/bin/sh
+# Paseo Command's command-line tool for headless mode, inside the app bundle (Contents/Resources/bin):
+# runs web/server/headless.ts (Resources/server/headless.mjs) with the bundle's own Node.
+# "paseo-command help" lists what it does. Symlinks to it work (it finds the bundle from its real path).
+self=$(/bin/realpath "$0") || exit 1
+res=$(dirname "$(dirname "$self")")
+exec /usr/bin/env -u NODE_OPTIONS -u NODE_PATH "$res/node/node" "$res/server/headless.mjs" "$@"

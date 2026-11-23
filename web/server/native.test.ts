@@ -159,3 +159,28 @@ test("the app's server lets your own Tailscale login in through Tailscale's prox
     process.env = saved.env;
   }
 });
+
+test("headless, the server has no app to follow and says so in its health", async () => {
+  const config = validateNativeConfig({ PASEO_COMMAND_DATA: "/tmp/d", PASEO_NATIVE_HEADLESS: "1", PASEO_NATIVE_UI: "/tmp/ui" });
+  assert.equal(config.headless, true);
+  assert.equal(config.ownerPid, 0);
+  const root = temp();
+  const ui = join(root, "ui");
+  mkdirSync(ui);
+  writeFileSync(join(ui, "index.html"), "<p>hello</p>");
+  const saved = { cwd: process.cwd(), env: { ...process.env } };
+  process.env.PASEO_COMMAND_CLI = "/bin/echo";
+  const helper = await startNativeHelper(
+    validateNativeConfig({ PASEO_COMMAND_DATA: join(root, "data"), PASEO_NATIVE_HEADLESS: "1", PASEO_NATIVE_UI: ui, PASEO_NATIVE_PORT: "0" }),
+    { connect: (async () => { throw new Error("no daemon in this test"); }) as never },
+  );
+  try {
+    const health = await (await fetch(`${helper.origin}/__native/health`)).json();
+    assert.equal(health.headless, true);
+    assert.equal(health.ownerPid, 0);
+  } finally {
+    await helper.close();
+    process.chdir(saved.cwd);
+    process.env = saved.env;
+  }
+});

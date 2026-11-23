@@ -86,6 +86,36 @@ choose **Restart app** in ⌘K to load your changes.
   `gh auth login` for pull request and review status. The CLI manages its own login;
   Paseo Command does not need a GitHub API key.
 
+## Headless: a Mac you reach over SSH
+
+Paseo Command can run without its window, on a Mac mini say, and be used from an iPad or
+another computer on your tailnet. Everything is done over SSH (or by an agent), with no need
+to open the app. On that Mac, signed in as you, with Paseo's daemon running and, for access
+from other devices, Tailscale connected:
+
+```sh
+# Install (or replace) the app from the latest release.
+url=$(curl -fsSL https://api.github.com/repos/owenconti/paseo-command/releases/latest \
+  | grep -o 'https://github.com/owenconti/paseo-command/releases/download/[^"]*\.zip' | head -1)
+curl -fsSL "$url" -o /tmp/paseo-command.zip && ditto -x -k /tmp/paseo-command.zip /Applications
+
+# Run its server as a service, then serve it on your tailnet for your own login.
+pc="/Applications/Paseo Command.app/Contents/Resources/bin/paseo-command"
+"$pc" install
+"$pc" tailscale on
+```
+
+`tailscale on` prints the address to open on the iPad, such as
+`https://mac-mini.your-tailnet.ts.net:4310`. `paseo-command help` lists the rest: `status`,
+`restart`, `logs -f`, `tailscale off`, `uninstall`, and `update` (installs the latest release, after
+checking its signature and notarization, and restarts the server).
+
+The service is a LaunchAgent: it starts when you log in and restarts if it stops, so turn on
+automatic login on a Mac mini without a screen. It shares the app's data folder, settings and
+keys. Opened on the same Mac, the app uses the running service (restarting it if the app is
+newer) instead of starting its own server. In a browser the terminal and the agent's browser,
+which the Mac app draws, aren't available.
+
 ## Updates
 
 The app checks for updates about once an hour. To check immediately, choose
@@ -111,7 +141,9 @@ the app quits. It listens on this machine only and can read conversations and
 control agents and terminals with your Paseo daemon's permissions.
 
 The server has no network login. Do not expose it through shared hosting, port
-forwarding, proxies or tunnels. Keep API keys, daemon configuration, browser
+forwarding, proxies or tunnels. The one exception is the app's own access over Tailscale
+(Settings → Tailscale, or `paseo-command tailscale on`), off by default, which serves it
+tailnet-only over HTTPS and lets in only your own Tailscale login. Keep API keys, daemon configuration, browser
 profiles and private conversations out of Git. See [SECURITY.md](SECURITY.md).
 
 ## Troubleshooting

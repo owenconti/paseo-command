@@ -91,7 +91,8 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 - `npm run app:stop`, `app:restart`, `app:refresh`, `app:status`: manage that detached preview.
   Restart preserves its port; refresh restarts it only when the server's own code changed. See `RUNNING.md`.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
-- `npm run app:bundle-server`: esbuild-bundles `web/server/native.ts` into `web/dist-server/server.mjs` (ignored) for the app bundle.
+- `npm run app:bundle-server`: esbuild-bundles `web/server/native.ts` into `web/dist-server/server.mjs` and `web/server/headless.ts`
+  (headless mode's `paseo-command`) into `headless.mjs` (both ignored) for the app bundle.
 - `npm run app:update`: `app:build`, `app:bundle-server` and `native:build`, after merging to `main` (see above), as a build check.
 - `npm run native:test`: the native and bundle checks (`native/scripts/test-native.mjs`, `test-bundle.mjs`).
   Tests of code using SwiftTerm (`TerminalFontTests.swift`) are compiled with `swiftc` against `native/.build/release`'s SwiftTerm (built first if missing).
@@ -752,6 +753,23 @@ and GitHub publication; report the published version and release link.
   a deliberate choice), but the permission mode stays a picker (the user's ask), `POST /api/agents/:id/mode` (`setAgentMode`).
   ⌘K (the open agent's, page Command): "Set the permission mode: <mode>" for each mode but the one it's in (`agent-mode`, from
   what the open `Session` publishes in `web/src/agentModeStore.ts`), while it's online and not archived. Tests: `e2e/crew.e2e.ts`.
+- Headless mode (the user's ask: Paseo Command on a Mac mini, set up entirely over SSH or by an agent, used from an
+  iPad; README's "Headless"): `paseo-command`, the bundle's command-line tool (`native/bin/paseo-command`, copied to
+  `Contents/Resources/bin/` by `bundle.sh`, running `web/server/headless.ts`, bundled beside the server as
+  `Resources/server/headless.mjs` by `bundle-server.mjs`, with the bundle's Node): `install` (a per-user LaunchAgent,
+  `<bundle id>.headless` in `~/Library/LaunchAgents`, bootstrapped into `gui/<uid>`, else `user/<uid>`: the bundle's
+  `server.mjs` through your login shell (`-i -l`, as the app reads your environment, so no tokens in the plist), RunAtLoad,
+  KeepAlive, in the app's own data folder and port, `PASEO_NATIVE_HEADLESS=1` and the bundle's flavour; refused while the
+  app's own server holds the port), `uninstall` (data kept), `status`, `restart` (`launchctl kickstart -k`), `logs [-f]`,
+  `tailscale on|off|status` (`/api/tailnet` from this Mac) and `update` (the release only: GitHub's latest release's
+  `Paseo-Command-<v>.zip`, from this repository's downloads only, unpacked and checked (bundle id, version, `codesign
+  --verify --deep --strict`, `spctl --assess`, the same signing team) before it replaces the app (the old one kept until
+  the new one is in place), then the service restarted; refused while the app is open, which Sparkle updates). Headless,
+  `native.ts` needs no owning app (`ownerPid` 0, no watchdog) and its health says `headless: true`; the Mac app opened on
+  that Mac uses it (`ServerManager` `.headless`), kickstarting the service when its version differs (the plist names the
+  bundle's path, so it then runs the app's new server). Tests: `server/headless.test.ts` (launchctl, the network and home
+  faked), `server/native.test.ts`, `ServerManagerTests`, `test-bundle.mjs` (the tool's there and answers `help`); checked once
+  for real with a throwaway bundle on its own port (install, the page and API, a `kill -9` brought back, restart, uninstall).
 - Access over Tailscale (the user's ask; the release app only and only the Mac owner's own Tailscale login, the user's calls;
   `web/server/tailnet.ts`): Settings → Tailscale (`TailscaleSettings` in `SettingsPage.tsx`, shown only where the server offers
   it: `PASEO_COMMAND_FLAVOR=release`, set by `ServerManager.serverEnvironment`) and ⌘K ("Open Paseo Command on your tailnet

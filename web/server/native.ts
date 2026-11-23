@@ -94,11 +94,12 @@ export function validateNativeConfig(env = process.env) {
   const port = Number(env.PASEO_NATIVE_PORT ?? 4310);
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error("Invalid native helper port.");
-  const ownerPid = Number(env.PASEO_NATIVE_OWNER_PID ?? process.ppid);
+  // Headless (`paseo-command install`, server/headless.ts): a launchd service with no app to follow.
+  const headless = env.PASEO_NATIVE_HEADLESS === "1";
+  const ownerPid = headless ? 0 : Number(env.PASEO_NATIVE_OWNER_PID ?? process.ppid);
   if (
-    !Number.isSafeInteger(ownerPid) ||
-    ownerPid <= 1 ||
-    ownerPid === process.pid
+    !headless &&
+    (!Number.isSafeInteger(ownerPid) || ownerPid <= 1 || ownerPid === process.pid)
   )
     throw new Error("Invalid owning app PID.");
   return {
@@ -106,6 +107,7 @@ export function validateNativeConfig(env = process.env) {
     data,
     port,
     ownerPid,
+    headless,
     ui: resolve(
       env.PASEO_NATIVE_UI ?? fileURLToPath(new URL("../ui", import.meta.url)),
     ),
@@ -154,6 +156,7 @@ export async function startNativeHelper(
           pid: process.pid,
           ownerPid: config.ownerPid,
           version: config.version,
+          ...(config.headless ? { headless: true } : {}),
         }),
       );
       return;
@@ -242,6 +245,8 @@ export async function startNativeHelper(
         process.exit(1);
       },
     );
+  // Headless, launchd keeps it: there is no app to end with.
+  if (config.headless) return { origin, close, http };
   const ownerWasParent = process.ppid === config.ownerPid;
   watchdog = setInterval(() => {
     if (ownerWasParent && process.ppid !== config.ownerPid) {
@@ -265,7 +270,7 @@ if (isNativeEntrypoint(import.meta.url)) {
           event: "ready",
           origin: helper.origin,
           pid: process.pid,
-          ownerPid: Number(process.env.PASEO_NATIVE_OWNER_PID ?? process.ppid),
+          ownerPid: process.env.PASEO_NATIVE_HEADLESS === "1" ? 0 : Number(process.env.PASEO_NATIVE_OWNER_PID ?? process.ppid),
         }),
       );
       let exiting = false;

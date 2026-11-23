@@ -9,9 +9,11 @@ const web = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // ws's optional native add-ons; it falls back to JS when they're absent.
 const optional = ["bufferutil", "utf-8-validate"];
 
+// The server, and `paseo-command`, the app's command-line tool for headless mode (server/headless.ts).
 const result = await build({
-  entryPoints: [resolve(web, "server/native.ts")],
-  outfile: resolve(web, "dist-server/server.mjs"),
+  entryPoints: { server: resolve(web, "server/native.ts"), headless: resolve(web, "server/headless.ts") },
+  outdir: resolve(web, "dist-server"),
+  outExtension: { ".js": ".mjs" },
   bundle: true,
   platform: "node",
   format: "esm",

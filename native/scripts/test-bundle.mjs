@@ -1,6 +1,6 @@
 // Checks the built app bundles: each flavour carries an Apple silicon Node of the pinned version,
 // the server and the page, with the right identity, and verifies as signed.
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -32,6 +32,15 @@ for (const f of flavours) {
     check('node version', run(node, ['--version']) === `v${pinned}`, `(want v${pinned})`);
   }
   check('server.mjs', existsSync(join(res, 'server/server.mjs')));
+  // Headless mode's command-line tool and what it runs (web/server/headless.ts).
+  check('server/headless.mjs', existsSync(join(res, 'server/headless.mjs')));
+  const cli = join(res, 'bin/paseo-command');
+  check('bin/paseo-command is executable', existsSync(cli) && (statSync(cli).mode & 0o111) !== 0);
+  if (existsSync(cli)) {
+    let help = '';
+    try { help = run(cli, ['help']); } catch (e) { help = String(e.stderr ?? e); }
+    check('paseo-command help', help.includes('paseo-command install'), `(got ${help.slice(0, 120)})`);
+  }
   check('ui/index.html', existsSync(join(res, 'ui/index.html')));
   for (const [k, want] of [
     ['CFBundleIdentifier', f.id], ['CFBundleName', f.name], ['CFBundleShortVersionString', version],

@@ -21,6 +21,8 @@ final class ServerManager {
         case ours(pid: Int32)
         /// Another app's bundled server.
         case otherHelper(pid: Int32, ownerPid: Int32)
+        /// The headless service's (`paseo-command install`, web/server/headless.ts): no app owns it, and this app uses it.
+        case headless(pid: Int32, version: String)
         /// Something that isn't a bundled server (a Vite preview, another program).
         case foreign
     }
@@ -30,8 +32,9 @@ final class ServerManager {
         guard let health else { return .free }
         guard let json = (try? JSONSerialization.jsonObject(with: health)) as? [String: Any],
               json["ready"] as? Bool == true,
-              let pid = (json["pid"] as? NSNumber)?.int32Value,
-              let owner = (json["ownerPid"] as? NSNumber)?.int32Value else { return .foreign }
+              let pid = (json["pid"] as? NSNumber)?.int32Value else { return .foreign }
+        if json["headless"] as? Bool == true { return .headless(pid: pid, version: json["version"] as? String ?? "") }
+        guard let owner = (json["ownerPid"] as? NSNumber)?.int32Value else { return .foreign }
         return owner == getpid() ? .ours(pid: pid) : .otherHelper(pid: pid, ownerPid: owner)
     }
 
@@ -109,6 +112,11 @@ final class ServerManager {
         }
         switch owner {
         case .ours: return .success(())
+        case .headless(_, let version) where version == AppFlavor.version:
+            Log.line("server: using the headless service's server on port \(port)")
+            return .success(())
+        case .headless(_, let version):
+            return restartHeadless(port, from: version)
         case .otherHelper(_, let ownerPid) where !waited:
             return .failure(Failure(errorDescription: "Port \(port) is used by another copy of Paseo Command (process \(ownerPid)). Quit it and reopen \(AppFlavor.name)."))
         case .foreign:
@@ -119,6 +127,29 @@ final class ServerManager {
             return .failure(Failure(errorDescription: "Port \(port) is used by another program. Quit it and reopen \(AppFlavor.name)."))
         default: return start(port)
         }
+    }
+
+    /// The headless service runs another version (this app was updated under it): restart it, which runs this
+    /// bundle's server (its plist names this app's path), and use it once it answers as this version.
+    private func restartHeadless(_ port: Int, from version: String) -> Result<Void, Error> {
+        let label = "\(Bundle.main.bundleIdentifier ?? "io.github.owenconti.paseo-command").headless"
+        Log.line("server: the headless service runs \(version), this app is \(AppFlavor.version); restarting it")
+        for domain in ["gui/\(getuid())", "user/\(getuid())"] {
+            let kick = Process()
+            kick.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            kick.arguments = ["kickstart", "-k", "\(domain)/\(label)"]
+            kick.standardOutput = FileHandle.nullDevice
+            kick.standardError = FileHandle.nullDevice
+            guard (try? kick.run()) != nil else { continue }
+            kick.waitUntilExit()
+            if kick.terminationStatus == 0 { break }
+        }
+        let deadline = Date() + 30
+        while Date() < deadline {
+            if case .headless(_, let now) = Self.classify(health: Self.health(port)), now == AppFlavor.version { return .success(()) }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        return .failure(Failure(errorDescription: "Port \(port) is used by Paseo Command's headless service (version \(version)), which didn't restart as \(AppFlavor.version). Run “paseo-command restart” in Terminal, or “paseo-command uninstall” to stop it."))
     }
 
     /// With the user's yes, stop the old checkout server and copy its data in;

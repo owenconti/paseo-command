@@ -33,4 +33,8 @@ assert(env["PASEO_NATIVE_OWNER_PID"] == String(me))
 let shellFlavor = ServerManager.serverEnvironment(["PASEO_COMMAND_FLAVOR": "release"], data: URL(fileURLWithPath: "/d"),
                                                   ui: URL(fileURLWithPath: "/u"), port: 4321)
 assert(shellFlavor["PASEO_COMMAND_FLAVOR"] == (AppFlavor.isRelease ? "release" : "dev"))
+// The headless service's server (paseo-command install): used, not another copy's to wait for.
+let headlessHealth = #"{"ready":true,"pid":42,"ownerPid":0,"version":"0.48.0","headless":true}"#.data(using: .utf8)
+assert(ServerManager.classify(health: headlessHealth) == .headless(pid: 42, version: "0.48.0"))
+assert(!ServerManager.shouldWait(for: .headless(pid: 42, version: "0.48.0")))
 print("Native server manager checks passed.")

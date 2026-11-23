@@ -51,7 +51,7 @@ else
 fi
 cd "$here"
 [ -f "$root/web/dist/index.html" ] || { echo "Missing web/dist: run npm run app:build first." >&2; exit 1; }
-[ -f "$root/web/dist-server/server.mjs" ] || { echo "Missing web/dist-server/server.mjs: run npm run app:bundle-server first." >&2; exit 1; }
+[ -f "$root/web/dist-server/server.mjs" ] && [ -f "$root/web/dist-server/headless.mjs" ] || { echo "Missing web/dist-server/server.mjs or headless.mjs: run npm run app:bundle-server first." >&2; exit 1; }
 node scripts/theme.mjs --check
 swift build -c "$config"
 bin=$(swift build -c "$config" --show-bin-path)
@@ -98,6 +98,11 @@ cp "$here/fonts/SymbolsNerdFontMono-Regular.ttf" "$app/Contents/Resources/fonts/
 cp "$node_bin" "$app/Contents/Resources/node/.node.new"
 mv -f "$app/Contents/Resources/node/.node.new" "$app/Contents/Resources/node/node"
 cp "$root/web/dist-server/server.mjs" "$app/Contents/Resources/server/server.mjs"
+# Headless mode's command-line tool (web/server/headless.ts): Resources/bin/paseo-command runs it with the bundle's Node.
+cp "$root/web/dist-server/headless.mjs" "$app/Contents/Resources/server/headless.mjs"
+mkdir -p "$app/Contents/Resources/bin"
+cp "$here/bin/paseo-command" "$app/Contents/Resources/bin/paseo-command"
+chmod 755 "$app/Contents/Resources/bin/paseo-command"
 ui="$app/Contents/Resources/ui"
 if [ "$flavour" = dev ]; then
   # A running copy's page loads its panes (Files, your editor, the browser, GitHub, Activity) only when first shown,
