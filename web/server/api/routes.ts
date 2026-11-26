@@ -60,7 +60,6 @@ import {
 } from "./commands";
 import { profileEditor, profileFeatures, saveProfiles } from "./profiles";
 import { settleChange } from "./settle";
-import { poolRoute } from "../pool";
 import { capturesGet, isCapturesPath, parseTidy, sendCapture, tidyCapture, validCaptureId } from "../captures";
 import { agentIdParts } from "../../src/agentIdentity";
 import {
@@ -194,8 +193,6 @@ export async function handleApi(
   if (url.pathname === "/api/glance") return glanceRoute(req, url, reply);
   // The GitHub tab: named reads and whitelisted writes with the user's GitHub token, never the daemon.
   if (url.pathname.startsWith("/api/github/")) return githubRoute(req, url, reply);
-  // Pool boxes: the paseo-boxes scripts on this Mac claim and release them; a claim then dispatches.
-  if (url.pathname === "/api/pool" || url.pathname.startsWith("/api/pool/")) return poolRoute(req, url, reply);
   // The macOS app's screen captures: this Mac's files (server/captures.ts). Sending one is a POST below.
   if (req.method === "GET" && isCapturesPath(url.pathname)) return capturesGet(url, res, reply);
   // The mini games' record: this app's own file, never the daemon.

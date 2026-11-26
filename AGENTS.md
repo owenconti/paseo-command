@@ -158,10 +158,7 @@ and GitHub publication; report the published version and release link.
   message is the composer's `draft:dispatch` (images kept in memory), and the form (host, where, Local/Worktree, branch,
   base, pull request, provider, model, thinking, mode or profile) is kept as it changes (`dispatch-form` in localStorage,
   `keptForm`), brought back when New agent next opens without a place of its own (a workspace's or project's Dispatch,
-  ⌘K's pool box entry and a cleared agent's settings start where they say), and cleared once it starts an agent. A pool
-  box claim under way (`dispatch-pool-job` in `poolStore.ts`, with its message) shows again when New agent reopens; a
-  claim that fails puts its message back into an empty draft ("Your message is back below"), and one that worked clears
-  the kept form. Its /skills and @files
+  and a cleared agent's settings start where they say), and cleared once it starts an agent. Its /skills and @files
   come from `GET /api/drafts/commands|files` (`web/server/api/drafts.ts`), as no agent exists yet.
   Its provider picker also lists the host's Paseo agent profiles (`GET /api/profiles`, the daemon config's `agentProfiles`):
   one sets provider, model, thinking and mode, and sends its feature values (`features` in `POST /api/dispatch`) while unchanged.
@@ -257,7 +254,7 @@ and GitHub publication; report the published version and release link.
   Open questions then get two or three answers drafted by a helper agent on the daemon's metadata model, as the current
   work summary is (`web/server/askAnswers.ts`, `runHelper` in `workingOn.ts`); the strip shows them as quick replies.
   A "Current work summary" helper starts only while the agent's workspace is still open on its daemon (`workspaceOpen`; an
-  agent still reading running in a workspace closed elsewhere, a released pool box's, waits `CLOSED_MS`, 10 min, before it's looked for again).
+  agent still reading running in a workspace closed elsewhere waits `CLOSED_MS`, 10 min, before it's looked for again).
   "Drafting answers…" ends within `ANSWERS_MS` (90 s): a helper that fails or doesn't finish leaves the question without answers;
   the page (`web/src/useAsks.ts`) keeps polling while `answering`.
   Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
@@ -351,61 +348,11 @@ and GitHub publication; report the published version and release link.
   the conversation's strip too) and the workspace's card has Probe's blue edge, its head tinted with a light sweeping across it
   (`.crew-ws.probe-reviewing`; reduced motion keeps the ring, tint and edge still).
   `native:mock -- --probe` shows each.
-- Pool boxes (`web/src/pool.ts`, pure; `web/server/pool.ts`): warm-pool Sprites the user's paseo-boxes scripts on this Mac claim and
-  release. Opt-in (`integrations.pool`, Settings → Integrations → Pool boxes), with `pool: {dir}` in `settings.json` (the scripts'
-  folder, absolute or `~/…`; no default, so no personal path is in the repository: `web/src/PoolSettings.tsx`). paseo-boxes is the source
-  of truth for the rest: the boxes from its `pool-state.json` (each box's id, label, claimed state and `base_domain`; never written), the
-  checkout from `BOX_REPO_PATH` in its `config.env` (`envValue`; an absolute path on the box, never `~/…`). `secrets.env` and `private/` are
-  never read, and `provision-named.sh` never run. `GET /api/pool` (`web/src/poolStore.ts`, polled every second while a job runs, every 30 s while the crew shows,
-  `usePoolPolling`, and again as the window regains focus, as boxes are claimed and released outside the app too): the boxes,
-  the checkout, why it can't work yet, the newest job and every job running (`running`, `runningJobs`). Jobs run side by side,
-  one a box (`jobOnBox`): New agent stays usable while its claim runs (its progress shown, "You can start another agent below"),
-  and each claim it sends is kept with its message (`dispatch-pool-job`, a list). The jobs are the server's: claim, wait and dispatch
-  run there whatever the page does, and recent claims (`jobs`: title, where, phase, how each ended) are kept, also in the data
-  folder's `pool-jobs.json` (one the server stopped during reads as failed, saying so), so leaving New agent or reloading loses
-  nothing. Crew's Pool boxes section, above its hosts (`web/src/crew/PoolBoxes.tsx`, `boxView` in `pool.ts`; folded as
-  `pool:boxes` in `crew:collapsed`; hidden while the crew is filtered), says every box's state: idle and asleep, claimed (its
-  host online with its agent count, or offline, and how long ago it was claimed), provisioning, failed, or the claim or release
-  running on it with its latest step; a claimed box has Release, and its name shows its host's head. Only `pool-state.json`'s
-  `status: "claimed"` makes a box claimed. A claimed box whose host is online with no workspaces and no running agents
-  (closed or archived outside the app, which never triggers the archive release) reads "Claimed · idle", there and on its host's head.
-  Crew heads with them as pending rows, under its head (`web/src/PoolClaims.tsx`, `pendingClaims`): running
-  ones with their latest step, failed ones with why until dismissed (`POST /api/pool/dismiss {id}`), done ones until the fleet lists
-  the agent; New agent reopened says why its claim failed (`dispatch-pool-failed`). A dispatch the box's daemon refuses says the box
-  is claimed and online (`dispatchFailure`; gh's auth failure names `gh auth status`). New agent's Host has
-  "New pool box · N idle" (`POOL`, `poolOption` in `Dispatch.tsx`; disabled with why when none is idle): its place is the box's checkout
-  (Local, or Worktree with a branch or a pull request's branch), Claude only, no /skills; the first message is `POST /api/pool/claim`, checked first
-  (`checkPoolDispatch`), which answers at once, reserves the first idle box no job is on (`freeIdleBoxes`; claim.sh's `--any` would give
-  two claims at once the same box, as it marks the box claimed only partway) and runs `claim.sh pool-N` for it (the fast claim, never `--up`: the user's call; the agent can run
-  `paseo-box-up`), then waits for the Paseo host labelled as the box to be online (`POOL.onlineMs`), then dispatches into the checkout
-  (`poolDispatch` in `commands.ts`, as a directory or worktree workspace, so the daemon needn't have it registered), asked again only while
-  nothing was issued. A pool box's host that's offline because the box is asleep (released: the Sprite paused, its daemon down
-  until claimed) stays selectable in Host as "pool-N · asleep, will wake" (`wakeable`, `hostOptions`; other offline hosts stay
-  disabled, and so does a box being provisioned or failed, `unclaimableWhy`): New agent then works as for a new pool box, but its
-  first message names the box (`POST /api/pool/claim {pool}`: `claim.sh pool-N`, "Waking pool-N…"; a box claimed but unreachable is
-  claimed again, which claim.sh confirms), then waits up to `POOL.onlineMs` (90 s) after claim.sh exits 0 for the host, then dispatches
-  by its serverId. Box states are paseo-boxes' (`idle`, `claimed`, `provisioning`, `failed`); only `idle` boxes no job is on count for
-  "New pool box" ("N idle"; "Every idle pool box is being claimed already" when claims hold them all). The agent's system prompt gains `poolBoxPrompt`: the box, its checkout, that the app stack is down until it runs
-  `paseo-box-up` (`--reseed` for fresh data; `~/PASEO-BOX.md`), the box's tailnet-only URLs, and that releasing discards the box's changes.
-  Each box is registered once as Paseo host `pool-N` (by `provision-named.sh`); claims and releases never add or remove hosts, and a
-  released box's daemon is down until it's claimed again. (Paseo CLI 0.15.4's `--host` takes an endpoint, not a host label: the app
-  dispatches through the SDK by the host's serverId.) The form shows the script's step lines (`progressLine`) and opens the agent when it's done; a notice says how each job
-  ended (`onPoolJobEnd` in main). A claimed box's host head in Crew has Release, which confirms (`ReleasePoolDialog.tsx`: the box is
-  restored, so its work and agents go) and runs `release.sh pool-N` (`POST /api/pool/release`). Archiving a claimed box's last
-  workspace releases it (`web/src/poolArchive.ts`, every workspace archive goes through `archiveWorkspace`): before the archive
-  request (the toast shows at once; bounded by `POOL_ARCHIVE.checkMs`, never stopping the archive) `POST /api/pool/before-archive
-  {host, workspace}` reads its checkout (`getCheckoutStatus`, `poolCheckoutOf`: uncommitted changes; commits ahead of the upstream,
-  else, never pushed, ahead of the base); once archived, `POST /api/pool/after-archive` counts the host's other active workspaces
-  and unarchived agents (fresh from its daemon). Anything left: it stays claimed. Nothing left and the checkout clean: released in
-  the background (`POST /api/pool/release {pool, host, workspace}`, which checks the host is the box's and idle again); unpushed
-  work, or a checkout that couldn't be read: `ReleasePoolDialog` asks first ("Releasing pool-N discards unpushed changes in
-  <branch> (…)", `releaseWarning`); Keep it leaves it claimed with a notice. Hosts that aren't a claimed box (`boxOfHost`, by the
-  registry's label) answer `{box: null}` and are archived as before. release.sh exits 0 on success or an idle box, 1 on a bad id or
-  any error (its `error:` line is shown); the app never runs it without an id. ⌘K: "New agent on a new pool box",
-  "Release pool box “pool-N”…" (page Command), only while they'd work. Scripts run without a shell, output redacted, only step and outcome
-  lines kept. Tests: `server/pool.test.ts` (fake scripts in a temporary folder; `POOL_DEPS` fakes the host, dispatch, checkout and
-  what's left on a host),
-  `src/pool.test.ts`, `e2e/pool.e2e.ts`.
+- Pool boxes (warm-pool Sprites on Fly claimed and released through the user's paseo-boxes scripts: New agent's "New pool
+  box", Crew's Pool boxes section and Release, archiving a box's last workspace releasing it, `/api/pool`, Settings →
+  Integrations → Pool boxes) were removed at the user's request, as the boxes were taken down; don't add them back unless
+  asked. The user's data stays as it is, ignored: `settings.json`'s `integrations.pool` and `pool`, the data folder's
+  `pool-jobs.json`, and localStorage's `dispatch-pool-job`, `dispatch-pool-failed` and `pool:boxes` in `crew:collapsed`.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else GitHub's API (`web/server/links.ts`, the GitHub token).
   While it's on, Crew's workspace head carries the auto-merge seal (`AUTO_MERGE` in `web/src/model/prStatus.ts`), its tooltip saying how
   it merges and who turned it on.
@@ -570,9 +517,8 @@ and GitHub publication; report the published version and release link.
   (one entry per match, each naming its place when there are several), only while one exists.
   Open in agent (beside it, open and draft PRs; ⌘K "Open the pull request in a new agent…", `github-open-in-agent`) opens New agent
   for the PR (`DispatchTarget.pr`, main's `openPrInAgent`, showing Command): Worktree on the PR's head branch (`pr`, `prHead` in the
-  dispatch), on the first host with a checkout of its repository (a project's repository is its workspaces' `repo`), else a new pool
-  box when the boxes' checkout is that repository (`PoolStatus.repo`, `GITHUB_ORG/GITHUB_REPO` in paseo-boxes' `config.env`); the
-  host, an asleep pool box or a new one is chosen there. A checkout known to be another repository is refused ("… is X, not Y").
+  dispatch), on the first host with a checkout of its repository (a project's repository is its workspaces' `repo`); the
+  host is chosen there. A checkout known to be another repository is refused ("… is X, not Y").
   The Conversation's side panel (`PrSide.tsx`): Reviewers (people and teams asked, and who reviewed with their latest verdict, avatars;
   never the author) and Assignees, each with a gear opening a picker (the `q/people` read, you first, searchable; reviewers also the
   repository's teams, `GET /api/github/q/teams?repo=`, `readTeams`, REST `repos/:repo/teams`, none when the token can't list them) to
@@ -864,10 +810,7 @@ the component Crew's drawer is.
   project spanning the columns its cards need and a host its projects' (`hostSpans` in `roster.ts`; folded, one), so small
   hosts and projects sit side by side rather than each taking a row (the user's ask: everything at once). A workspace's head opens it and carries its CI, review, Probe and auto-merge medallions, each with a hover
   tooltip (`data-summary`: its name and `flagTip`'s facts, else its description; the seal `autoMergeLine`), and Archive
-  beside it (shown on hover or focus; the app's confirmation, `openArchive`; a pool box's last workspace releases the
-  box, src/poolArchive.ts). A claimed pool box's host head has Release (`.crew-head-action`, its confirmation;
-  "Releasing…" while it runs), and such a host stays on the map with nothing on it (`buildRoster`'s `keepHosts`) so it can
-  be released. Agents without a workspace sit in a dashed panel of their project's, or their host's. Each workspace holds
+  beside it (shown on hover or focus; the app's confirmation, `openArchive`). Agents without a workspace sit in a dashed panel of their project's, or their host's. Each workspace holds
   its agents (oldest first) as large nodes (standing; under 960 px wide, `@container crew-board`, on their side): the robot
   (72 px) over its state's glow (pulsing for states that need you) with its mark (the running gear turning) and running
   drones (`subagentModels`' colours), its name, a dot and its state with its model, what it is doing while it runs
@@ -970,7 +913,7 @@ the component Crew's drawer is.
   (`sheets.ts`, sizes checked against the PNGs in `roster.test.ts`); an agent's report in the chat shows its robot
   (`Robot`). All motion is CSS and stops with reduced motion. The fleet's vocabulary (states, models and robot colours,
   `AtlasData`) is `web/src/model/fleet.ts`; PR flags and Probe's verdicts `model/prStatus.ts` and `model/probe.ts`.
-- Tests: `web/src/crew/roster.test.ts`, `web/e2e/crew.e2e.ts`, `web/e2e/pool.e2e.ts` (Release and Archive on the heads).
+- Tests: `web/src/crew/roster.test.ts`, `web/e2e/crew.e2e.ts`.
   `npm run native:mock -- --dungeon --probe --pr-flags` serves a fleet for it (the `dungeon` fleet is a test fixture).
 
 ### The terminal beside its conversation (and the removed Editor tab)

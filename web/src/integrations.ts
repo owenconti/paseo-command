@@ -1,12 +1,11 @@
 /** Optional integrations require an explicit opt-in, independent of credentials. */
-export const INTEGRATIONS = ["linear", "github", "typesafe", "pool", "health"] as const;
+export const INTEGRATIONS = ["linear", "github", "typesafe", "health"] as const;
 export type Integration = (typeof INTEGRATIONS)[number];
 export type Integrations = Record<Integration, boolean>;
 export const DEFAULT_INTEGRATIONS: Integrations = {
   linear: false,
   github: false,
   typesafe: false,
-  pool: false,
   health: false,
 };
 export function integrationSettings(value: unknown): Integrations {
@@ -18,7 +17,6 @@ export function integrationSettings(value: unknown): Integrations {
     linear: raw.linear === true,
     github: raw.github === true,
     typesafe: raw.typesafe === true,
-    pool: raw.pool === true,
     health: raw.health === true,
   };
 }

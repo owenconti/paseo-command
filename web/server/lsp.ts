@@ -1,7 +1,7 @@
 /**
  * Language servers for the Files tab, relayed: `GET /api/lsp?workspace=&host=&group=` (upgrade) is one editor's
  * connection to one language server, run beside the workspace on its own host by that host's `language-servers`
- * Paseo plugin (github.com/owenconti/paseo-cc-plugins, `plugins/language-servers`), so remote hosts' and pool boxes'
+ * Paseo plugin (github.com/owenconti/paseo-cc-plugins, `plugins/language-servers`), so remote hosts'
  * workspaces get the same go to definition, usages and diagnostics as this Mac's.
  *
  * The socket's text frames are JSON:

@@ -265,7 +265,7 @@ export function createWorkingOnService(now = Date.now, hasWorkspace: (client: Da
     if (!context) throw new Error("No activity to summarize");
     const fingerprint = createHash("sha256").update(context).digest("hex");
     if (entry.fingerprint === fingerprint && entry.sentence) return;
-    // An agent still marked running in a workspace closed or archived elsewhere (a released pool box's, say) gets no
+    // An agent still marked running in a workspace closed or archived elsewhere gets no
     // helper: one would start there every minute and never be needed.
     if (!(await hasWorkspace(client, source.workspaceId!))) {
       entry.sentence = null;

@@ -1,7 +1,6 @@
 /** The Crew map's grouping: every host's projects (by name), each project's workspaces and each workspace's agents,
  * oldest first (by creation, then key: never by changing titles, so nodes don't swap as the map's places don't).
- * Projects without workspaces and hosts without either are left out (but for hosts kept by key: a claimed pool box's,
- * so it can be released); agents without a workspace sit with their project (or host). Pure. */
+ * Projects without workspaces and hosts without either are left out; agents without a workspace sit with their project (or host). Pure. */
 import { STATE_PRIORITY, type AtlasData, type State } from "../model/fleet";
 
 export type RosterAgent = AtlasData["agents"][number];
@@ -23,7 +22,7 @@ const byName = <T extends { key: string; name: string }>(a: T, b: T) =>
 
 /** `filter`, when given, keeps agents whose name, workspace, project or host contains it (case-insensitive), and
  * workspaces whose name does (with all their agents). */
-export function buildRoster(data: AtlasData, filter = "", keepHosts: ReadonlySet<string> = new Set()): Roster {
+export function buildRoster(data: AtlasData, filter = ""): Roster {
   const q = filter.trim().toLowerCase();
   const has = (text: string | undefined) => !q || (text ?? "").toLowerCase().includes(q);
   const projectsByKey = new Map(data.projects.map((p) => [p.key, p]));
@@ -57,7 +56,7 @@ export function buildRoster(data: AtlasData, filter = "", keepHosts: ReadonlySet
     const placed = new Set(projects.flatMap((p) => [...p.workspaces.flatMap((w) => w.agents), ...p.loose]).map((a) => a.key));
     const loose = mine.filter((a) => !placed.has(a.key));
     return { key: h.key, name: h.name, online: h.online, projects, loose };
-  }).filter((h) => h.projects.length || h.loose.length || (!q && keepHosts.has(h.key)));
+  }).filter((h) => h.projects.length || h.loose.length);
 
   // In the map's own order (host, project, workspace, age).
   const listed = hosts.flatMap((h) => [

@@ -1,6 +1,6 @@
 import { soundEvent } from "./soundCues";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, GitBranch, LoaderCircle, MessageSquare, Pencil, Play, Server } from "lucide-react";
+import { ArrowLeft, ChevronDown, GitBranch, MessageSquare, Pencil, Play } from "lucide-react";
 import { api, errorMessage, readStore, removeStore, writeStore } from "./api";
 import { Composer } from "./Composer";
 import type { Outgoing } from "./composer/types";
@@ -32,16 +32,9 @@ import {
 import { openPresetEditor, usePresets } from "./presetsStore";
 import { openProfileEditor, useProfilesRevision } from "./profilesStore";
 import { sendBody } from "./sent";
-import {
-  DISPATCH_FORM,
-  claimPoolBox,
-  draftRestored,
-  forgetFormFailure,
-  formFailedJob,
-  formPoolJob,
-  usePool,
-} from "./poolStore";
-import { boxOfLabel, claimable, freeIdleBoxes, idleBoxes, jobOnBox, jobRunning, jobText, runningJobs, unclaimableWhy, type PoolStatus } from "./pool";
+
+/** New agent's unsent form (`FormDraft`), in localStorage. */
+const DISPATCH_FORM = "dispatch-form";
 
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
@@ -57,11 +50,11 @@ export type DraftSettings = {
 export type DispatchTarget = {
   projectId?: string;
   workspaceId?: string;
-  /** A host to start on (`POOL`: a new pool box), when no place is given. */
+  /** A host to start on, when no place is given. */
   host?: string;
   /**
    * A pull request to open in a new agent (the GitHub tab's Open in agent): its worktree on the host chosen, in a
-   * checkout of its repository there (a pool box's too).
+   * checkout of its repository there.
    */
   pr?: { repo: string; number: number; title?: string; url?: string; head?: string };
   settings?: DraftSettings;
@@ -78,7 +71,7 @@ const ISOLATIONS: [Isolation, string, string][] = [
 /**
  * New agent's unsent form, kept as it changes so leaving New agent loses nothing (its first message is the
  * composer's own `draft:dispatch`): brought back when New agent next opens without a place of its own, and
- * cleared once it starts an agent (a pool box's once the agent is started on the box: poolStore.ts).
+ * cleared once it starts an agent.
  */
 type FormDraft = {
   host: string;
@@ -228,21 +221,16 @@ export function NewAgent({
   onNotice: (message: string) => void;
 }) {
   const prefs = useMemo(() => readStore<Prefs>("dispatch", {}), []);
-  // Opened somewhere of its own (a workspace's or project's Dispatch, a pool box) it starts there; otherwise the
-  // form as it was left comes back, and a pool box claim still under way shows again.
+  // Opened somewhere of its own (a workspace's or project's Dispatch) it starts there; otherwise the
+  // form as it was left comes back.
   const forPr = initial.pr;
   const placed = !!(initial.workspaceId || initial.projectId || initial.host || initial.settings || forPr);
-  const [claim] = useState(() => (placed ? null : formPoolJob()));
-  const [kept] = useState(() => (placed || claim ? null : keptForm()));
+  const [kept] = useState(() => (placed ? null : keptForm()));
   const [hostProviders, setHostProviders] = useState<{
     host?: string;
     rows: Provider[];
   }>({ rows: providers });
-  const pool = usePool();
-  const hostChoices = useMemo(
-    () => [...hostOptions(hosts, wakeable(pool)), ...poolOption(pool)],
-    [hosts, pool],
-  );
+  const hostChoices = useMemo(() => hostOptions(hosts), [hosts]);
   const onHost = (key: string) => (p: { host?: string }) =>
     (p.host || LOCAL) === key;
   /** A project's GitHub repository, from its workspaces' remotes (unknown without one). */
@@ -279,11 +267,7 @@ export function NewAgent({
           : initial.host) ||
       // A pull request: the first host with a checkout of its repository.
       (forPr ? hostOptions(hosts).find((h) => !h.unavailable && prProjects(h.key).length)?.key : undefined) ||
-      (claim
-        ? POOL
-        : kept && (kept.host === POOL || hostOptions(hosts).some((h) => h.key === kept.host))
-          ? kept.host
-          : LOCAL),
+      (kept && hostOptions(hosts).some((h) => h.key === kept.host) ? kept.host : LOCAL),
   );
   const [target, setTarget] = useState(() =>
     initial.workspaceId
@@ -352,38 +336,17 @@ export function NewAgent({
   const workspace = target.startsWith("w:")
     ? workspaces.find((w) => workspaceKey(w) === target.slice(2))
     : undefined;
-  // A new pool box: claimed when the first message is sent, then dispatched to.
-  // A pool box: a new one (any idle box), or one whose host is asleep (released and paused), woken by name.
-  const wakeBox = chosenHost?.wake ? boxOfLabel(pool?.boxes ?? [], chosenHost.label) : undefined;
-  const isPool = hostKey === POOL || !!wakeBox;
-  const host = hostKey === LOCAL || isPool ? undefined : hostKey;
-  // The pool job this form started, until it ends.
-  const [poolJob, setPoolJob] = useState(claim?.id ?? "");
-  // The claim was seen running here: only then does its end open the agent or say why it failed.
-  const sawClaim = useRef(false);
-  // Remounted to show a failed claim's message put back into the draft.
-  const [composerKey, setComposerKey] = useState(0);
-  const job = (poolJob && findJob(pool, poolJob)) || null;
-  const claiming = jobRunning(job);
+  const host = hostKey === LOCAL ? undefined : hostKey;
   const modes = providerModes(provider);
   const available = useMemo(
     () =>
-      isPool
-        ? // Pool boxes run Claude only (paseo-boxes' provision.sh).
-          [
-            providers.find((p) => p.provider === "claude") ?? {
-              provider: "claude",
-              label: "Claude",
-              status: "available",
-            },
-          ].map((p) => ({ ...p, status: "available" }))
-        : (hostProviders.host === host
-            ? hostProviders.rows
-            : host
-              ? []
-              : providers
-          ).filter((p) => p.status === "available"),
-    [hostProviders, host, providers, isPool],
+      (hostProviders.host === host
+        ? hostProviders.rows
+        : host
+          ? []
+          : providers
+      ).filter((p) => p.status === "available"),
+    [hostProviders, host, providers],
   );
   // Remote hosts can have different providers; the list follows the host.
   useEffect(() => {
@@ -422,12 +385,12 @@ export function NewAgent({
   }, [host, profilesRevision]);
   const hostProfiles = useMemo(
     () =>
-      !isPool && profiles.host === host
+      profiles.host === host
         ? profiles.rows.filter((p) =>
             available.some((a) => a.provider === p.provider),
           )
         : [],
-    [profiles, host, available, isPool],
+    [profiles, host, available],
   );
   const applyProfile = (p: Profile) => {
     setProfile(p);
@@ -505,7 +468,7 @@ export function NewAgent({
     setPrText("");
   }, [target, isolation, hostKey]);
   // The form as it is now, kept for when New agent opens again (not once it has started an agent: it may render
-  // again before it closes). A pool box's claim leaves it as it was, to start another.
+  // again before it closes).
   const finished = useRef(false);
   useEffect(() => {
     if (finished.current) return;
@@ -524,83 +487,29 @@ export function NewAgent({
       ...(applied ? { profile: applied.id } : {}),
     };
     writeStore(DISPATCH_FORM, form);
-  }, [hostKey, target, isolation, branch, base, pr, prText, provider, model, thinking, mode, applied?.id, poolJob]);
+  }, [hostKey, target, isolation, branch, base, pr, prText, provider, model, thinking, mode, applied?.id]);
   // Preset prompts from settings.json, read when the form opens.
   const { presets, loaded: presetsLoaded } = usePresets();
   // A typed number or URL is already an unambiguous choice. Suggestions
   // enrich it, but dispatch must not depend on Enter or a search response.
   const typedPr = prNumberOf(prText);
-  const prChosen = (project || isPool) && isolation === "worktree"
+  const prChosen = project && isolation === "worktree"
     ? pr ?? (typedPr ? { number: typedPr } : null)
     : null;
-  // Opened for a pull request with no checkout of its repository on any host: a pool box of it, once known.
-  const prPooled = useRef(false);
-  useEffect(() => {
-    if (!forPr || prPooled.current || !pool) return;
-    prPooled.current = true;
-    if (hostKey !== LOCAL || prProjects(LOCAL).length) return;
-    if (pool.enabled && !pool.problem && sameRepo(pool.repo, forPr.repo) && idleBoxes(pool.boxes).length)
-      chooseHost(POOL);
-  }, [pool]);
-
-  useEffect(() => {
-    if (claiming) sawClaim.current = true;
-    if (!job || claiming) return;
-    setPoolJob("");
-    // A claim that worked while New agent was closed opened nothing: its agent is in the list already.
-    if (!sawClaim.current && job.phase === "done") return;
-    if (job.phase === "done") onDispatched(job.agentId, job.host);
-    else {
-      const back = draftRestored(job.id);
-      setError(`${jobText(job)}${back ? " Your message is back below." : ""}`);
-      if (back) setComposerKey((k) => k + 1);
-    }
-  }, [job, claiming]);
-  // A remembered claim the server no longer has isn't shown.
-  useEffect(() => {
-    if (poolJob && pool && !findJob(pool, poolJob)) setPoolJob("");
-  }, [pool, poolJob]);
-  // A claim this form sent that failed while New agent was closed says why when it opens again
-  // (its message already back in the draft), until it's sent again or dismissed from the agent list.
-  const [failedClaim] = useState(() => (placed || claim ? "" : formFailedJob()));
-  const toldFailure = useRef(false);
-  useEffect(() => {
-    if (!failedClaim || toldFailure.current || !pool) return;
-    toldFailure.current = true;
-    const failed = findJob(pool, failedClaim);
-    if (failed?.phase !== "failed") return forgetFormFailure();
-    const back = draftRestored(failed.id) || !!readStore<string>("draft:dispatch", "").trim();
-    setError(`${jobText(failed)}${back ? " Your message is back below." : ""}`);
-  }, [pool, failedClaim]);
-  const poolCheckout = pool?.checkout || "";
-  const folder = isPool ? poolCheckout : workspace?.cwd || project?.path || "";
+  const folder = workspace?.cwd || project?.path || "";
   // A pull request's worktree only in a checkout of its repository (when that's known).
-  const placeRepo = isPool ? pool?.repo || undefined : project ? projectRepo(project) : undefined;
+  const placeRepo = project ? projectRepo(project) : undefined;
   const wrongRepo =
     forPr && prChosen && placeRepo && !sameRepo(placeRepo, forPr.repo)
-      ? `${isPool ? "The pool box's checkout" : placeText(project?.name, "This project")} is ${placeRepo}, not ${forPr.repo}. Choose a checkout of ${forPr.repo}.`
+      ? `${placeText(project?.name, "This project")} is ${placeRepo}, not ${forPr.repo}. Choose a checkout of ${forPr.repo}.`
       : "";
-  // Claims run side by side, one a box: only a job on the box being woken stands in the way.
-  const wakeJob = wakeBox ? jobOnBox(runningJobs(pool), wakeBox.id) : undefined;
   const blocked = !online
     ? "Paseo is offline."
-    : wakeJob
-      ? jobText(wakeJob)
-      : chosenHost?.unavailable
-          ? isPool
-            ? `${chosenHost.reason} Choose another host.`
-            : `${chosenHost.name} is ${chosenHost.reason}. Choose another host.`
-          : !folder
-            ? "Choose where the agent runs first."
-            : wrongRepo;
-
-  // What a pool box's agent does in its checkout.
-  const poolWhere =
-    isolation !== "worktree"
-      ? "runs directly in"
-      : prChosen
-        ? `creates a worktree on pull request #${prChosen.number}’s branch${prChosen.head ? ` “${prChosen.head}”` : ""} of`
-        : `creates a new worktree on branch “${branch.trim() || suggested}” of`;
+    : chosenHost?.unavailable
+      ? `${chosenHost.name} is ${chosenHost.reason}. Choose another host.`
+      : !folder
+        ? "Choose where the agent runs first."
+        : wrongRepo;
 
   /** The first message: creates the agent with it. */
   const send = async (message: Outgoing) => {
@@ -609,11 +518,9 @@ export function NewAgent({
     const body: Record<string, unknown> = {
       prompt: message.text.trim(),
       provider: provider || undefined,
-      ...(isPool
-        ? {}
-        : project
-          ? { projectId: project.projectId }
-          : { workspaceId: workspace?.workspaceId }),
+      ...(project
+        ? { projectId: project.projectId }
+        : { workspaceId: workspace?.workspaceId }),
     };
     if (model) body.model = model;
     if (thinking && thinkingOptions.includes(thinking)) body.thinking = thinking;
@@ -634,28 +541,11 @@ export function NewAgent({
     if (prChosen) {
       body.pr = prChosen.number;
       if (prChosen.head) body.prHead = prChosen.head;
-    } else if ((project || isPool) && isolation === "worktree") {
+    } else if (project && isolation === "worktree") {
       body.branch = branch.trim() || suggested;
       if (base.trim()) body.base = base.trim();
     }
     if (host) body.host = host;
-    if (isPool)
-      try {
-        // Answers at once; the claim, the wait for the box and the dispatch go on.
-        const started = await claimPoolBox(wakeBox ? { ...body, pool: wakeBox.id } : body);
-        setPoolJob(started.id);
-        writeStore("dispatch", {
-          ...prefs,
-          provider,
-          isolation,
-          byProvider: { ...prefs.byProvider, [provider]: { model, thinking, mode } },
-        });
-        return true;
-      } catch (e) {
-        soundEvent("actionFailed");
-        setError(errorMessage(e));
-        return false;
-      }
     try {
       // Daemon versions name the new agent differently.
       const result = await api<{
@@ -664,7 +554,6 @@ export function NewAgent({
         agentId?: string;
         agent?: { id?: string };
       } | null>("dispatch", body);
-      forgetFormFailure();
       writeStore("dispatch", {
         target,
         provider,
@@ -798,7 +687,7 @@ export function NewAgent({
   // The daemon lists a draft's skills only for a model: "Default" asks for
   // the provider's first.
   const source =
-    !isPool && folder && provider && (model || models[0]?.id)
+    folder && provider && (model || models[0]?.id)
       ? { cwd: folder, provider, model: model || models[0]!.id, mode, thinking }
       : undefined;
 
@@ -854,21 +743,11 @@ export function NewAgent({
             <span>Where</span>
             <select
               name="target"
-              aria-description={
-                isPool
-                  ? "A pool box's agent works in its checkout"
-                  : "The project checkout, or an existing workspace, the agent works in"
-              }
-              value={isPool ? POOL : target}
-              disabled={isPool}
+              aria-description="The project checkout, or an existing workspace, the agent works in"
+              value={target}
               onChange={(e) => setTarget(e.target.value)}
             >
-              {isPool && (
-                <option value={POOL}>
-                  Checkout · {poolCheckout.split("/").filter(Boolean).pop() || "on the box"}
-                </option>
-              )}
-              {!isPool && !target && <option value="">Nothing on this host</option>}
+              {!target && <option value="">Nothing on this host</option>}
               {hereProjects.length > 0 && (
                 <optgroup label="Projects">
                   {hereProjects.map((p) => (
@@ -893,7 +772,7 @@ export function NewAgent({
               )}
             </select>
           </label>
-          {(project || isPool) && (
+          {project && (
             <div
               className="filter-chips new-agent-isolation"
               role="radiogroup"
@@ -926,7 +805,7 @@ export function NewAgent({
               onTextChange={setPrText}
             />
           )}
-          {(project || isPool) && !prChosen && isolation === "worktree" && (
+          {project && !prChosen && isolation === "worktree" && (
             <>
               <label>
                 <span>
@@ -957,14 +836,8 @@ export function NewAgent({
             </>
           )}
           <p className="form-hint">
-            {isPool ? <Server size={13} /> : <GitBranch size={13} />}
-            {wakeBox
-              ? `${wakeBox.label} is asleep: sending wakes it (claim.sh ${wakeBox.id}), waits for it to come online, then ${poolWhere} its checkout, ${poolCheckout}.`
-              : isPool && prChosen
-              ? `Claims an idle pool box, waits for it to come online, then ${poolWhere} its checkout, ${poolCheckout}.`
-              : isPool
-              ? `Claims an idle pool box, waits for it to come online, then ${isolation === "worktree" ? `creates a new worktree on branch “${branch.trim() || suggested}” of` : "runs directly in"} its checkout, ${poolCheckout}.`
-              : workspace
+            <GitBranch size={13} />
+            {workspace
               ? `Runs inside “${placeText(workspace.name, "this workspace")}” alongside its existing agents.`
               : prChosen
                 ? `Creates a worktree on pull request #${prChosen.number}’s branch${prChosen.head ? ` “${prChosen.head}”` : ""}.`
@@ -981,22 +854,6 @@ export function NewAgent({
           <p>
             Write the first message below to start the agent. Use /skills and @files as in any conversation.
           </p>
-          {job && claiming && (
-            <div className="new-agent-pool" role="status" aria-live="polite">
-              <b>
-                <LoaderCircle size={13} className="spinning" aria-hidden="true" />
-                {jobText(job)}
-              </b>
-              {job.steps.length > 0 && (
-                <ol>
-                  {job.steps.slice(-6).map((step, i) => (
-                    <li key={`${i}:${step}`}>{step}</li>
-                  ))}
-                </ol>
-              )}
-              <p className="new-agent-pool-more">It opens when it's ready, and shows in the crew meanwhile. You can start another agent below.</p>
-            </div>
-          )}
           {presetsLoaded && (
             <div className="new-agent-presets" role="group" aria-label="Preset prompts">
               {presets.map((p) => {
@@ -1037,7 +894,6 @@ export function NewAgent({
           </p>
         )}
         <Composer
-          key={composerKey}
           draft={{ source, host, controls }}
           running={false}
           disabled={!!blocked}
@@ -1062,39 +918,6 @@ const sameRepo = (a: string | undefined, b: string) => !!a && a.toLowerCase() ==
 
 /** The local daemon's key in the Host field. */
 const LOCAL = "local";
-/** The Host field's "New pool box" (Settings → Pool boxes). */
-export const POOL = "pool:new";
-
-/** The Host field's pool box choice, while Pool boxes is on. */
-/** A claim the pool status still lists (the running or last job, or a recent one). */
-function findJob(pool: PoolStatus | null, id: string) {
-  if (!pool) return undefined;
-  return runningJobs(pool).find((j) => j.id === id) ?? (pool.job?.id === id ? pool.job : pool.jobs?.find((j) => j.id === id));
-}
-
-export function poolOption(pool: PoolStatus | null) {
-  if (!pool?.enabled) return [];
-  // Idle boxes another claim hasn't taken.
-  const idle = freeIdleBoxes(pool.boxes, runningJobs(pool)).length;
-  const why = pool.problem
-    ? pool.problem
-    : !idle
-      ? idleBoxes(pool.boxes).length
-        ? "Every idle pool box is being claimed already."
-        : "Every pool box is claimed: release one from its host in the crew (Release)."
-      : "";
-  return [
-    {
-      key: POOL,
-      name: "New pool box",
-      label: "",
-      wake: false,
-      unavailable: !!why,
-      reason: why,
-      text: `New pool box · ${pool.problem ? "unavailable" : idle ? `${idle} idle` : "none idle"}`,
-    },
-  ];
-}
 /** The provider picker's entry opening the profiles' editor. */
 const EDIT_PROFILES = "edit-profiles";
 const STATE_TEXT = {
@@ -1106,29 +929,12 @@ const STATE_TEXT = {
 };
 
 /**
- * Which hosts are pool boxes (src/pool.ts), by label: while asleep they can still be picked, if claim.sh would take
- * them (`true`); a box being provisioned or failed says why it can't (a string).
- */
-export function wakeable(pool: PoolStatus | null) {
-  if (!pool?.enabled || pool.problem) return undefined;
-  const running = runningJobs(pool);
-  return (label: string): boolean | string => {
-    const box = pool.boxes.find((b) => b.label === label);
-    if (!box) return false;
-    const job = jobOnBox(running, box.id);
-    if (job) return job.kind === "claim" ? "being claimed" : "being released";
-    return claimable(box) || unclaimableWhy(box);
-  };
-}
-
-/**
  * The Host field's choices: every host the daemon knows, local first, with
  * its connection state. A remote host the registry doesn't report online
  * can't be dispatched to (the server refuses it), so it is disabled, and
- * says why; except a pool box's (`wake`), which is asleep while released and
- * is woken by dispatching to it.
+ * says why.
  */
-export function hostOptions(hosts: Host[], wake?: (label: string) => boolean | string) {
+export function hostOptions(hosts: Host[]) {
   const rows = hosts.some((h) => h.local)
     ? hosts
     : [
@@ -1145,34 +951,12 @@ export function hostOptions(hosts: Host[], wake?: (label: string) => boolean | s
       const name = h.local ? LOCAL : hostText(h);
       // Errors can quote IDs: they're shown only once cleaned.
       const why = h.error ? placeText(h.error, "", [h.serverId]) : "";
-      const pooled = unavailable && !h.local ? wake?.(h.label) : false;
-      if (typeof pooled === "string")
-        return {
-          key: h.serverId,
-          name,
-          label: h.label,
-          unavailable: true,
-          wake: false,
-          reason: "asleep",
-          text: `${name} · asleep (${pooled})`,
-        };
-      if (pooled)
-        return {
-          key: h.serverId,
-          name,
-          label: h.label,
-          unavailable: false,
-          wake: true,
-          reason: "asleep, will wake",
-          text: `${name} · asleep, will wake`,
-        };
       const reason = unavailable ? "offline" : STATE_TEXT[state];
       return {
         key: h.local ? LOCAL : h.serverId,
         name,
         label: h.label,
         unavailable,
-        wake: false,
         reason,
         text: `${name} · ${reason}${unavailable && why ? ` (${why})` : ""}`,
       };

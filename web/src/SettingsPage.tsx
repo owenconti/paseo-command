@@ -16,8 +16,6 @@ import { openProfileEditor } from "./profilesStore";
 import { api, errorMessage } from "./api";
 import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
 import { GithubTokenSetup } from "./GithubTokenSetup";
-import { PoolSettings, poolBadge } from "./PoolSettings";
-import { usePool } from "./poolStore";
 import { closeSettings, useSettingsRequest } from "./settingsStore";
 import { macApp } from "./worldBridge";
 import { plainText } from "./ui";
@@ -455,13 +453,8 @@ function IntegrationSettings() {
     return () => window.removeEventListener("focus", refreshSecrets);
   }, [refreshSecrets]);
   const has = (key: keyof SecretStatus["configured"]) => secrets?.configured[key] === true;
-  const pool = usePool(integrations.pool);
   const badge = (name: Integration) => {
     if (name === "health") return null;
-    if (name === "pool") {
-      const b = poolBadge(pool);
-      return b && <Badge tone={b.tone}>{b.text}</Badge>;
-    }
     if (!secrets) return null;
     if (name === "github") return has("githubToken") ? <Badge tone="ready">Ready</Badge> : <Badge tone="needs">Needs a token</Badge>;
     return has(name === "linear" ? "linearApiKey" : "typesafeApiKey") ? (
@@ -477,7 +470,6 @@ function IntegrationSettings() {
           ["linear", "Linear", "Your Linear notifications in Activity, and the issue chip in a session's header."],
           ["github", "GitHub", "Pull requests to review and your workspaces' changes in the GitHub tab, and notifications in Activity, with your own token."],
           ["typesafe", "TypeSafe", "Find questions and suggest replies. Sends reply excerpts to TypeSafe."],
-          ["pool", "Pool boxes", "Claim a warm-pool Sprite from New agent and start the agent on it once it's online; release one from its host's head in the crew. Runs the paseo-boxes scripts on this Mac."],
           ["health", "Diagonal health", "Checks app.go-diagonal.com/health/status every minute while the crew shows, with a light for each database service on the crew's head: green under 1 ms, yellow under 3 ms, else red."],
         ] as const
       ).map(([name, label, description]) => (
@@ -492,10 +484,7 @@ function IntegrationSettings() {
           />
           {integrations[name] && name !== "health" && (
             <div className="integration-fields">
-              {name === "pool" ? (
-                <PoolSettings />
-              ) : (
-                (name === "github"
+              {(name === "github"
                 ? ([["githubToken", "Personal access token (classic)", "ghp_…"]] as const)
                 : ([[name === "linear" ? "linearApiKey" : "typesafeApiKey", "API key", "Enter API key"]] as const)
               ).map(([key, title, placeholder]) => (
@@ -511,8 +500,7 @@ function IntegrationSettings() {
                     setSecrets(status);
                   }}
                 />
-              ))
-              )}
+              ))}
               {name === "linear" && <LinearWorkspaceSetting />}
               {name === "github" && <GithubTokenSetup />}
             </div>

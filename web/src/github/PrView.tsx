@@ -474,7 +474,7 @@ export function PrView({
   /** The Paseo workspaces with the PR's branch checked out (`paseo.ts`), and opening one's agent. */
   paseoFor?: (pr: PrHead) => PaseoMatch[];
   onOpenPaseo?: (m: PaseoMatch) => void;
-  /** Open New agent on this pull request: a worktree of its branch on the host or pool box chosen there. */
+  /** Open New agent on this pull request: a worktree of its branch on the host chosen there. */
   onOpenInAgent?: (pr: PrToOpen) => void;
 }) {
   const prPath = readPath("pr", { repo, number });
@@ -841,7 +841,7 @@ export function PrView({
             {onOpenInAgent && (pr.state === "open" || pr.state === "draft") && (
               <button
                 className="page-btn"
-                data-tip="Start a new agent on this pull request's branch, on the host or pool box you choose"
+                data-tip="Start a new agent on this pull request's branch, on the host you choose"
                 onClick={() =>
                   onOpenInAgent({ repo: pr.repo, number: pr.number, title: pr.title, url: pr.url, headRef: pr.headRef })
                 }

@@ -126,7 +126,7 @@ export function GitHubView({
   /** The Paseo workspaces with a PR's branch checked out, and opening one's agent (the open PR's Open Paseo agent). */
   paseoFor?: (pr: PrHead) => PaseoMatch[];
   onOpenPaseo?: (m: PaseoMatch) => void;
-  /** Open New agent on a pull request (its host or pool box chosen there). */
+  /** Open New agent on a pull request (its host chosen there). */
   onOpenInAgent?: (pr: PrToOpen) => void;
   /** The view's state for ⌘K (undefined once it goes). */
   onViewState?: (state: GithubViewState | undefined) => void;

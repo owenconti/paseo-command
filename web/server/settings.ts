@@ -2,7 +2,7 @@
  * This app's settings file, `settings.json` in its data directory beside
  * `secrets.json` (`PASEO_COMMAND_SETTINGS` overrides), so the macOS app's Dev and
  * release copies each keep their own: preset prompts (presets.ts), optional
- * integration opt-ins, the Linear workspace issue links open in and the pool boxes' folder (`GET /api/settings`,
+ * integration opt-ins and the Linear workspace issue links open in (`GET /api/settings`,
  * `POST /api/settings`). Each save keeps the file's other keys (the removed Editor tab's `files` among them); an
  * unreadable file is never overwritten.
  */
@@ -20,7 +20,6 @@ import {
   integrationSettings,
   type Integration,
 } from "../src/integrations";
-import { poolDirProblem, poolSettings } from "../src/pool";
 
 export const settingsFile = () =>
   process.env.PASEO_COMMAND_SETTINGS || join(dataDir(), "settings.json");
@@ -67,7 +66,6 @@ export function appSettings() {
   return {
     linearWorkspace: slug ?? "",
     integrations: integrationSettings(raw?.integrations),
-    pool: poolSettings(raw?.pool),
     error: raw ? null : UNREADABLE,
   };
 }
@@ -100,24 +98,6 @@ export function saveAppSettings(body: Record<string, unknown>) {
     const slug = value.trim() ? linearSlug(value) : "";
     if (slug === null) throw new Error("Invalid Linear workspace");
     change.linearWorkspace = slug;
-  }
-  if ("pool" in body) {
-    // Settings → Pool boxes: the paseo-boxes folder on this Mac and the checkout on a box.
-    const input = body.pool;
-    if (!input || typeof input !== "object" || Array.isArray(input))
-      throw new Error("Invalid pool box settings");
-    // The checkout is paseo-boxes' own (BOX_REPO_PATH in its config.env), not a setting here.
-    const { dir, ...other } = input as Record<string, unknown>;
-    if (Object.keys(other).length) throw new Error("Invalid pool box settings");
-    if (typeof dir !== "string") throw new Error("Invalid paseo-boxes folder");
-    const problem = poolDirProblem(dir);
-    if (problem) throw new Error(problem);
-    const existing = readSettings()?.pool;
-    const kept =
-      existing && typeof existing === "object" && !Array.isArray(existing)
-        ? (existing as Record<string, unknown>)
-        : {};
-    change.pool = { ...kept, dir: dir.trim() };
   }
   if (!Object.keys(change).length) throw new Error("Nothing to save");
   writeSettings(change);

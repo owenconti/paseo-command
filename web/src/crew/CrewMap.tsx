@@ -2,18 +2,14 @@
  * Command tab (it is the only map). With nothing open it is the map: each host, its projects and their workspaces
  * (oldest first), each workspace a panel of its agents' robots as large nodes with their state and progress. Picking one
  * opens it in the drawer on the map's right (`CrewDetail`, the same component the session panel shows beside the other
- * tabs); Back (or Esc) returns to the map. A workspace's head archives it, and a claimed pool box's host head releases
- * the box. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
+ * tabs); Back (or Esc) returns to the map. A workspace's head archives it. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Archive, ArrowLeft, ChevronDown, FolderTree, Globe, GripVertical, RotateCcw, Terminal, X } from "lucide-react";
+import { Archive, ArrowLeft, ChevronDown, FolderTree, Globe, GripVertical, Terminal, X } from "lucide-react";
 import { STATE_NAMES, STATE_PRIORITY, modelName, type State } from "../model/fleet";
-import { PoolClaims } from "../PoolClaims";
-import { PoolBoxes } from "./PoolBoxes";
 import { selectionKey } from "../atlasData";
 import { targetSelection } from "../worldBridge";
 import { readStore, writeStore } from "../api";
 import { ResizeEdge } from "../ResizeEdge";
-import { claimedBoxOf, jobOnBox, jobText, type PoolBox, type PoolJob } from "../pool";
 import { placeText } from "../names";
 import { workspaceKey } from "../workspaces";
 import type { Selection, Workspace } from "../types";
@@ -46,8 +42,6 @@ type Props = CrewFleet & {
   onShowConversation?: () => void;
   loaded: boolean;
   blocked: boolean;
-  /** New agent (⌘N, ⌘K; the map has no button for it): a pending pool claim's row opens it. */
-  onDispatch: () => void;
   /** The open agent's browser (the macOS app's): shown beside its conversation, its tabs, B's toggle. */
   browser?: { shown: boolean; tabs: number; toggle: () => void };
   /** The Files tab (src/code/FilesPane.tsx): the workspace's changes and files in the app's own editor; F's toggle. */
@@ -57,13 +51,9 @@ type Props = CrewFleet & {
   /** Archive a workspace (its confirmation), and those being archived (by `workspaceKey`). */
   onArchive?: (w: Workspace) => void;
   archiving?: Set<string>;
-  /** Pool boxes (Settings → Pool boxes): a claimed box's host head releases it (its confirmation). */
-  pool?: { boxes: PoolBox[]; running: PoolJob[]; release: (box: PoolBox) => void };
 };
 
 const COLLAPSED = "crew:collapsed";
-/** The Pool boxes section's fold, kept with the hosts' and projects'. */
-const POOL_FOLD = "pool:boxes";
 /** The conversation panel's width (CSS px), once resized; else its default (crew.css). */
 const DRAWER_WIDTH = "crew:drawerWidth";
 const DRAWER_MIN = 360;
@@ -86,15 +76,7 @@ const NODE = 72;
 
 export function CrewMap(props: Props) {
   const { snapshot, data } = useCrewData(props);
-  // A claimed pool box's host stays on the map with nothing on it, so it can be released (and shows releasing).
-  const keepHosts = new Set(
-    props.pool
-      ? props.hosts
-          .filter((h) => props.pool!.boxes.some((b) => b.label === h.label && (b.status === "claimed" || !!jobOnBox(props.pool!.running, b.id))))
-          .map((h) => (h.local ? "local" : h.serverId))
-      : [],
-  );
-  const roster = useMemoRoster(data, keepHosts);
+  const roster = useMemoRoster(data);
   // The hosts in the user's order (dragging a head, ⌥↑ / ⌥↓ on it, ⌘K), the rest after as the fleet has them.
   const { order: hostOrder } = useHostOrder();
   const hosts = useMemo(() => orderHosts(roster.hosts, hostOrder), [roster.hosts, hostOrder]);
@@ -284,9 +266,6 @@ export function CrewMap(props: Props) {
     if (place === "map") props.onShowConversation?.();
   };
   const rowOf = (key: string) => snapshot.agents.find((a) => a.key === key);
-  // The roster keys hosts as Crew's data does: "local", else the server id.
-  const rosterKey = (h: { local: boolean; serverId: string }) => (h.local ? "local" : h.serverId);
-  const hostLabel = (key: string) => props.hosts.find((h) => rosterKey(h) === key)?.label;
   const summaryOf = (a: RosterAgent) => {
     const row = rowOf(a.key);
     return (row && props.workingOn?.[row.clientId ?? row.id]?.sentence) || undefined;
@@ -475,37 +454,6 @@ export function CrewMap(props: Props) {
               </p>
             </div>
           </header>
-          <PoolClaims agents={props.agents} onOpen={props.onDispatch} />
-          {props.pool && (
-            <PoolBoxes
-              boxes={props.pool.boxes}
-              running={props.pool.running}
-              hostOf={(label) => {
-                const h = props.hosts.find((x) => x.label === label);
-                if (!h) return undefined;
-                const key = rosterKey(h);
-                const agents = data.agents.filter((a) => a.host === key);
-                return {
-                  key,
-                  online: !!data.hosts.find((x) => x.key === key)?.online,
-                  agents: agents.length,
-                  workspaces: data.workspaces.filter((w) => w.host === key).length,
-                  running: agents.filter((a) => a.state === "running").length,
-                };
-              }}
-              release={props.pool.release}
-              shut={collapsed.includes(POOL_FOLD)}
-              toggle={() => toggle(POOL_FOLD)}
-              showHost={(key) => {
-                if (collapsed.includes(key)) toggle(key);
-                requestAnimationFrame(() => {
-                  const head = board.current?.querySelector<HTMLElement>(`.crew-host[data-host="${CSS.escape(key)}"] .crew-fold`);
-                  head?.scrollIntoView({ block: "start", behavior: "smooth" });
-                  head?.focus({ preventScroll: true });
-                });
-              }}
-            />
-          )}
           <div className="crew-hosts">
           {hosts.map((h) => {
             const hostShut = collapsed.includes(h.key);
@@ -549,37 +497,6 @@ export function CrewMap(props: Props) {
                   </button>
                   {!h.online && <span className="crew-offline">offline</span>}
                   {hostShut && <Tally agents={hostAgents(h)} />}
-                  {(() => {
-                    const box = props.pool && claimedBoxOf(props.pool.boxes, hostLabel(h.key));
-                    if (!box || !props.pool) return null;
-                    const job = jobOnBox(props.pool.running, box.id);
-                    const releasing = job?.kind === "release";
-                    // Nothing left on it (closed or archived outside the app, which releases nothing): say it can go.
-                    const spare =
-                      !job &&
-                      h.online &&
-                      !data.workspaces.some((w) => w.host === h.key) &&
-                      !data.agents.some((a) => a.host === h.key && a.state === "running");
-                    return (
-                      <>
-                      {spare && (
-                        <span className="crew-spare" data-tip="No workspaces or running agents: release it to return it to the pool">
-                          Claimed · idle
-                        </span>
-                      )}
-                      <button
-                        className="crew-head-action"
-                        disabled={!!job}
-                        data-tip={job ? jobText(job) : `Release pool box ${box.label}: restore it and return it to the pool`}
-                        aria-label={`Release pool box ${box.label}`}
-                        onClick={() => props.pool!.release(box)}
-                      >
-                        <RotateCcw size={12} aria-hidden="true" />
-                        {releasing ? "Releasing…" : "Release"}
-                      </button>
-                      </>
-                    );
-                  })()}
                 </h3>
                 {!hostShut && (
                   <>
@@ -693,10 +610,9 @@ export function CrewMap(props: Props) {
 }
 
 
-function useMemoRoster(data: ReturnType<typeof useCrewData>["data"], keepHosts: Set<string>) {
-  const kept = [...keepHosts].sort().join("\n");
-  const [memo] = useState(() => ({ data: null as unknown, kept: "", roster: null as unknown as ReturnType<typeof buildRoster> }));
-  if (memo.data !== data || memo.kept !== kept) Object.assign(memo, { data, kept, roster: buildRoster(data, "", keepHosts) });
+function useMemoRoster(data: ReturnType<typeof useCrewData>["data"]) {
+  const [memo] = useState(() => ({ data: null as unknown, roster: null as unknown as ReturnType<typeof buildRoster> }));
+  if (memo.data !== data) Object.assign(memo, { data, roster: buildRoster(data) });
   return memo.roster;
 }
 

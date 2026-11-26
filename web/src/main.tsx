@@ -63,20 +63,11 @@ import {
 } from "lucide-react";
 import { ArchiveWorkspaceDialog } from "./ArchiveWorkspaceDialog";
 import { RemoveProjectDialog } from "./RemoveProjectDialog";
-import { ReleasePoolDialog } from "./ReleasePoolDialog";
-import { onPoolJobEnd, releasePoolBox, usePool, usePoolPolling } from "./poolStore";
-import {
-  archiveWorkspace as archiveWithPool,
-  onPoolArchiveNotice,
-  onReleaseAsk,
-  releaseAfterArchive,
-  type ReleaseAsk,
-} from "./poolArchive";
-import { freeIdleBoxes, jobOnBox, jobText, runningJobs, type PoolBox } from "./pool";
 import {
   dismissArchive,
   isArchiving,
   onArchiveSettled,
+  startArchive,
   useArchiveJobs,
   type ArchiveJob,
 } from "./archives";
@@ -105,7 +96,7 @@ import {
   useLinearWorkspace,
   usePullRequest,
 } from "./links";
-import { NewAgent, POOL, type DispatchTarget, type DraftSettings } from "./Dispatch";
+import { NewAgent, type DispatchTarget, type DraftSettings } from "./Dispatch";
 import { installPageRefresh } from "./pageRefresh";
 import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
@@ -374,15 +365,12 @@ function App() {
     null,
   );
   const [removeProject, setRemoveProject] = useState<Project | null>(null);
-  // A claimed pool box whose release is being confirmed (`ask`: after its last workspace was archived).
-  const [releaseBox, setReleaseBox] = useState<PoolBox | null>(null);
-  const [releaseAsk, setReleaseAsk] = useState<ReleaseAsk | null>(null);
   // Projects (by key) whose removal is under way.
   const [removingProjects, setRemovingProjects] = useState<Set<string>>(
     () => new Set(),
   );
   /** A confirming dialog is open: it stays modal. */
-  const confirming = !!archiveWorkspace || !!removeProject || !!releaseBox;
+  const confirming = !!archiveWorkspace || !!removeProject;
   useEffect(
     () =>
       onAgentArchived((id, host) => {
@@ -416,63 +404,6 @@ function App() {
     saving: integrationsSaving,
   } = useIntegrations();
   const asks = useAsks(active, integrations.typesafe);
-  // Pool boxes (src/pool.ts): claimed from New agent, released from its host in the crew.
-  const pool = usePool(integrations.pool);
-  const poolBoxes = integrations.pool && pool?.enabled && !pool.problem ? pool.boxes : [];
-  // Claims and releases run side by side, one a box.
-  const poolRunning = runningJobs(pool);
-  useEffect(
-    () =>
-      onPoolJobEnd((job) => {
-        if (job.phase === "failed") soundEvent("actionFailed");
-        setNotice(jobText(job));
-        void liveFleet.current?.refresh();
-      }),
-    [],
-  );
-  const openReleasePool = (box: PoolBox) => {
-    const busy = jobOnBox(poolRunning, box.id);
-    if (busy) return setNotice(jobText(busy));
-    setReleaseBox(box);
-  };
-  // Archiving a pool box's last workspace releases it, asking first when its checkout had unpushed work.
-  useEffect(() => {
-    const offAsk = onReleaseAsk((ask) => {
-      setReleaseAsk(ask);
-      setReleaseBox(ask.box);
-    });
-    const offNotice = onPoolArchiveNotice((message, failed) => {
-      if (failed) soundEvent("actionFailed");
-      setNotice(message);
-    });
-    return () => {
-      offAsk();
-      offNotice();
-    };
-  }, []);
-  const keepClaimed = (ask: ReleaseAsk) =>
-    setNotice(`${ask.box.label} stays claimed. Release it from its host in the crew once its work is pushed.`);
-  const cancelReleasePool = () => {
-    if (releaseAsk) keepClaimed(releaseAsk);
-    setReleaseBox(null);
-    setReleaseAsk(null);
-  };
-  const confirmReleasePool = async () => {
-    const box = releaseBox;
-    if (!box) return;
-    setReleaseBox(null);
-    if (releaseAsk) {
-      setReleaseAsk(null);
-      return releaseAfterArchive(releaseAsk);
-    }
-    try {
-      await releasePoolBox(box.id);
-      setNotice(`Releasing ${box.label}…`);
-    } catch (error) {
-      soundEvent("actionFailed");
-      setNotice(`Couldn’t release ${box.label}: ${errorMessage(error) || "the request failed."}`);
-    }
-  };
   // Idle agents whose last reply waits on you: they need you as approvals do.
   const askingKey = active
     .filter((a) => asks[a.id]?.waiting && !permissionAgents.has(a.id))
@@ -706,8 +637,6 @@ function App() {
   const crewSide = useCrewSide();
   const filesWrap = useWrapSetting();
   const crewSideHidden = crewSide.hidden;
-  // Boxes are claimed and released outside the app too: read them now and then while the crew shows.
-  usePoolPolling(integrations.pool && crewShown);
   // Reading an agent's conversation views it: Crew's drawer, or the session panel while it isn't hidden.
   const viewing =
     selection?.type === "agent" && (crewShown || !floatingVisibility.collapsed)
@@ -1169,7 +1098,7 @@ function App() {
     },
     [choose],
   );
-  // The PR view's Open in agent: New agent on the pull request (its worktree), the host or pool box chosen there.
+  // The PR view's Open in agent: New agent on the pull request (its worktree), the host chosen there.
   const openPrInAgent = useCallback(
     (pr: { repo: string; number: number; title?: string; url?: string; headRef?: string }) => {
       openDispatch({
@@ -1282,9 +1211,6 @@ function App() {
         if (e.key === "Escape") {
           setArchiveWorkspace(null);
           setRemoveProject(null);
-          if (releaseAsk) keepClaimed(releaseAsk);
-          setReleaseBox(null);
-          setReleaseAsk(null);
         }
         return;
       }
@@ -1469,7 +1395,7 @@ function App() {
   };
   const confirmArchive = () => {
     if (!archiveWorkspace) return;
-    archiveWithPool(archiveWorkspace, integrations.pool);
+    startArchive(archiveWorkspace);
     setArchiveWorkspace(null);
   };
   // Removing a project archives its workspaces on the daemon, which can take
@@ -1854,29 +1780,6 @@ function App() {
       keywords: "dispatch start worktree branch pull request PR",
       run: () => openDispatch(),
     },
-    // A pool box (Settings → Pool boxes): New agent on a new one, and releasing each claimed one.
-    ...(poolBoxes.length && freeIdleBoxes(poolBoxes, poolRunning).length
-      ? [
-          {
-            id: "new-agent-pool",
-            group: "Actions",
-            page: "Command" as const,
-            label: "New agent on a new pool box",
-            keywords: "dispatch claim sprite pool box remote",
-            run: () => openDispatch({ host: POOL }),
-          },
-        ]
-      : []),
-    ...poolBoxes
-          .filter((b) => b.status === "claimed" && !jobOnBox(poolRunning, b.id))
-          .map((b) => ({
-            id: `release-pool-${b.id}`,
-            group: "Actions",
-            page: "Command" as const,
-            label: `Release pool box “${b.label}”…`,
-            keywords: "pool box sprite restore unclaim",
-            run: () => openReleasePool(b),
-          })),
     {
       id: "add-project",
       group: "Actions",
@@ -2299,7 +2202,7 @@ function App() {
               group: "Actions",
               page: "GitHub" as const,
               label: "Open the pull request in a new agent…",
-              keywords: "github pull request pr new agent dispatch worktree checkout host pool box claim",
+              keywords: "github pull request pr new agent dispatch worktree checkout host",
               run: () => openPrInAgent(pr),
             },
           ]
@@ -3074,10 +2977,8 @@ function App() {
                 onShowConversation={() => postAppMenu("command")}
                 loaded={!loading}
                 blocked={confirming}
-                onDispatch={() => openDispatch()}
                 onArchive={(w) => openArchive(w, true)}
                 archiving={archiving}
-                {...(poolBoxes.length ? { pool: { boxes: poolBoxes, running: poolRunning, release: openReleasePool } } : {})}
                 {...(crewBrowsing
                   ? {
                       browser: { shown: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser },
@@ -3205,7 +3106,7 @@ function App() {
         <div className="toast-stack">
           <AnimatePresence initial={false}>
             {archiveJobs.map((job) => (
-              <ArchiveToast key={job.key} job={job} pool={integrations.pool} />
+              <ArchiveToast key={job.key} job={job} />
             ))}
           </AnimatePresence>
           <AnimatePresence>
@@ -3248,18 +3149,6 @@ function App() {
               onConfirm={confirmArchive}
             />
           )}
-          {releaseBox && (
-            <ReleasePoolDialog
-              key="release-pool"
-              box={releaseBox}
-              agents={active.filter((a) =>
-                hosts.some((h) => h.label === releaseBox.label && h.serverId === a.host),
-              )}
-              warning={releaseAsk?.warning}
-              onCancel={cancelReleasePool}
-              onConfirm={() => void confirmReleasePool()}
-            />
-          )}
           {removeProject && (
             <RemoveProjectDialog
               project={removeProject}
@@ -3288,7 +3177,7 @@ function App() {
   );
 }
 /** A background workspace archive: in progress, done, or failed with Retry. */
-function ArchiveToast({ job, pool }: { job: ArchiveJob; pool: boolean }) {
+function ArchiveToast({ job }: { job: ArchiveJob }) {
   const name = placeText(job.workspace.name, "workspace");
   useEffect(() => {
     if (job.status !== "archived") return;
@@ -3322,7 +3211,7 @@ function ArchiveToast({ job, pool }: { job: ArchiveJob; pool: boolean }) {
         <button
           className="secondary"
           aria-description={`Try archiving ${name} again`}
-          onClick={() => archiveWithPool(job.workspace, pool)}
+          onClick={() => startArchive(job.workspace)}
         >
           <RotateCw size={12} />
           Retry

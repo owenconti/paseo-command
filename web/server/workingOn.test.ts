@@ -254,7 +254,7 @@ test("no helper starts for an agent whose workspace was closed or archived elsew
   let clock = 1_000_000;
   const f = fake(),
     service = createWorkingOnService(() => clock);
-  // A released pool box: its agent still reads running, its workspace gone.
+  // Its workspace closed elsewhere: its agent still reads running, its workspace gone.
   f.workspaces([{ id: "other" }, { id: "existing", archivedAt: "2026-11-14T00:00:00Z" }]);
   const result = await settled(service, f.client);
   assert.deepEqual(result, { sentence: null, pending: false });

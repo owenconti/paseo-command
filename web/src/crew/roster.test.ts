@@ -66,22 +66,6 @@ test("sheets: sizes match the PNGs, every colour has its frames", () => {
   assert.deepEqual(medals.map((m) => m.kind), ["ci", "review", "probe"]);
 });
 
-test("a host kept by key stays with nothing on it (a claimed pool box), unless the map is filtered", () => {
-  const data = {
-    hosts: [
-      { key: "local", name: "Studio", online: true, local: true },
-      { key: "srv_pool1", name: "pool-1", online: true, local: false },
-      { key: "srv_mac", name: "macmini", online: true, local: false },
-    ],
-    projects: [],
-    workspaces: [],
-    agents: [],
-  };
-  assert.deepEqual(buildRoster(data).hosts, []);
-  assert.deepEqual(buildRoster(data, "", new Set(["srv_pool1"])).hosts.map((h) => h.name), ["pool-1"]);
-  assert.deepEqual(buildRoster(data, "fix", new Set(["srv_pool1"])).hosts, []);
-});
-
 test("a folded host's or project's tally counts its agents by state, most urgent first", () => {
   const local = buildRoster(data).hosts[0]!;
   assert.deepEqual(stateTally(hostAgents(local)), [
